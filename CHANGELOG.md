@@ -5,11 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.28.0] - 2026-05-20
 
 ### Added
 
-- Import object from Three.js JSON file
+- Import objects from Three.js JSON files into the scene
+- InputSelect component now allows configuring Select.Portal props
+
+### Changed
+
+- Project file keyboard shortcuts now work from any screen in the editor
+
+### Removed
+
+- RELEASES.md file (deprecated)
 
 ## [0.27.1] - 2026-05-19
 
@@ -186,7 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Material Preview settings: fixed broken thumbnail url
 
-[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.27.1...HEAD
+[0.28.0]: https://github.com/zabastx/mixeur/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/zabastx/mixeur/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/zabastx/mixeur/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/zabastx/mixeur/compare/v0.25.0...v0.26.0
