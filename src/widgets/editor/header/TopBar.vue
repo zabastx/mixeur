@@ -30,6 +30,7 @@ import { useModals } from '@/shared/lib/modals'
 import { usePWAUpdate } from '@/app/composables/usePWAUpdate'
 import type { IMenubarMenu } from '@/shared/ui/MenuBar.vue'
 import { storeToRefs } from 'pinia'
+import { useFileDialog } from '@vueuse/core'
 
 const appStore = useAppStore()
 const sceneStore = useSceneStore()
@@ -38,6 +39,18 @@ const { open } = useModals()
 const { isUpdateAvailable, updateApp } = usePWAUpdate()
 
 const { showStatusBar } = storeToRefs(appStore)
+
+const jsonFile = useFileDialog({
+	accept: 'application/json',
+	multiple: false
+})
+
+jsonFile.onChange(async (val) => {
+	if (!val) return
+	const file = Array.from(val)[0]
+	const text = await file.text()
+	sceneStore.importJSON(text)
+})
 
 const menuItems: IMenubarMenu[] = [
 	{
@@ -108,6 +121,12 @@ const menuItems: IMenubarMenu[] = [
 						onClick: () => {
 							open('modelsLibrary')
 						}
+					},
+					{
+						type: 'item',
+						key: 'import_json',
+						label: 'Import Three.js JSON',
+						onClick: jsonFile.open
 					}
 				]
 			},

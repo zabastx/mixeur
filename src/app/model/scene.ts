@@ -243,6 +243,27 @@ export const useSceneStore = defineStore('scene', () => {
 		downloadFile(blob, `${newObj.name || newObj.type}.json`)
 	}
 
+	async function importJSON(data: string | Record<string, unknown>) {
+		const toast = useToast()
+
+		try {
+			const json = typeof data === 'string' ? JSON.parse(data) : data
+
+			const loader = new MxObjectLoader()
+			const loadedObject = await loader.parseAsync(json)
+
+			addObjectToScene(loadedObject)
+		} catch (err) {
+			const error = err as Error
+			toast.add({
+				type: 'error',
+				title: error.name,
+				message: error.message
+			})
+			console.error('importJSON error:', error)
+		}
+	}
+
 	function exportScene() {
 		const { shadingMode, setMode } = useShadingStore()
 		const mode = shadingMode
@@ -404,7 +425,8 @@ export const useSceneStore = defineStore('scene', () => {
 		exportScene,
 		clearScene,
 		saveProjectFile,
-		openProjectFile
+		openProjectFile,
+		importJSON
 	}
 })
 
