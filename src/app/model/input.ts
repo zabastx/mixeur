@@ -36,6 +36,18 @@ export const useInputStore = defineStore('input', () => {
 		const ignoredElements = ['input', 'textarea', 'select']
 
 		useEventListener(window, 'keydown', (e) => {
+			const sceneStore = useSceneStore()
+			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+				e.preventDefault()
+				sceneStore.saveProjectFile()
+			}
+			if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+				e.preventDefault()
+				sceneStore.openProjectFile()
+			}
+		})
+
+		useEventListener(window, 'keydown', (e) => {
 			const threeStore = useThreeStore()
 			const sceneStore = useSceneStore()
 			const appStore = useAppStore()

@@ -13,7 +13,7 @@ import { useComposerStore } from './composer'
 import { useCameraStore } from './camera'
 import { useThreeStore } from './three'
 import { downloadFile } from '@/shared/lib/files'
-import { useFileDialog, useEventListener } from '@vueuse/core'
+import { useFileDialog } from '@vueuse/core'
 import { encodeProject, decodeProject } from '@/shared/lib/project-file'
 import { useToast } from '@/shared/lib/toast'
 import { MxObjectLoader } from '@/shared/three/modules/loaders/object-loader/MxObjectLoader'
@@ -27,17 +27,6 @@ export const useSceneStore = defineStore('scene', () => {
 	const grid = setGridHelper(scene.value)
 
 	const lightHelperObjects = shallowRef<LightHelper[]>([])
-
-	useEventListener(window, 'keydown', (e) => {
-		if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-			e.preventDefault()
-			saveProjectFile()
-		}
-		if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-			e.preventDefault()
-			openProjectFile()
-		}
-	})
 
 	const sceneChildren = computed(() => scene.value.children)
 
