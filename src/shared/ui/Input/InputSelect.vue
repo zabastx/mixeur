@@ -13,7 +13,7 @@
 			<MxIcon name="ui/chevron-right" class="rotate-90" />
 		</Select.Trigger>
 
-		<Select.Portal disabled>
+		<Select.Portal v-bind="portal">
 			<Select.Content
 				v-bind="content"
 				class="z-50 rounded-ui-select-menu border border-ui-select-menu-outline bg-ui-select-menu-bg
@@ -49,6 +49,7 @@
 import type {
 	SelectContentProps,
 	SelectItemProps,
+	SelectPortalProps,
 	SelectRootProps,
 	SelectTriggerProps
 } from 'reka-ui'
@@ -56,7 +57,7 @@ import { Select } from 'reka-ui/namespaced'
 import { computed } from 'vue'
 import type { InputSelectOption } from '@/shared/lib/types'
 
-const { items } = defineProps<SelectProps>()
+const { items, portal = { disabled: true } } = defineProps<SelectProps>()
 
 const model = defineModel<T>()
 
@@ -70,6 +71,7 @@ interface SelectProps {
 	placeholder?: string
 	trigger?: SelectTriggerProps & { onlyIcon: boolean }
 	content?: SelectContentProps
+	portal?: SelectPortalProps
 	item?: SelectItemProps
 	items: InputSelectOption<T>[] | readonly InputSelectOption<T>[]
 }
