@@ -48,7 +48,7 @@ export const useRaycastStore = defineStore('raycast', () => {
 
 			const threeStore = useThreeStore()
 
-			threeStore.selectObject(intersects[0].object.uuid, true)
+			threeStore.selectObject(intersects[0].object, true)
 		})
 	}
 

@@ -143,7 +143,7 @@ export const useSceneStore = defineStore('scene', () => {
 		cacheNewObjectMaterials(object)
 
 		const threeStore = useThreeStore()
-		threeStore.selectObject(object.uuid)
+		threeStore.selectObject(object)
 		updateScene()
 	}
 

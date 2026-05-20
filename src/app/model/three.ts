@@ -17,14 +17,15 @@ export const useThreeStore = defineStore('three', () => {
 
 	const selectedObject = shallowRef<THREE.Object3D | THREE.Light | THREE.Mesh | null>(null)
 
-	function selectObject(uuid?: string, raycasted?: boolean) {
-		if (!uuid) return (selectedObject.value = null)
+	function selectObject(target?: string | THREE.Object3D, raycasted?: boolean) {
+		if (!target) return (selectedObject.value = null)
 
 		const sceneStore = useSceneStore()
 		const { transformControls } = useControlsStore()
 		const { setOutlineObjects } = useComposerStore()
 
-		const object = sceneStore.scene.getObjectByProperty('uuid', uuid)
+		const object =
+			typeof target === 'string' ? sceneStore.scene.getObjectByProperty('uuid', target) : target
 
 		if (!object || (raycasted && !getUserData(object).isSelectable)) return
 
