@@ -5,5 +5,6 @@ export const outlinerIconsMap: ReadonlyMap<string, MxIconName> = new Map([
 	['RectAreaLight', 'light/light-area'],
 	['Bone', 'mesh/bone'],
 	['Mesh', 'mesh/mesh'],
+	['SkinnedMesh', 'mesh/mesh'],
 	['Group', 'outliner/group']
 ])
