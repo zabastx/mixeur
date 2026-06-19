@@ -7,9 +7,10 @@ import type { MxObjectUserData } from './three'
  */
 export function enableBVH(object: THREE.Object3D) {
 	object.traverse((child) => {
-		if (child instanceof THREE.Mesh && child.geometry) {
+		if (hasGeometry(child)) {
 			child.geometry.computeBoundsTree()
 		}
+
 		if (child instanceof THREE.BatchedMesh) {
 			child.computeBoundsTree()
 		}
@@ -21,13 +22,23 @@ export function enableBVH(object: THREE.Object3D) {
  */
 export function disposeBVH(object: THREE.Object3D) {
 	object.traverse((child) => {
-		if (child instanceof THREE.Mesh && child.geometry) {
+		if (hasGeometry(child)) {
 			child.geometry.disposeBoundsTree()
 		}
+
 		if (child instanceof THREE.BatchedMesh) {
 			child.disposeBoundsTree()
 		}
 	})
+}
+
+function hasGeometry(obj: THREE.Object3D) {
+	return (
+		obj instanceof THREE.Mesh ||
+		obj instanceof THREE.Line ||
+		obj instanceof THREE.Points ||
+		obj instanceof THREE.Sprite
+	)
 }
 
 export function getUserData(obj: THREE.Object3D): MxObjectUserData {
