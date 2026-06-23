@@ -22,6 +22,7 @@
 						class="relative flex items-center gap-1 pr-5 hover:bg-outliner-active-highlight group
 							w-full h-6"
 						data-testid="outliner-item"
+						:data-uuid="item.value.uuid"
 						:data-selected="isSelected"
 						:style="{ paddingLeft: `${item.level * 1.25}rem` }"
 						:class="{
@@ -62,6 +63,7 @@
 							<CheckboxRoot
 								:model-value="item.value.userData.userVisible"
 								class="ml-auto"
+								data-testid="visibility-toggle"
 								@update:model-value="sceneStore.objectVisibilityUpdate(item.value.uuid, !!$event)"
 							>
 								<MxIcon

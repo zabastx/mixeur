@@ -5,9 +5,8 @@
 		class="w-7xl h-[75dvh] text-ui-text-text block-border bg-window-bg flex flex-col"
 		resize
 		icon="ui/asset-browser"
-		data-testid="modal-asset-browser-models"
 	>
-		<div class="flex grow gap-2 p-2 overflow-hidden">
+		<div class="flex grow gap-2 p-2 overflow-hidden" data-testid="modal-asset-browser-models">
 			<div class="bg-header-background flex flex-col gap-2 basis-[20%] shrink-0">
 				<div
 					class="h-[300px] bg-ui-box-inner border border-ui-box-outline rounded-ui-box p-2 pr-0

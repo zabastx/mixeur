@@ -1,6 +1,6 @@
 <template>
-	<MxDialog v-model="isOpen" class="max-w-xl bg-editor-border" data-testid="modal-about">
-		<div class="flex max-w-xl flex-col text-ui-menu-bg-text">
+	<MxDialog v-model="isOpen" class="max-w-xl bg-editor-border">
+		<div class="flex max-w-xl flex-col text-ui-menu-bg-text" data-testid="modal-about">
 			<!-- Header -->
 			<div class="flex items-center gap-4 p-4">
 				<img

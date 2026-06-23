@@ -6,11 +6,12 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
 	testDir: './tests/e2e',
+	testMatch: '**/*.spec.ts',
 	fullyParallel: !process.env.CI,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: process.env.CI ? 1 : 3,
-	reporter: 'html',
+	reporter: process.env.CI ? [['github'], ['html']] : 'html',
 	timeout: 60 * 1000,
 
 	use: {
