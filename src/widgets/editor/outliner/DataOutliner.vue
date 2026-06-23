@@ -8,7 +8,12 @@
 			<h2 class="flex items-center gap-1 px-1 text-base">
 				<MxIcon name="outliner/outliner" /> Outliner
 				<MxTooltip :tooltip="{ text: 'Add Group' }">
-					<button class="btn ml-auto" type="button" @click="sceneStore.addGroup">
+					<button
+						class="btn ml-auto"
+						type="button"
+						data-testid="outliner-add-group"
+						@click="sceneStore.addGroup"
+					>
 						<MxIcon name="outliner/group-new" />
 					</button>
 				</MxTooltip>

@@ -11,6 +11,8 @@
 					'bg-ui-radio-inner-selected': btn.name === shadingStore.shadingMode
 				}"
 				type="button"
+				:data-testid="`shading-btn-${btn.name}`"
+				:data-active="btn.name === shadingStore.shadingMode"
 				@click="shadingStore.setMode(btn.name)"
 			>
 				<MxIcon :name="btn.icon" />

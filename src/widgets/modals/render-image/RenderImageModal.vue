@@ -7,10 +7,9 @@
 		resize
 		outside-interaction
 		icon="ui/render-image"
-		data-testid="modal-render-image"
 	>
 		<!-- Horizontal Layout: Preview + Settings -->
-		<div class="flex gap-3 p-3 grow overflow-hidden">
+		<div class="flex gap-3 p-3 grow overflow-hidden" data-testid="modal-render-image">
 			<!-- Left Side: Render Preview -->
 			<div class="flex flex-col flex-1">
 				<div

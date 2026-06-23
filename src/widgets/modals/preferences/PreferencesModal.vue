@@ -9,12 +9,12 @@
 		}"
 		outside-interaction
 		icon="misc/preferences"
-		data-testid="modal-preferences"
 	>
 		<Tabs.Root
 			v-model="section"
 			class="grid grid-cols-[200px_1fr] gap-2 p-2 overflow-hidden"
 			orientation="vertical"
+			data-testid="modal-preferences"
 		>
 			<Tabs.List class="relative text-sm space-y-1">
 				<div
