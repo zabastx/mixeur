@@ -2,17 +2,18 @@
 
 **Package Manager**: `bun` (not npm/pnpm/yarn)
 
-- **DO NOT start dev server unless explicitly requested** - assume user is already running it
+- before starting dev server, check if it's already running
 
-**Run linter and types check after code changes**
+## Agent skills
 
-### Three.js Integration
+### Issue tracker
 
-- Import from `@/shared/three` wrapper (includes BVH acceleration)
-- Use `shallowRef` for Three.js objects
+Issues live as GitHub issues in `zabastx/mixeur`, managed with the `gh` CLI (the codeberg and gitverse remotes are mirrors only). See `docs/agents/issue-tracker.md`.
 
-## Clarification and Correction Rules
+### Triage labels
 
-- If the user's instructions contain contradictions, factual errors, or impossible steps, the agent should point them out and propose corrections.
-- If essential details are missing, the agent must ask clarifying questions.
-- If non-essential details are missing, the agent should infer reasonable defaults and proceed.
+The five canonical roles, using their default label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
