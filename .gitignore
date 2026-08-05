@@ -35,6 +35,7 @@ coverage
 *.sw?
 .kilocode
 .agents
+.claude
 .kilo
 
 *.tsbuildinfo
