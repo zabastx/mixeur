@@ -16,23 +16,28 @@ export const useProgressStore = defineStore('progress', () => {
 
 	function initProgress(title: string) {
 		const id = crypto.randomUUID()
-		let idx: number | undefined
 
 		const start = (total?: number) => {
-			idx =
-				progressItems.value.push({
-					id,
-					title,
-					percentage: 0,
-					loaded: 0,
-					total,
-					startTime: Date.now()
-				}) - 1
+			if (progressItems.value.some((p) => p.id === id)) return
+
+			progressItems.value.push({
+				id,
+				title,
+				percentage: 0,
+				loaded: 0,
+				total,
+				startTime: Date.now()
+			})
 		}
 
-		const update = (id: string, loaded: number) => {
+		const update = (id: string, loaded: number, total?: number) => {
 			const item = progressItems.value.find((p) => p.id === id)
-			if (!item || !item.total) return
+			if (!item) return
+
+			// A transfer that started before its length was known can learn it from
+			// the first computable event.
+			if (item.total === undefined && total !== undefined) item.total = total
+			if (!item.total) return
 
 			item.loaded = loaded
 			item.percentage = (loaded / item.total) * 100
@@ -46,8 +51,12 @@ export const useProgressStore = defineStore('progress', () => {
 			}
 		}
 
+		// Removal is by id, not by the index this item had when it started:
+		// concurrent loads (an OBJ and its MTL, say) shift each other's positions,
+		// and a stale index removes somebody else's bar.
 		const stop = () => {
-			if (idx === undefined) return
+			const idx = progressItems.value.findIndex((p) => p.id === id)
+			if (idx === -1) return
 			progressItems.value.splice(idx, 1)
 		}
 
@@ -57,7 +66,7 @@ export const useProgressStore = defineStore('progress', () => {
 
 				if (!item) return start(e.total)
 
-				update(item.id, e.loaded)
+				update(item.id, e.loaded, e.total)
 			}
 		}
 

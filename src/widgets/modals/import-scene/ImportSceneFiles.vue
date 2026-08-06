@@ -99,7 +99,7 @@
 
 <script lang="ts" setup>
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
-import { analyzeModelFile } from './parse-scene'
+import { analyzeModelFile } from '@/shared/lib/asset-source'
 import { useFileDialog } from '@vueuse/core'
 import type { ModelFileItem, FileListItem, AssetFileItem } from './types'
 

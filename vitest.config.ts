@@ -17,7 +17,10 @@ export default mergeConfig(
 					'src/app/test/**',
 					'src/**/types.ts',
 					'src/app/model/types/**',
-					// Three.js wrappers/addons are thin glue over heavy WebGL — not unit-testable.
+					// What is left under here is the Three.js calls themselves — thin glue
+					// over heavy WebGL, not unit-testable. The logic that surrounds them
+					// (format dispatch, URL resolution, progress) lives in
+					// `src/shared/lib/asset-source` precisely so it can be covered.
 					'src/shared/three/**',
 					'**/assets/**'
 				]

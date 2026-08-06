@@ -50,6 +50,17 @@ test.describe('Import Scene Modal', () => {
 		await page.getByRole('button', { name: 'Import' }).click()
 		await page.locator('[data-testid="import-scene"]').waitFor({ state: 'hidden' })
 		await expect(page.getByText('female02.obj')).toBeVisible()
+
+		// The material library is found and applied by the loader, not by this
+		// modal, so check the meshes actually came back wearing it.
+		const imported = page.locator('[data-testid="outliner-item"]', { hasText: 'female02.obj' })
+		await imported.locator('[data-toggle]').click()
+		await page.locator('[data-testid="outliner-item"]').last().click()
+		await page.locator('[data-testid="properties-tab-material"]').click()
+
+		// Maps loaded from an MTL are named `map_<material>`; anything but "None"
+		// in the base colour slot means the MTL and its textures resolved.
+		await expect(page.getByTitle(/^map_/).first()).toBeVisible()
 	})
 
 	test('Import FBX file', async ({ page, browserName }) => {

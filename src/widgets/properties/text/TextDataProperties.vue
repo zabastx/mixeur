@@ -51,7 +51,8 @@
 <script lang="ts" setup>
 import { useThreeStore } from '@/app/model/three'
 import THREE from '@/shared/three'
-import { defaultFontsList, loadFont } from '@/shared/three/modules/loaders/font'
+import { loadFont } from '@/shared/three/modules/loaders'
+import { defaultFontsList } from '@/shared/three/modules/loaders/fonts'
 import { createTextGeometry } from '@/shared/three/modules/text'
 import { enableBVH, getUserData } from '@/shared/three/utils'
 import { TextGeometry } from 'three/examples/jsm/Addons.js'
@@ -81,14 +82,14 @@ async function onApply() {
 	const obj = store.selectedObject
 	if (obj && obj instanceof THREE.Mesh && obj.geometry instanceof TextGeometry) {
 		const font = await loadFont(textData.font)
-		if (!font) return
+		if (!font.ok) return
 
 		obj.geometry.dispose()
 
 		const newGeometry = createTextGeometry({
 			text: textData.text,
 			params: {
-				font,
+				font: font.value,
 				size: textData.size,
 				depth: textData.depth,
 				bevelEnabled: textData.bevelEnabled,

@@ -1,87 +1,38 @@
-import { useToast } from '@/shared/lib/toast'
-import { useProgressStore } from '@/app/model/progress'
 import THREE from '@/shared/three'
 import { MTLLoader, type MaterialCreatorOptions } from 'three/examples/jsm/Addons.js'
+import { applyUrlModifier, type LoadRequest } from './internal'
 
 /**
- * Loads an MTL (Material Template Library) file and returns a MaterialCreator.
+ * Internal adapter — use `loadModel` from this directory's index instead.
  *
- * This function asynchronously loads MTL files commonly used with OBJ models to
- * provide material definitions. It supports custom URL modifiers for asset path
- * resolution and material options for configuring the material creation process.
- *
- * @param parameters - The load parameters
- * @param parameters.url - URL or path to the MTL file
- * @param parameters.filename - Display name for progress tracking
- * @param parameters.materialOptions - Optional options for MaterialCreator (side, invertTransparent, etc.)
- * @param parameters.urlModifier - Optional function to transform URLs (e.g., to resolve relative paths)
- * @returns Promise resolving to the loaded MaterialCreator, or undefined on error
- *
- * @example
- * ```ts
- * const materials = await loadMTL({
- *   url: '/assets/models/materials.mtl',
- *   filename: 'materials.mtl',
- *   materialOptions: { side: THREE.DoubleSide }
- * })
- * ```
- *
- * @example
- * ```ts
- * // With URL modifier for relative texture paths
- * const materials = await loadMTL({
- *   url: '/models/chair.mtl',
- *   filename: 'chair.mtl',
- *   urlModifier: (url) => `/assets/${url}`
- * })
- * ```
+ * Rejects on failure; progress, toasts and URL lifetime belong to the caller.
  */
-export async function loadMTL({ url, filename, urlModifier, materialOptions }: LoadMTLParameters) {
+export async function loadMTL({ url, onProgress, urlModifier, materialOptions }: LoadMTLRequest) {
 	const loader = new MTLLoader()
-
 	if (materialOptions) loader.setMaterialOptions(materialOptions)
+	applyUrlModifier(loader, urlModifier)
 
-	const toast = useToast()
-	const progressStore = useProgressStore()
-	const progressItem = progressStore.initProgress(filename)
+	const mtl = await loader.loadAsync(url, onProgress)
+	mtl.preload()
+	nameTextures(mtl)
 
-	try {
-		if (urlModifier) {
-			const manager = new THREE.LoadingManager()
-			manager.setURLModifier(urlModifier)
-			loader.manager = manager
-		}
+	return mtl
+}
 
-		const mtl = await loader.loadAsync(url, progressItem.onProgress)
-		mtl.preload()
+/** MTL textures arrive unnamed, which leaves them unidentifiable in the outliner. */
+function nameTextures(mtl: MTLLoader.MaterialCreator) {
+	for (const matName in mtl.materials) {
+		const mat = mtl.materials[matName]
 
-		for (const matName in mtl.materials) {
-			const mat = mtl.materials[matName]
-
-			for (const key in mat) {
-				const value = mat[key as keyof typeof mat]
-				if (value instanceof THREE.Texture) {
-					value.name = `${key}_${matName}`
-				}
+		for (const key in mat) {
+			const value = mat[key as keyof typeof mat]
+			if (value instanceof THREE.Texture) {
+				value.name = `${key}_${matName}`
 			}
 		}
-		return mtl
-	} catch (e) {
-		const error = e as Error
-		toast.add({
-			type: 'error',
-			title: 'Error loading MTL',
-			message: error.message
-		})
-		if (import.meta.env.DEV) console.error('loadMTL Error\n', error)
-	} finally {
-		progressItem.stop()
 	}
 }
 
-interface LoadMTLParameters {
-	url: string
-	filename: string
+export interface LoadMTLRequest extends LoadRequest {
 	materialOptions?: MaterialCreatorOptions
-	urlModifier?: (url: string) => string
 }

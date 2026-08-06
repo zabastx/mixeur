@@ -1,4 +1,4 @@
-import type { ModelAssets, ModelFormat } from './parse-scene'
+import type { ModelAssets, ModelFormat } from '@/shared/lib/asset-source'
 
 export type FileListItem = ModelFileItem | AssetFileItem
 

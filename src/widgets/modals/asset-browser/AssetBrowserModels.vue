@@ -83,6 +83,7 @@ import { CheckboxGroupRoot } from 'reka-ui'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { usePolyHaven } from './polyhaven'
 import { useSceneStore } from '@/app/model/scene'
+import { lookupUri } from '@/shared/lib/asset-source'
 import type { AssetFiles, ModelFiles } from './types/polyhaven'
 
 const isOpen = defineModel<boolean>({ default: false })
@@ -149,23 +150,19 @@ async function importModel() {
 		return
 	}
 
-	const { loadGTLF } = await import('@/shared/three/modules/loaders/gltf')
+	const { loadModel } = await import('@/shared/three/modules/loaders')
 
-	const gltf = await loadGTLF({
-		url: data.url,
-		filename: selectedAsset.value.name,
-		urlModifier(resourceUrl) {
-			for (const [pattern, actualUrl] of Object.entries(data.textureUrlMap)) {
-				if (resourceUrl.includes(pattern) || resourceUrl.endsWith(pattern)) {
-					return actualUrl
-				}
-			}
-			return resourceUrl
-		}
-	})
+	// Keyed by both the full path and the bare filename, so a glTF referencing
+	// either form finds its texture.
+	const textures = new Map(Object.entries(data.textureUrlMap))
 
-	if (!gltf) return
+	const result = await loadModel(
+		{ url: data.url, filename: selectedAsset.value.name },
+		{ resolve: (uri) => lookupUri(textures, uri) }
+	)
 
-	sceneStore.addObjectToScene(gltf.scene)
+	if (!result.ok) return
+
+	sceneStore.addObjectToScene(result.value)
 }
 </script>

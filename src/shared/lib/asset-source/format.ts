@@ -1,3 +1,9 @@
+/**
+ * Format detection by content rather than by file extension, plus extraction of
+ * the relative URIs an asset references. Pure byte inspection — no Three.js, no
+ * DOM beyond `File`.
+ */
+
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'fbx'
 
 export interface ModelAssets {
@@ -262,4 +268,42 @@ export async function analyzeModelFile(file: File): Promise<ModelAssets | null> 
 	} catch {
 		return null
 	}
+}
+
+// ── Detection for sources that are only a URL ──────────────────────────────────
+
+const MODEL_EXTENSIONS = new Map<string, ModelFormat>([
+	['glb', 'glb'],
+	['gltf', 'gltf'],
+	['obj', 'obj'],
+	['fbx', 'fbx']
+])
+
+/**
+ * A URL's bytes are not available before the transfer, so its format has to
+ * come from the extension. Returns `null` when the extension names no model
+ * format we can load.
+ */
+export function modelFormatFromUrl(url: string): ModelFormat | null {
+	return MODEL_EXTENSIONS.get(extensionOf(url)) ?? null
+}
+
+export function isEXRUrl(url: string): boolean {
+	return extensionOf(url) === 'exr'
+}
+
+/** Whether `file` is an OpenEXR image, by its magic number. */
+export async function isEXRFile(file: File): Promise<boolean> {
+	if (file.size < EXR_MAGIC.length) return isEXRUrl(file.name)
+	const { bytes } = await readFile(file, EXR_MAGIC.length)
+	return EXR_MAGIC.every((byte, i) => bytes[i] === byte)
+}
+
+const EXR_MAGIC = [0x76, 0x2f, 0x31, 0x01]
+
+function extensionOf(url: string): string {
+	const path = url.split(/[?#]/)[0]
+	const segment = path.split('/').pop() ?? ''
+	const dot = segment.lastIndexOf('.')
+	return dot === -1 ? '' : segment.slice(dot + 1).toLowerCase()
 }

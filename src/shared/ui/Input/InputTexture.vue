@@ -23,8 +23,7 @@
 import { isPolyHavenFileInfo } from '@/widgets/modals/asset-browser/types/polyhaven'
 import { useModals } from '@/shared/lib/modals'
 import THREE from '@/shared/three'
-import { loadEXR } from '@/shared/three/modules/loaders/exr'
-import { loadTexture } from '@/shared/three/modules/loaders/textureLoader'
+import { loadTexture, type LoadResult } from '@/shared/three/modules/loaders'
 import { useFileDialog } from '@vueuse/core'
 
 const { isEnvMap = false } = defineProps<{
@@ -42,25 +41,8 @@ const { open, onChange } = useFileDialog({
 onChange(async (files) => {
 	const file = files?.[0]
 	if (!file) return
-	const url = URL.createObjectURL(file)
-	const isEXR = file.name.toLowerCase().endsWith('.exr')
 
-	const parameters = {
-		url,
-		filename: file.name,
-		size: file.size,
-		isEnvMap: isEnvMap
-	}
-
-	const texture = isEXR ? await loadEXR(parameters) : await loadTexture(parameters)
-
-	URL.revokeObjectURL(url)
-
-	if (!texture) return
-
-	const oldTexture = model.value
-	model.value = texture
-	if (oldTexture) oldTexture.dispose()
+	apply(await loadTexture(file, { isEnvMap }))
 })
 
 const { open: openModal } = useModals()
@@ -68,21 +50,17 @@ const { open: openModal } = useModals()
 function openLibrary() {
 	openModal('textureLibrary', async (file) => {
 		if (!isPolyHavenFileInfo(file)) return
-		const isEXR = file.url.toLowerCase().endsWith('.exr')
-		const filename = file.url.match(/[^/]+$/)?.[0] ?? 'Texture'
-		const parameters = {
-			url: file.url,
-			filename,
-			size: file.size,
-			isEnvMap: isEnvMap
-		}
-		const texture = isEXR ? await loadEXR(parameters) : await loadTexture(parameters)
-		if (!texture) return
 
-		const oldTexture = model.value
-		model.value = texture
-		if (oldTexture) oldTexture.dispose()
+		apply(await loadTexture({ url: file.url, size: file.size }, { isEnvMap }))
 	})
+}
+
+function apply(result: LoadResult<THREE.Texture>) {
+	if (!result.ok) return
+
+	const oldTexture = model.value
+	model.value = result.value
+	if (oldTexture) oldTexture.dispose()
 }
 
 function reset() {

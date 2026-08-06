@@ -1,15 +1,15 @@
 import { TextGeometry, type TextGeometryParameters } from 'three/examples/jsm/Addons.js'
-import { loadFont } from '../loaders/font'
+import { loadFont } from '../loaders'
 import THREE from '@/shared/three'
 import { getUserData } from '@/shared/three/utils'
 
 export async function createText() {
 	const font = await loadFont('helvetiker-regular')
-	if (!font) return
+	if (!font.ok) return
 	const geometry = createTextGeometry({
 		text: 'Text',
 		params: {
-			font,
+			font: font.value,
 			size: 2,
 			depth: 1
 		}

@@ -236,9 +236,8 @@ export const useShadingStore = defineStore('shading', () => {
 		solidModeLights.forEach((item) => scene?.add(item))
 		cacheOriginalMaterials()
 
-		loadWorldTexture('forest').then((map) => {
-			if (!map) return
-			setEnvironmentMap(map)
+		loadWorldTexture('forest').then((result) => {
+			if (result.ok) setEnvironmentMap(result.value)
 		})
 		setMode(currentMode.value)
 	}
