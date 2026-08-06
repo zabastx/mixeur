@@ -2,7 +2,8 @@ import { useShadingStore } from '@/app/model/shading'
 import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { computed, triggerRef } from 'vue'
-import type { FieldValueMap, MaterialProp, MeshMaterials } from './utils/types'
+import type { MaterialProp, MeshMaterials } from './utils/types'
+import type { FieldTarget } from '@/shared/lib/field-descriptor'
 import { storeToRefs } from 'pinia'
 
 const mesh = computed(() => {
@@ -43,62 +44,43 @@ export function useMeshMaterial<T extends THREE.Material>() {
 		triggerRef(mesh)
 	}
 
-	function getPropValue<TType extends keyof FieldValueMap>(
-		type: TType,
-		prop: MaterialProp<T>
-	): FieldValueMap[TType] {
-		switch (type) {
-			case 'color':
-				return `#${getMaterialProp<THREE.Color>(prop)?.getHexString() ?? '000000'}` as FieldValueMap[TType]
-			case 'angle':
-				return THREE.MathUtils.radToDeg(getMaterialProp<number>(prop) ?? 0) as FieldValueMap[TType]
-			default:
-				return getMaterialProp(prop) as FieldValueMap[TType]
-		}
-	}
-
-	function setPropValue<TType extends keyof FieldValueMap>(
-		type: TType,
-		prop: MaterialProp<T>,
-		value: FieldValueMap[TType]
-	) {
-		switch (type) {
-			case 'color':
-				updateMaterialProp({ prop, value: new THREE.Color(value as string) as T[MaterialProp<T>] })
-				break
-			case 'angle':
+	/**
+	 * Field reads and writes for the selected mesh's material. Writes go through
+	 * the shading store rather than mutating the material, because the store owns
+	 * the original/preview material cache and the `needsUpdate` flag.
+	 */
+	function createMaterialTarget(): FieldTarget<T> {
+		return {
+			read(prop) {
+				return getMaterialProp(prop)
+			},
+			write(prop, value) {
 				updateMaterialProp({
 					prop,
-					value: THREE.MathUtils.degToRad((value as number) ?? 0) as T[MaterialProp<T>]
+					value: prepare(prop, value) as T[MaterialProp<T>]
 				})
-				break
-			case 'range':
-				updateMaterialProp({
-					prop,
-					value: new THREE.Vector2().fromArray(value as number[]) as T[MaterialProp<T>]
-				})
-				break
-			case 'map': {
-				if (prop === 'gradientMap' && value instanceof THREE.Texture) {
-					value.magFilter = THREE.NearestFilter
-					value.minFilter = THREE.NearestFilter
-				}
-				updateMaterialProp({ prop, value: value as unknown as T[MaterialProp<T>] })
-				break
+				triggerRef(material)
 			}
-			default:
-				updateMaterialProp({ prop, value: value as unknown as T[MaterialProp<T>] })
-				break
 		}
-		triggerRef(material)
 	}
 
 	return {
 		mesh,
 		material,
 		changeMaterial,
-		getPropValue,
-		setPropValue,
+		createMaterialTarget,
 		getMaterialProp
 	}
+}
+
+/**
+ * Material-specific adjustments a value needs before it is stored. A toon
+ * gradient ramp has to sample without interpolation, or the bands blur away.
+ */
+function prepare(prop: string, value: unknown) {
+	if (prop === 'gradientMap' && value instanceof THREE.Texture) {
+		value.magFilter = THREE.NearestFilter
+		value.minFilter = THREE.NearestFilter
+	}
+	return value
 }

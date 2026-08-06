@@ -1,11 +1,11 @@
 <template>
-	<MxAccordionRoot :key collapsible type="multiple" :default-value="['light']">
+	<MxAccordionRoot collapsible type="multiple" :default-value="['light']">
 		<MxAccordionItem v-if="light" label="Light" :item="{ value: 'light' }">
 			<div class="text-xs flex flex-col items-end gap-0.5 p-2">
-				<ObjectInputFields
-					:fields-list="getLightFields(light)"
-					:object="light"
-					:tooltip-map="lightTooltipMap"
+				<FieldList
+					:fields="getLightFields(light)"
+					:target="lightTarget"
+					:tooltips="lightTooltipMap"
 				/>
 			</div>
 		</MxAccordionItem>
@@ -18,10 +18,10 @@
 			show-checkbox
 		>
 			<div class="text-xs flex flex-col items-end gap-0.5 p-2">
-				<ObjectInputFields
-					:fields-list="lightShadowFields"
-					:object="light.shadow"
-					:tooltip-map="lightShadowTooltipMap"
+				<FieldList
+					:fields="lightShadowFields"
+					:target="shadowTarget"
+					:tooltips="lightShadowTooltipMap"
 				/>
 			</div>
 		</MxAccordionItem>
@@ -30,19 +30,16 @@
 
 <script lang="ts" setup>
 import { useSelectionStore } from '@/app/model/selection'
+import { createObjectTarget } from '@/shared/lib/field-descriptor'
 import THREE from '@/shared/three'
 import { lightHasShadow } from '@/shared/three/modules/light'
 import { storeToRefs } from 'pinia'
-import { computed, ref, triggerRef, watch } from 'vue'
+import { computed, triggerRef } from 'vue'
 import { getLightFields, lightShadowFields } from './fields'
 import { lightShadowTooltipMap, lightTooltipMap } from './tooltips'
 
 const selectionStore = useSelectionStore()
 const { selectedObject } = storeToRefs(selectionStore)
-
-const key = ref(0)
-
-watch(selectedObject, () => key.value++)
 
 const light = computed<THREE.Light | null>(() => {
 	if (selectedObject.value) {
@@ -51,6 +48,13 @@ const light = computed<THREE.Light | null>(() => {
 	}
 	return null
 })
+
+// Both targets resolve the selection on every access, so switching lights needs
+// no remount to clear the previous one's values.
+const lightTarget = createObjectTarget(light)
+const shadowTarget = createObjectTarget<THREE.LightShadow>(() =>
+	light.value && lightHasShadow(light.value) ? light.value.shadow : null
+)
 
 const castShadow = computed<boolean>({
 	set(val) {

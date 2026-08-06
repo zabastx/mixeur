@@ -4,7 +4,7 @@
 
 <script lang="ts" setup>
 import THREE from '@/shared/three'
-import type { MaterialInputField } from '../utils/types'
+import type { FieldDescriptor } from '@/shared/lib/field-descriptor'
 
 type SupportedMaterials =
 	| THREE.MeshPhysicalMaterial
@@ -14,7 +14,7 @@ type SupportedMaterials =
 	| THREE.MeshLambertMaterial
 	| THREE.MeshNormalMaterial
 
-const settingsFields: MaterialInputField<SupportedMaterials>[] = [
+const settingsFields: FieldDescriptor<SupportedMaterials>[] = [
 	{
 		type: 'select',
 		label: 'Side',
