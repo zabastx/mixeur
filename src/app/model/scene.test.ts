@@ -22,6 +22,7 @@ const cameraHolder = vi.hoisted(() => ({
 const selectionHolder = vi.hoisted(() => ({
 	select: vi.fn(),
 	clear: vi.fn(),
+	isSelectedWithin: vi.fn(() => false),
 	selectedObject: null as THREE.Object3D | null
 }))
 
@@ -44,6 +45,31 @@ describe('useSceneStore graph operations', () => {
 		shadingHolder.shadingMode = 'rendered'
 		cameraHolder.renderCamera = null
 		selectionHolder.selectedObject = null
+		selectionHolder.isSelectedWithin.mockReturnValue(false)
+	})
+
+	describe('deleteFromScene', () => {
+		it('clears the selection when it lives inside the deleted object', () => {
+			const store = useSceneStore()
+			const group = new THREE.Group()
+			store.addObjectToScene(group)
+			selectionHolder.isSelectedWithin.mockReturnValue(true)
+
+			store.deleteFromScene(group.uuid)
+
+			expect(selectionHolder.clear).toHaveBeenCalled()
+		})
+
+		it('leaves the selection alone when it is elsewhere in the scene', () => {
+			const store = useSceneStore()
+			const group = new THREE.Group()
+			store.addObjectToScene(group)
+			selectionHolder.isSelectedWithin.mockReturnValue(false)
+
+			store.deleteFromScene(group.uuid)
+
+			expect(selectionHolder.clear).not.toHaveBeenCalled()
+		})
 	})
 
 	describe('addGroup', () => {

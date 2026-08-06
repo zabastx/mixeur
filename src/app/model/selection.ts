@@ -25,7 +25,7 @@ interface ResolvedSelection {
 }
 
 export const useSelectionStore = defineStore('selection', () => {
-	const selectedObject = shallowRef<THREE.Object3D | THREE.Light | THREE.Mesh | null>(null)
+	const selectedObject = shallowRef<THREE.Object3D | null>(null)
 
 	function resolveTarget(target: string | THREE.Object3D) {
 		if (typeof target !== 'string') return target
@@ -33,17 +33,18 @@ export const useSelectionStore = defineStore('selection', () => {
 	}
 
 	function resolveSelection(object: THREE.Object3D): ResolvedSelection {
-		// A helper was picked — drive its subject, outline the helper.
-		if ('light' in object) return { subject: object.light as THREE.Light, outline: object }
-		if ('camera' in object) return { subject: object.camera as THREE.Camera, outline: object }
-
 		// A subject with a helper was picked — outline the helper instead.
+		// Subjects are checked before helpers to preserve the original precedence.
 		if (object instanceof THREE.Light) {
 			return { subject: object, outline: findHelperFor('light', object) }
 		}
 		if (object instanceof THREE.Camera) {
 			return { subject: object, outline: findHelperFor('camera', object) }
 		}
+
+		// A helper was picked — drive its subject, outline the helper.
+		if ('light' in object) return { subject: object.light as THREE.Light, outline: object }
+		if ('camera' in object) return { subject: object.camera as THREE.Camera, outline: object }
 
 		// Part of a helper was picked — promote to the helper itself.
 		if (getUserData(object).skipRaycast && object.parent) {
@@ -89,6 +90,19 @@ export const useSelectionStore = defineStore('selection', () => {
 	}
 
 	/**
+	 * Whether the selection is `object` or sits somewhere beneath it. Callers
+	 * removing a subtree use this to decide whether the selection goes with it.
+	 */
+	function isSelectedWithin(object: THREE.Object3D) {
+		let node = selectedObject.value
+		while (node) {
+			if (node.uuid === object.uuid) return true
+			node = node.parent
+		}
+		return false
+	}
+
+	/**
 	 * Republish the selection after the selected object was mutated in place.
 	 * `selectedObject` is a shallowRef, so Three.js mutations are invisible to
 	 * Vue until something tells it otherwise.
@@ -101,6 +115,7 @@ export const useSelectionStore = defineStore('selection', () => {
 		selectedObject,
 		select,
 		clear,
+		isSelectedWithin,
 		refresh
 	}
 })

@@ -145,6 +145,18 @@ describe('useSelectionStore', () => {
 			expect(store.selectedObject).toBe(innerLight)
 		})
 
+		it('treats a light as a subject even if it carries a light back-reference', () => {
+			const store = useSelectionStore()
+			const light = new THREE.PointLight() as THREE.PointLight & { light?: THREE.Light }
+			light.light = new THREE.PointLight()
+
+			store.select(light)
+
+			// instanceof wins over the property probe, as it did before the module
+			// existed — the light itself is selected, not its back-reference.
+			expect(store.selectedObject).toBe(light)
+		})
+
 		it('promotes a helper part to the light it belongs to', () => {
 			const store = useSelectionStore()
 			const innerLight = new THREE.PointLight()
@@ -172,6 +184,39 @@ describe('useSelectionStore', () => {
 			expect(controlsHolder.transformControls.detach).toHaveBeenCalled()
 			expect(composerHolder.setOutlineObjects).toHaveBeenLastCalledWith([])
 			expect(store.selectedObject).toBeNull()
+		})
+	})
+
+	describe('isSelectedWithin', () => {
+		it('is true for the selected object itself', () => {
+			const store = useSelectionStore()
+			const mesh = new THREE.Mesh()
+			store.select(mesh)
+
+			expect(store.isSelectedWithin(mesh)).toBe(true)
+		})
+
+		it('is true for an ancestor of the selected object', () => {
+			const store = useSelectionStore()
+			const group = new THREE.Group()
+			const child = new THREE.Mesh()
+			group.add(child)
+			store.select(child)
+
+			expect(store.isSelectedWithin(group)).toBe(true)
+		})
+
+		it('is false for an unrelated object', () => {
+			const store = useSelectionStore()
+			store.select(new THREE.Mesh())
+
+			expect(store.isSelectedWithin(new THREE.Group())).toBe(false)
+		})
+
+		it('is false when nothing is selected', () => {
+			const store = useSelectionStore()
+
+			expect(store.isSelectedWithin(new THREE.Mesh())).toBe(false)
 		})
 	})
 

@@ -167,7 +167,9 @@ export const useSceneStore = defineStore('scene', () => {
 
 		if (!object) return console.warn('deleteFromScene: object is undefined')
 
-		if (selectionStore.selectedObject?.uuid === object.uuid) selectionStore.clear()
+		// Deleting a subtree takes its descendants with it, so the selection has to
+		// go if it lives anywhere inside the object being removed.
+		if (selectionStore.isSelectedWithin(object)) selectionStore.clear()
 
 		const helperUUID = getUserData(object).helperUUID
 		if (helperUUID) {

@@ -3,7 +3,6 @@ import { useEventListener } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
 import { shallowRef, type ShallowRef } from 'vue'
 import { useControlsStore } from './controls'
-import { useComposerStore } from './composer'
 import { useCameraStore } from './camera'
 import { useSelectionStore } from './selection'
 import { getUserData } from '@/shared/three/utils'
@@ -17,7 +16,6 @@ export const useRaycastStore = defineStore('raycast', () => {
 		raycaster.firstHitOnly = true
 
 		const { wasDragging } = storeToRefs(useControlsStore())
-		const { outlinePassRef } = storeToRefs(useComposerStore())
 		const { activeCamera } = storeToRefs(useCameraStore())
 
 		useEventListener(canvasRef, 'pointermove', (e) => {
@@ -28,7 +26,6 @@ export const useRaycastStore = defineStore('raycast', () => {
 		})
 
 		useEventListener(canvasRef, 'click', () => {
-			if (!outlinePassRef.value) return
 			// Prevents deselection when using transform controls
 			if (wasDragging.value) return (wasDragging.value = false)
 
