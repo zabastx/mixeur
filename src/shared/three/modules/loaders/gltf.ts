@@ -1,6 +1,7 @@
+import type THREE from '@/shared/three'
 import { DRACOLoader, GLTFLoader, KTX2Loader } from 'three/examples/jsm/Addons.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
-import { applyUrlModifier, type LoadRequest } from './internal'
+import { applyUrlModifier, type LoadRequest } from './request'
 import { activeRenderer } from './renderer-context'
 
 /**
@@ -36,7 +37,7 @@ function dracoLoader() {
 }
 
 let ktx2: KTX2Loader | null = null
-let detectedAgainst: unknown = null
+let detectedAgainst: THREE.WebGLRenderer | null = null
 
 function ktx2Loader() {
 	if (!ktx2) ktx2 = new KTX2Loader()

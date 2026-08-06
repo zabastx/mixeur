@@ -51,8 +51,7 @@
 <script lang="ts" setup>
 import { useThreeStore } from '@/app/model/three'
 import THREE from '@/shared/three'
-import { loadFont } from '@/shared/three/modules/loaders'
-import { defaultFontsList } from '@/shared/three/modules/loaders/fonts'
+import { defaultFontsList, loadFont } from '@/shared/three/modules/loaders'
 import { createTextGeometry } from '@/shared/three/modules/text'
 import { enableBVH, getUserData } from '@/shared/three/utils'
 import { TextGeometry } from 'three/examples/jsm/Addons.js'

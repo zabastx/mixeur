@@ -1,5 +1,5 @@
 import { FontLoader } from 'three/examples/jsm/Addons.js'
-import type { LoadRequest } from './internal'
+import type { LoadRequest } from './request'
 
 /**
  * Internal adapter — use `loadFont` from this directory's index instead.

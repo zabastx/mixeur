@@ -17,10 +17,11 @@ export default mergeConfig(
 					'src/app/test/**',
 					'src/**/types.ts',
 					'src/app/model/types/**',
-					// What is left under here is the Three.js calls themselves — thin glue
-					// over heavy WebGL, not unit-testable. The logic that surrounds them
-					// (format dispatch, URL resolution, progress) lives in
-					// `src/shared/lib/asset-source` precisely so it can be covered.
+					// Thin glue over heavy WebGL — not unit-testable. The pieces that are
+					// (format detection, URI resolution, the load result) live in
+					// `src/shared/lib/asset-source` so they fall outside this exclusion;
+					// what stays here is loader orchestration, covered by the E2E import
+					// tests instead.
 					'src/shared/three/**',
 					'**/assets/**'
 				]

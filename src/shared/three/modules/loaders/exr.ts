@@ -1,5 +1,5 @@
 import { EXRLoader } from 'three/examples/jsm/Addons.js'
-import type { LoadRequest } from './internal'
+import type { LoadRequest } from './request'
 
 /**
  * Internal adapter — use `loadTexture` from this directory's index instead.

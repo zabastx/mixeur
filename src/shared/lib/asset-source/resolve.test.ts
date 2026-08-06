@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-	createUrlModifier,
-	lookupUri,
-	sourceName,
-	sourceSize,
-	TempUrls,
-	uriFilename
-} from './resolve'
+import { createUrlModifier, lookupUri, sourceName, TempUrls } from './resolve'
 
 let created = 0
 
@@ -44,31 +37,6 @@ describe('sourceName', () => {
 
 	it('falls back to the whole URL when there is no last segment', () => {
 		expect(sourceName({ url: 'https://example.com/' })).toBe('https://example.com/')
-	})
-})
-
-describe('sourceSize', () => {
-	it('reads a file size', () => {
-		expect(sourceSize(new File(['abcd'], 'chair.obj'))).toBe(4)
-	})
-
-	it('reads a declared size, and reports none when it is unknown', () => {
-		expect(sourceSize({ url: 'https://example.com/a.gltf', size: 2048 })).toBe(2048)
-		expect(sourceSize({ url: 'https://example.com/a.gltf' })).toBeUndefined()
-	})
-})
-
-describe('uriFilename', () => {
-	it('keeps a bare filename', () => {
-		expect(uriFilename('wood.png')).toBe('wood.png')
-	})
-
-	it('strips directories, query strings and fragments', () => {
-		expect(uriFilename('textures/1k/wood.png?v=2#a')).toBe('wood.png')
-	})
-
-	it('leaves an undecodable escape alone', () => {
-		expect(uriFilename('100%.png')).toBe('100%.png')
 	})
 })
 

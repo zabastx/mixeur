@@ -1,21 +1,10 @@
 import type { AssetResolver, AssetSource } from './types'
+import { decodeUri, uriFilename } from './uri'
 
 /** Display name for a source: the file's name, or the last segment of the URL. */
 export function sourceName(source: AssetSource): string {
 	if (source instanceof File) return source.name
 	return source.filename || uriFilename(source.url) || source.url
-}
-
-/** Total bytes, when they are known before the transfer starts. */
-export function sourceSize(source: AssetSource): number | undefined {
-	return source.size
-}
-
-/** The filename part of a URI or URL, without query string or fragment. */
-export function uriFilename(uri: string): string {
-	const path = uri.split(/[?#]/)[0]
-	const segment = path.split('/').pop() ?? ''
-	return decode(segment)
 }
 
 /**
@@ -89,13 +78,5 @@ function directoryOf(url: string): string {
 }
 
 function relativeUri(url: string, base: string): string {
-	return decode(base && url.startsWith(base) ? url.slice(base.length) : url)
-}
-
-function decode(value: string): string {
-	try {
-		return decodeURIComponent(value)
-	} catch {
-		return value
-	}
+	return decodeUri(base && url.startsWith(base) ? url.slice(base.length) : url)
 }

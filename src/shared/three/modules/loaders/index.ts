@@ -1,28 +1,3 @@
-import { useProgressStore } from '@/app/model/progress'
-import { useToast } from '@/shared/lib/toast'
-import {
-	analyzeModelFile,
-	createUrlModifier,
-	detectMTL,
-	failed,
-	isEXRFile,
-	isEXRUrl,
-	loaded,
-	modelFormatFromUrl,
-	sourceName,
-	sourceSize,
-	TempUrls,
-	uriFilename,
-	type AssetResolver,
-	type AssetSource,
-	type LoadResult,
-	type ModelFormat
-} from '@/shared/lib/asset-source'
-import { textureToEnvMap } from '@/shared/three/utils'
-import type THREE from '@/shared/three'
-import type { Font, MaterialCreatorOptions, MTLLoader } from 'three/examples/jsm/Addons.js'
-import { defaultFontUrls, type StdFontName } from './fonts'
-
 /**
  * Loading an asset — a model, a texture or a typeface — from a file the user
  * picked or from a URL.
@@ -36,6 +11,30 @@ import { defaultFontUrls, type StdFontName } from './fonts'
  * Every entry resolves to a `LoadResult`, and reports the failure to the user
  * exactly once on its way out.
  */
+
+import { useProgressStore } from '@/app/model/progress'
+import { useToast } from '@/shared/lib/toast'
+import {
+	analyzeModelFile,
+	createUrlModifier,
+	detectMTL,
+	failed,
+	isEXRFile,
+	isEXRUrl,
+	loaded,
+	modelFormatFromUrl,
+	sourceName,
+	TempUrls,
+	uriFilename,
+	type AssetResolver,
+	type AssetSource,
+	type LoadResult,
+	type ModelFormat
+} from '@/shared/lib/asset-source'
+import { textureToEnvMap } from '@/shared/three/utils'
+import type THREE from '@/shared/three'
+import type { Font, MaterialCreatorOptions, MTLLoader } from 'three/examples/jsm/Addons.js'
+import { defaultFontUrls, type StdFontName } from './font-presets'
 
 export interface LoadModelOptions {
 	/** Resolves the textures, buffers and material libraries the model references. */
@@ -72,8 +71,8 @@ export async function loadModel(
 export interface LoadTextureOptions {
 	/**
 	 * Return the PMREM-filtered environment map built from the image rather than
-	 * the image itself. The intermediate texture is disposed either way; the
-	 * caller owns whichever texture comes back.
+	 * the image itself. The source texture is consumed and disposed on the way;
+	 * either way the caller owns exactly the texture it gets back.
 	 */
 	isEnvMap?: boolean
 }
@@ -112,6 +111,7 @@ export async function loadFont(font: StdFontName | (string & {})): Promise<LoadR
 }
 
 export type { AssetResolver, AssetSource, LoadResult } from '@/shared/lib/asset-source'
+export { defaultFontsList, type FontsListOption, type StdFontName } from './font-presets'
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ async function planModelLoad(
 	temp: TempUrls
 ): Promise<ModelPlan> {
 	const filename = sourceName(source)
-	const size = sourceSize(source)
+	const size = source.size
 
 	if (source instanceof File) {
 		// Scanned even when the format is given: the same pass lists the URIs the
@@ -252,9 +252,7 @@ async function loadTextureFrom(
 
 	if (isEXR) {
 		const { loadEXR } = await import('./exr')
-		return await reportProgress(filename, sourceSize(source), (onProgress) =>
-			loadEXR({ url, onProgress })
-		)
+		return await reportProgress(filename, source.size, (onProgress) => loadEXR({ url, onProgress }))
 	}
 
 	const { loadImageTexture } = await import('./texture')

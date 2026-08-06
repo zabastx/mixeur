@@ -1,6 +1,6 @@
 import THREE from '@/shared/three'
 import { MTLLoader, type MaterialCreatorOptions } from 'three/examples/jsm/Addons.js'
-import { applyUrlModifier, type LoadRequest } from './internal'
+import { applyUrlModifier, type LoadRequest } from './request'
 
 /**
  * Internal adapter — use `loadModel` from this directory's index instead.

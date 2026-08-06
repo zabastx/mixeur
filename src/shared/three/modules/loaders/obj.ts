@@ -1,6 +1,6 @@
 import type { MTLLoader } from 'three/examples/jsm/Addons.js'
 import { OBJLoader } from 'three/examples/jsm/Addons.js'
-import { applyUrlModifier, type LoadRequest } from './internal'
+import { applyUrlModifier, type LoadRequest } from './request'
 
 /**
  * Internal adapter — use `loadModel` from this directory's index instead.

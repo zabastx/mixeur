@@ -158,7 +158,9 @@ async function importModel() {
 
 	const result = await loadModel(
 		{ url: data.url, filename: selectedAsset.value.name },
-		{ resolve: (uri) => lookupUri(textures, uri) }
+		// PolyHaven serves this entry as glTF by construction, so say so rather
+		// than leaving it to whatever extension the download URL happens to carry.
+		{ format: 'gltf', resolve: (uri) => lookupUri(textures, uri) }
 	)
 
 	if (!result.ok) return

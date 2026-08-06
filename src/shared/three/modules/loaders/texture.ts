@@ -1,5 +1,5 @@
 import THREE from '@/shared/three'
-import type { LoadRequest } from './internal'
+import type { LoadRequest } from './request'
 
 /**
  * Internal adapter — use `loadTexture` from this directory's index instead.

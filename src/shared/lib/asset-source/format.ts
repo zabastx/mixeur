@@ -4,6 +4,8 @@
  * DOM beyond `File`.
  */
 
+import { uriExtension } from './uri'
+
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'fbx'
 
 export interface ModelAssets {
@@ -113,32 +115,28 @@ function extractGLBJson(bytes: Uint8Array): unknown {
 	}
 }
 
-async function extractGLBUris(file: File): Promise<string[]> {
-	const { bytes } = await readFile(file, file.size)
-	const json = extractGLBJson(bytes)
+/** glTF names its dependencies the same way whether the JSON was embedded or standalone. */
+function collectGLTFUris(json: unknown): string[] {
 	if (!isGLTFJson(json)) return []
 
 	const uris: string[] = []
 	json.buffers?.forEach((b) => b.uri && uris.push(b.uri))
 	json.images?.forEach((i) => i.uri && uris.push(i.uri))
+
 	return [...new Set(uris)].filter(isRelativeUri)
 }
 
+async function extractGLBUris(file: File): Promise<string[]> {
+	const { bytes } = await readFile(file, file.size)
+	return collectGLTFUris(extractGLBJson(bytes))
+}
+
 async function extractGLTFUris(file: File): Promise<string[]> {
-	let json: unknown
 	try {
-		json = JSON.parse(await file.text())
+		return collectGLTFUris(JSON.parse(await file.text()))
 	} catch {
 		return []
 	}
-
-	if (!isGLTFJson(json)) return []
-
-	const uris: string[] = []
-	json.buffers?.forEach((b) => b.uri && uris.push(b.uri))
-	json.images?.forEach((i) => i.uri && uris.push(i.uri))
-
-	return [...new Set(uris)].filter(isRelativeUri)
 }
 
 function extractOBJUris({ text }: FileHead): string[] {
@@ -285,11 +283,11 @@ const MODEL_EXTENSIONS = new Map<string, ModelFormat>([
  * format we can load.
  */
 export function modelFormatFromUrl(url: string): ModelFormat | null {
-	return MODEL_EXTENSIONS.get(extensionOf(url)) ?? null
+	return MODEL_EXTENSIONS.get(uriExtension(url)) ?? null
 }
 
 export function isEXRUrl(url: string): boolean {
-	return extensionOf(url) === 'exr'
+	return uriExtension(url) === 'exr'
 }
 
 /** Whether `file` is an OpenEXR image, by its magic number. */
@@ -300,10 +298,3 @@ export async function isEXRFile(file: File): Promise<boolean> {
 }
 
 const EXR_MAGIC = [0x76, 0x2f, 0x31, 0x01]
-
-function extensionOf(url: string): string {
-	const path = url.split(/[?#]/)[0]
-	const segment = path.split('/').pop() ?? ''
-	const dot = segment.lastIndexOf('.')
-	return dot === -1 ? '' : segment.slice(dot + 1).toLowerCase()
-}
