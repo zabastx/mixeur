@@ -10,10 +10,11 @@ import type { FieldDescriptor, FieldGroup } from '@/shared/lib/field-descriptor'
  * material capability it edits.
  *
  * Groups are written against `Reference`, which owns every property they
- * mention, so the descriptors below are fully type-checked. Each group's `T`
- * constraint is what proves the *caller's* material owns those properties;
- * TypeScript cannot relate a literal to the deferred `ObjectProp<T>`, which is
- * what `forMaterial` bridges.
+ * mention, so the descriptors below are checked against a concrete material.
+ * Each group's `T` constraint is what proves the *caller's* material owns those
+ * properties; TypeScript cannot relate a literal to the deferred `ObjectProp<T>`,
+ * which is what `forMaterial` bridges. Where a group has an optional field, the
+ * overloads make the constraint follow the option.
  */
 type Reference = THREE.MeshPhysicalMaterial
 
@@ -23,59 +24,65 @@ function forMaterial<T>(fields: FieldDescriptor<Reference>[]): FieldDescriptor<T
 
 type AlphaMaterial = Pick<Reference, 'transparent' | 'opacity' | 'alphaTest' | 'alphaToCoverage'>
 
-/**
- * @param alphaMap Pass `false` for materials without an `alphaMap` — the
- * constraint cannot express an optional property, so this is on the caller.
- */
+const ALPHA_MAP: FieldDescriptor<Reference> = { type: 'map', label: 'Alpha Map', prop: 'alphaMap' }
+
+/** Materials that have an `alphaMap`, which is most of them. */
+export function alphaGroup<T extends AlphaMaterial & Pick<Reference, 'alphaMap'>>(): FieldGroup<T>
+/** `MeshNormalMaterial` has no `alphaMap`. */
+export function alphaGroup<T extends AlphaMaterial>(options: { alphaMap: false }): FieldGroup<T>
 export function alphaGroup<T extends AlphaMaterial>({ alphaMap = true } = {}): FieldGroup<T> {
-	const fields: FieldDescriptor<Reference>[] = [
-		{ type: 'checkbox', label: 'Transparent', prop: 'transparent' },
-		{
-			type: 'number',
-			label: 'Opacity',
-			prop: 'opacity',
-			min: 0,
-			max: 1,
-			step: 0.01,
-			showIf: 'transparent'
-		},
-		{ type: 'number', label: 'Alpha Test', prop: 'alphaTest', min: 0, max: 1, step: 0.01 },
-		{ type: 'checkbox', label: 'Alpha to coverage', prop: 'alphaToCoverage' }
-	]
-
-	if (alphaMap) {
-		fields.splice(2, 0, { type: 'map', label: 'Alpha Map', prop: 'alphaMap' })
+	return {
+		label: 'Alpha',
+		value: 'alpha',
+		fields: forMaterial([
+			{ type: 'checkbox', label: 'Transparent', prop: 'transparent' },
+			{
+				type: 'number',
+				label: 'Opacity',
+				prop: 'opacity',
+				min: 0,
+				max: 1,
+				step: 0.01,
+				enabledIf: 'transparent'
+			},
+			...(alphaMap ? [ALPHA_MAP] : []),
+			{ type: 'number', label: 'Alpha Test', prop: 'alphaTest', min: 0, max: 1, step: 0.01 },
+			{ type: 'checkbox', label: 'Alpha to coverage', prop: 'alphaToCoverage' }
+		])
 	}
-
-	return { label: 'Alpha', value: 'alpha', fields: forMaterial(fields) }
 }
 
 type EnvironmentMaterial = Pick<Reference, 'envMap' | 'envMapRotation'>
 
-/**
- * @param intensity Pass `false` for materials without an `envMapIntensity`
- * (`MeshBasicMaterial` scales its environment through `combine` instead).
- */
+const ENV_MAP_INTENSITY: FieldDescriptor<Reference> = {
+	type: 'number',
+	label: 'Map Intensity',
+	prop: 'envMapIntensity',
+	min: 0,
+	max: 1,
+	step: 0.01
+}
+
+/** Materials that scale their environment through `envMapIntensity`. */
+export function environmentGroup<
+	T extends EnvironmentMaterial & Pick<Reference, 'envMapIntensity'>
+>(): FieldGroup<T>
+/** `MeshBasicMaterial` has no `envMapIntensity`; it scales through `combine` instead. */
+export function environmentGroup<T extends EnvironmentMaterial>(options: {
+	intensity: false
+}): FieldGroup<T>
 export function environmentGroup<T extends EnvironmentMaterial>({
 	intensity = true
 } = {}): FieldGroup<T> {
-	const fields: FieldDescriptor<Reference>[] = [
-		{ type: 'envMap', label: 'Map', prop: 'envMap' },
-		{ type: 'euler', label: 'Map Rotation', prop: 'envMapRotation' }
-	]
-
-	if (intensity) {
-		fields.splice(1, 0, {
-			type: 'number',
-			label: 'Map Intensity',
-			prop: 'envMapIntensity',
-			min: 0,
-			max: 1,
-			step: 0.01
-		})
+	return {
+		label: 'Environment',
+		value: 'environment',
+		fields: forMaterial([
+			{ type: 'envMap', label: 'Map', prop: 'envMap' },
+			...(intensity ? [ENV_MAP_INTENSITY] : []),
+			{ type: 'euler', label: 'Map Rotation', prop: 'envMapRotation' }
+		])
 	}
-
-	return { label: 'Environment', value: 'environment', fields: forMaterial(fields) }
 }
 
 type EmissiveMaterial = Pick<Reference, 'emissive' | 'emissiveMap' | 'emissiveIntensity'>
@@ -154,7 +161,7 @@ export function ambientOcclusionGroup<T extends OcclusionMaterial>(): FieldGroup
 				min: 0,
 				max: 1,
 				step: 0.01,
-				showIf: 'aoMap'
+				enabledIf: 'aoMap'
 			}
 		])
 	}

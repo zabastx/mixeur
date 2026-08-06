@@ -1,6 +1,14 @@
 import { shallowRef, toValue, triggerRef, type MaybeRefOrGetter } from 'vue'
 import type { FieldTarget, ObjectProp } from './types'
 
+export interface ObjectTargetOptions<T> {
+	/**
+	 * Runs after a write lands, for invalidation the assignment implies —
+	 * a Three.js resource the new value has just made stale, say.
+	 */
+	afterWrite?: (object: T, prop: ObjectProp<T>) => void
+}
+
 /**
  * A {@link FieldTarget} that edits a Three.js object in place.
  *
@@ -13,7 +21,8 @@ import type { FieldTarget, ObjectProp } from './types'
  *   selection — panels do not need to remount themselves to stay in sync.
  */
 export function createObjectTarget<T extends object>(
-	source: MaybeRefOrGetter<T | null | undefined>
+	source: MaybeRefOrGetter<T | null | undefined>,
+	{ afterWrite }: ObjectTargetOptions<T> = {}
 ): FieldTarget<T> {
 	const version = shallowRef(0)
 
@@ -33,21 +42,9 @@ export function createObjectTarget<T extends object>(
 		if (!object) return
 
 		object[prop as keyof T] = value as T[keyof T]
-		invalidate(object, prop)
+		afterWrite?.(object, prop)
 		triggerRef(version)
 	}
 
 	return { read, write }
-}
-
-/**
- * Resizing a shadow's `mapSize` leaves the already-allocated render target at the
- * old resolution, so it has to be dropped for Three.js to reallocate it.
- */
-function invalidate<T extends object>(object: T, prop: ObjectProp<T>) {
-	if (prop !== 'mapSize' || !('map' in object)) return
-
-	const shadow = object as { map: { dispose(): void } | null }
-	shadow.map?.dispose()
-	shadow.map = null
 }

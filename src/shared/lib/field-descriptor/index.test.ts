@@ -33,12 +33,12 @@ describe('useFields', () => {
 		expect(getValue('number', 'intensity')).toBe(9)
 	})
 
-	describe('showIf', () => {
+	describe('enabledIf', () => {
 		const opacity: FieldDescriptor<THREE.MeshStandardMaterial> = {
 			type: 'number',
 			label: 'Opacity',
 			prop: 'opacity',
-			showIf: 'transparent'
+			enabledIf: 'transparent'
 		}
 
 		it('disables a field while the named property is falsy', () => {
@@ -63,7 +63,7 @@ describe('useFields', () => {
 				type: 'map',
 				label: 'Anisotropy Map',
 				prop: 'anisotropyMap',
-				showIf: 'anisotropy'
+				enabledIf: 'anisotropy'
 			}
 
 			expect(isEnabled(anisotropyMap)).toBe(false)

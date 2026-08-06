@@ -2,8 +2,8 @@ import { useShadingStore } from '@/app/model/shading'
 import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { computed, triggerRef } from 'vue'
-import type { MaterialProp, MeshMaterials } from './utils/types'
-import type { FieldTarget } from '@/shared/lib/field-descriptor'
+import type { MeshMaterials } from './utils/types'
+import type { FieldTarget, ObjectProp } from '@/shared/lib/field-descriptor'
 import { storeToRefs } from 'pinia'
 
 const mesh = computed(() => {
@@ -27,15 +27,15 @@ const material = computed<MeshMaterials | null>(() => {
 export function useMeshMaterial<T extends THREE.Material>() {
 	const shadingStore = useShadingStore()
 
-	function updateMaterialProp(data: { prop: MaterialProp<T>; value: T[MaterialProp<T>] }) {
+	function updateMaterialProp(data: { prop: ObjectProp<T>; value: T[ObjectProp<T>] }) {
 		if (!mesh.value) return
 		shadingStore.updateMaterial<T>(mesh.value, data)
 		triggerRef(material)
 	}
 
-	function getMaterialProp<PropVal>(prop: MaterialProp<T>) {
-		if (!material.value) return
-		return material.value[prop as MaterialProp<MeshMaterials>] as PropVal
+	function getMaterialProp(prop: ObjectProp<T>): unknown {
+		if (!material.value) return undefined
+		return material.value[prop as ObjectProp<MeshMaterials>]
 	}
 
 	function changeMaterial(newMaterial: THREE.Material) {
@@ -55,11 +55,7 @@ export function useMeshMaterial<T extends THREE.Material>() {
 				return getMaterialProp(prop)
 			},
 			write(prop, value) {
-				updateMaterialProp({
-					prop,
-					value: prepare(prop, value) as T[MaterialProp<T>]
-				})
-				triggerRef(material)
+				updateMaterialProp({ prop, value: prepare(prop, value) as T[ObjectProp<T>] })
 			}
 		}
 	}
@@ -68,8 +64,7 @@ export function useMeshMaterial<T extends THREE.Material>() {
 		mesh,
 		material,
 		changeMaterial,
-		createMaterialTarget,
-		getMaterialProp
+		createMaterialTarget
 	}
 }
 

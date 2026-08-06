@@ -7,7 +7,7 @@
 		label-width="auto"
 		:label="field.label"
 		:disabled="!isEnabled(field)"
-		:tooltip="field.tooltip ?? tooltips?.get(field.prop)"
+		:tooltip="tooltips?.get(field.prop)"
 	>
 		<InputColor
 			v-if="field.type === 'color'"
@@ -91,7 +91,7 @@ import type THREE from '@/shared/three'
 const props = defineProps<{
 	fields: FieldDescriptor<T>[]
 	target: FieldTarget<T>
-	/** Fallback tooltips keyed by property name, used when a field declares none. */
+	/** Tooltips keyed by property name. */
 	tooltips?: ReadonlyMap<string, MxTooltipContent>
 }>()
 

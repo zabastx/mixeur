@@ -22,10 +22,10 @@ export function useFields<T>(target: MaybeRefOrGetter<FieldTarget<T>>) {
 		toValue(target).write(prop, encode(type, value))
 	}
 
-	/** `showIf` names a sibling property that has to be truthy for editing to make sense. */
+	/** `enabledIf` names a sibling property that has to be truthy for editing to make sense. */
 	function isEnabled(field: FieldDescriptor<T>): boolean {
-		if (!field.showIf) return true
-		return Boolean(toValue(target).read(field.showIf))
+		if (!field.enabledIf) return true
+		return Boolean(toValue(target).read(field.enabledIf))
 	}
 
 	return { getValue, setValue, isEnabled }

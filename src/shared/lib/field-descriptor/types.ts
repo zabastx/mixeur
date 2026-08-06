@@ -1,5 +1,5 @@
 import type THREE from '@/shared/three'
-import type { InputSelectOption, MxTooltipContent, NonMethodKeys } from '../types'
+import type { InputSelectOption, NonMethodKeys } from '../types'
 
 export type ObjectProp<T> = NonNullable<NonMethodKeys<T>>
 
@@ -48,12 +48,10 @@ interface SelectInput {
 export type FieldDescriptor<T> = {
 	prop: ObjectProp<T>
 	label: string
-	/** Disable this field while the named sibling property is falsy. */
-	showIf?: ObjectProp<T>
+	/** Field stays visible but is disabled while the named sibling property is falsy. */
+	enabledIf?: ObjectProp<T>
 	/** Overrides the type's default number formatting (degrees for `angle`). */
 	formatOptions?: Intl.NumberFormatOptions
-	/** Takes precedence over the tooltip map passed to the renderer. */
-	tooltip?: MxTooltipContent
 } & (GenericInput | NumberInput | SelectInput)
 
 export interface FieldGroup<T> {
@@ -71,6 +69,10 @@ export interface FieldGroup<T> {
  * Implementations own two things the renderer must not know about: making a
  * read after an in-place mutation observable to Vue, and any invalidation the
  * write implies.
+ *
+ * `write` is free to assign the value or to copy it into whatever the property
+ * already holds — a caller must not assume the instance it passed is the one
+ * the object ends up with.
  */
 export interface FieldTarget<T> {
 	read(prop: ObjectProp<T>): unknown

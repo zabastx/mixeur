@@ -44,8 +44,8 @@ const fieldGroups: FieldGroup<Mat>[] = [
 		value: 'anisotropy',
 		fields: [
 			{ type: 'number', label: 'Strength', prop: 'anisotropy', min: 0, max: 1, step: 0.01 },
-			{ type: 'map', label: 'Anisotropy Map', prop: 'anisotropyMap', showIf: 'anisotropy' },
-			{ type: 'angle', label: 'Rotation', prop: 'anisotropyRotation', showIf: 'anisotropy' }
+			{ type: 'map', label: 'Anisotropy Map', prop: 'anisotropyMap', enabledIf: 'anisotropy' },
+			{ type: 'angle', label: 'Rotation', prop: 'anisotropyRotation', enabledIf: 'anisotropy' }
 		]
 	},
 	{
@@ -70,7 +70,7 @@ const fieldGroups: FieldGroup<Mat>[] = [
 				type: 'vector2',
 				label: 'Coat Normal Scale',
 				prop: 'clearcoatNormalScale',
-				showIf: 'clearcoatNormalMap',
+				enabledIf: 'clearcoatNormalMap',
 				min: 0,
 				max: 1,
 				step: 0.01
@@ -91,7 +91,7 @@ const fieldGroups: FieldGroup<Mat>[] = [
 		value: 'iridescence',
 		fields: [
 			{ type: 'number', label: 'Intensity', prop: 'iridescence', min: 0, max: 1, step: 0.01 },
-			{ type: 'map', label: 'Map', prop: 'iridescenceMap', showIf: 'iridescence' },
+			{ type: 'map', label: 'Map', prop: 'iridescenceMap', enabledIf: 'iridescence' },
 			{ type: 'number', label: 'IOR', prop: 'iridescenceIOR', min: 1, max: 2.333, step: 0.01 }
 			// {
 			// 	type: 'map',

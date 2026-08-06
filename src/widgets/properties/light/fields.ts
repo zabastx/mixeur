@@ -1,6 +1,6 @@
 import type THREE from '@/shared/three'
 import { MathUtils } from 'three'
-import type { FieldDescriptor } from '@/shared/lib/field-descriptor'
+import type { FieldDescriptor, ObjectProp } from '@/shared/lib/field-descriptor'
 
 const commonFields: FieldDescriptor<THREE.Light>[] = [
 	{
@@ -138,6 +138,20 @@ export const lightShadowFields: FieldDescriptor<THREE.LightShadow>[] = [
 		}
 	}
 ]
+
+/**
+ * Resizing `mapSize` leaves the already-allocated render target at the old
+ * resolution, so it has to be dropped for Three.js to reallocate it.
+ */
+export function invalidateShadowMap(
+	shadow: THREE.LightShadow,
+	prop: ObjectProp<THREE.LightShadow>
+) {
+	if (prop !== 'mapSize') return
+
+	shadow.map?.dispose()
+	shadow.map = null
+}
 
 export function getLightFields(light: THREE.Light) {
 	let arr: FieldDescriptor<THREE.Light>[] = []

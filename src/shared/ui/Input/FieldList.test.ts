@@ -60,10 +60,10 @@ describe('FieldList', () => {
 		expect(material.transparent).toBe(true)
 	})
 
-	describe('showIf', () => {
+	describe('enabledIf', () => {
 		const fields: FieldDescriptor<THREE.MeshStandardMaterial>[] = [
 			{ type: 'checkbox', label: 'Transparent', prop: 'transparent' },
-			{ type: 'number', label: 'Opacity', prop: 'opacity', showIf: 'transparent' }
+			{ type: 'number', label: 'Opacity', prop: 'opacity', enabledIf: 'transparent' }
 		]
 
 		it('disables a field whose condition is not met', () => {
@@ -162,17 +162,11 @@ describe('FieldList', () => {
 
 		const TOOLTIP_MAP = new Map([['intensity', { text: 'From the map' }]])
 
-		it('falls back to the tooltip map for a field that declares none', () => {
+		it('resolves a field’s tooltip from the map by property name', () => {
 			expect(tooltipOf([field])).toEqual({ text: 'From the map' })
 		})
 
-		it('prefers a tooltip the field declares itself', () => {
-			expect(tooltipOf([{ ...field, tooltip: { text: 'From the field' } }])).toEqual({
-				text: 'From the field'
-			})
-		})
-
-		it('leaves the tooltip unset when neither source has one', () => {
+		it('leaves the tooltip unset for a property the map does not cover', () => {
 			expect(tooltipOf([{ ...field, prop: 'power' }])).toBeUndefined()
 		})
 	})

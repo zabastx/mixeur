@@ -42,7 +42,7 @@ describe('shared material groups', () => {
 			(field) => field.prop === 'opacity'
 		)
 
-		expect(opacity?.showIf).toBe('transparent')
+		expect(opacity?.enabledIf).toBe('transparent')
 	})
 
 	it('omits the environment intensity for materials without one', () => {
@@ -62,7 +62,7 @@ describe('shared material groups', () => {
 			(field) => field.prop === 'aoMapIntensity'
 		)
 
-		expect(intensity?.showIf).toBe('aoMap')
+		expect(intensity?.enabledIf).toBe('aoMap')
 	})
 
 	it('gives each group a distinct accordion id', () => {

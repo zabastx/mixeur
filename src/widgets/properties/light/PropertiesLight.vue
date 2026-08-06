@@ -35,7 +35,7 @@ import THREE from '@/shared/three'
 import { lightHasShadow } from '@/shared/three/modules/light'
 import { storeToRefs } from 'pinia'
 import { computed, triggerRef } from 'vue'
-import { getLightFields, lightShadowFields } from './fields'
+import { getLightFields, invalidateShadowMap, lightShadowFields } from './fields'
 import { lightShadowTooltipMap, lightTooltipMap } from './tooltips'
 
 const selectionStore = useSelectionStore()
@@ -52,8 +52,9 @@ const light = computed<THREE.Light | null>(() => {
 // Both targets resolve the selection on every access, so switching lights needs
 // no remount to clear the previous one's values.
 const lightTarget = createObjectTarget(light)
-const shadowTarget = createObjectTarget<THREE.LightShadow>(() =>
-	light.value && lightHasShadow(light.value) ? light.value.shadow : null
+const shadowTarget = createObjectTarget<THREE.LightShadow>(
+	() => (light.value && lightHasShadow(light.value) ? light.value.shadow : null),
+	{ afterWrite: invalidateShadowMap }
 )
 
 const castShadow = computed<boolean>({

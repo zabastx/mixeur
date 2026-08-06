@@ -56,40 +56,22 @@ describe('createObjectTarget', () => {
 		expect(() => target.write('intensity', 5)).not.toThrow()
 	})
 
-	describe('shadow map invalidation', () => {
-		it('disposes and clears the render target when mapSize changes', () => {
-			const shadow = new THREE.DirectionalLight().shadow
-			const dispose = vi.fn()
-			shadow.map = { dispose } as unknown as THREE.WebGLRenderTarget
+	describe('afterWrite', () => {
+		it('runs after the assignment has landed, with the object and property', () => {
+			const light = new THREE.PointLight()
+			const afterWrite = vi.fn(() => expect(light.intensity).toBe(4))
 
-			const target = createObjectTarget(() => shadow)
-			target.write('mapSize', new THREE.Vector2(1024, 1024))
+			createObjectTarget(() => light, { afterWrite }).write('intensity', 4)
 
-			expect(shadow.mapSize.width).toBe(1024)
-			expect(dispose).toHaveBeenCalledOnce()
-			expect(shadow.map).toBeNull()
+			expect(afterWrite).toHaveBeenCalledExactlyOnceWith(light, 'intensity')
 		})
 
-		it('does nothing when there is no render target to drop', () => {
-			const shadow = new THREE.DirectionalLight().shadow
-			shadow.map = null
+		it('is not called when there is nothing to write to', () => {
+			const afterWrite = vi.fn()
 
-			const target = createObjectTarget(() => shadow)
+			createObjectTarget<THREE.PointLight>(() => null, { afterWrite }).write('intensity', 4)
 
-			expect(() => target.write('mapSize', new THREE.Vector2(512, 512))).not.toThrow()
-			expect(shadow.map).toBeNull()
-		})
-
-		it('leaves the render target alone for every other property', () => {
-			const shadow = new THREE.DirectionalLight().shadow
-			const dispose = vi.fn()
-			shadow.map = { dispose } as unknown as THREE.WebGLRenderTarget
-
-			const target = createObjectTarget(() => shadow)
-			target.write('bias', -0.001)
-
-			expect(dispose).not.toHaveBeenCalled()
-			expect(shadow.map).not.toBeNull()
+			expect(afterWrite).not.toHaveBeenCalled()
 		})
 	})
 })

@@ -25,7 +25,11 @@ export function decode<K extends FieldType>(type: K, raw: unknown): FieldValueMa
 	}
 }
 
-/** Inverse of {@link decode}: turns an input's value into what the object stores. */
+/**
+ * Turns an input's value into what the object stores — the inverse of
+ * {@link decode}, except for `range`, which always stores a `THREE.Vector2`
+ * even though `decode` will read back either that or a plain tuple.
+ */
 export function encode<K extends FieldType>(type: K, value: FieldValueMap[K]): unknown {
 	switch (type) {
 		case 'color':
