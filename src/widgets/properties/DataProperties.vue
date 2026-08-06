@@ -31,7 +31,7 @@
 import ObjectProperties from './object/ObjectProperties.vue'
 import { Tabs } from 'reka-ui/namespaced'
 import { computed, ref, watch, type Component } from 'vue'
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { TextGeometry } from 'three/examples/jsm/Addons.js'
 import CameraProperties from './camera/CameraProperties.vue'
@@ -41,7 +41,7 @@ import PropertiesGeometry from './geometry/PropertiesGeometry.vue'
 import TextDataProperties from './text/TextDataProperties.vue'
 import PropertiesLight from './light/PropertiesLight.vue'
 
-const store = useThreeStore()
+const store = useSelectionStore()
 
 const activetab = ref('object')
 

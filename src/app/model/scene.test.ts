@@ -14,25 +14,22 @@ const raycastHolder = vi.hoisted(() => ({
 	addToRaycaster: vi.fn(),
 	removeFromRaycaster: vi.fn()
 }))
-const controlsHolder = vi.hoisted(() => ({
-	transformControls: { detach: vi.fn(), attach: vi.fn() }
-}))
 const composerHolder = vi.hoisted(() => ({ removeFromOutline: vi.fn() }))
 const cameraHolder = vi.hoisted(() => ({
 	renderCamera: null as THREE.Object3D | null,
 	setRenderCamera: vi.fn()
 }))
-const threeHolder = vi.hoisted(() => ({
-	selectObject: vi.fn(),
+const selectionHolder = vi.hoisted(() => ({
+	select: vi.fn(),
+	clear: vi.fn(),
 	selectedObject: null as THREE.Object3D | null
 }))
 
 vi.mock('./shading', () => ({ useShadingStore: () => shadingHolder }))
 vi.mock('./raycast', () => ({ useRaycastStore: () => raycastHolder }))
-vi.mock('./controls', () => ({ useControlsStore: () => controlsHolder }))
 vi.mock('./composer', () => ({ useComposerStore: () => composerHolder }))
 vi.mock('./camera', () => ({ useCameraStore: () => cameraHolder }))
-vi.mock('./three', () => ({ useThreeStore: () => threeHolder }))
+vi.mock('./selection', () => ({ useSelectionStore: () => selectionHolder }))
 
 import { useSceneStore } from './scene'
 
@@ -46,7 +43,7 @@ describe('useSceneStore graph operations', () => {
 		vi.clearAllMocks()
 		shadingHolder.shadingMode = 'rendered'
 		cameraHolder.renderCamera = null
-		threeHolder.selectedObject = null
+		selectionHolder.selectedObject = null
 	})
 
 	describe('addGroup', () => {
@@ -121,7 +118,7 @@ describe('useSceneStore graph operations', () => {
 			expect(mesh.castShadow).toBe(true)
 			expect(raycastHolder.addToRaycaster).toHaveBeenCalledWith(mesh)
 			expect(shadingHolder.cacheNewObjectMaterials).toHaveBeenCalledWith(mesh)
-			expect(threeHolder.selectObject).toHaveBeenCalledWith(mesh)
+			expect(selectionHolder.select).toHaveBeenCalledWith(mesh)
 		})
 
 		it('adds the object under an explicit parent when provided', () => {

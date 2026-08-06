@@ -13,11 +13,11 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import { storeToRefs } from 'pinia'
-import { computed, triggerRef } from 'vue'
+import { computed } from 'vue'
 
-const store = useThreeStore()
+const store = useSelectionStore()
 
 const { selectedObject } = storeToRefs(store)
 
@@ -25,7 +25,7 @@ const positionX = computed({
 	set(val: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.position.x = val
-		triggerRef(selectedObject)
+		store.refresh()
 	},
 	get() {
 		return selectedObject.value?.position.x
@@ -36,7 +36,7 @@ const positionY = computed({
 	set(val: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.position.y = val
-		triggerRef(selectedObject)
+		store.refresh()
 	},
 	get() {
 		return selectedObject.value?.position.y
@@ -47,7 +47,7 @@ const positionZ = computed({
 	set(val: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.position.z = val
-		triggerRef(selectedObject)
+		store.refresh()
 	},
 	get() {
 		return selectedObject.value?.position.z

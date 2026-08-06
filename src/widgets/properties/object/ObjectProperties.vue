@@ -1,8 +1,8 @@
 <template>
-	<template v-if="threeStore.selectedObject">
+	<template v-if="selectionStore.selectedObject">
 		<InputField v-slot="{ id }" label="Name" class="mb-2.5 text-xs">
 			<InputText
-				v-model="threeStore.selectedObject.name"
+				v-model="selectionStore.selectedObject.name"
 				:input-id="id"
 				@change="sceneStore.updateScene"
 			/>
@@ -24,8 +24,8 @@
 
 <script lang="ts" setup>
 import { useSceneStore } from '@/app/model/scene'
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 
-const threeStore = useThreeStore()
+const selectionStore = useSelectionStore()
 const sceneStore = useSceneStore()
 </script>

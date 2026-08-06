@@ -1,12 +1,12 @@
 import { useShadingStore } from '@/app/model/shading'
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { computed, triggerRef } from 'vue'
 import type { FieldValueMap, MaterialProp, MeshMaterials } from './utils/types'
 import { storeToRefs } from 'pinia'
 
 const mesh = computed(() => {
-	const { selectedObject } = storeToRefs(useThreeStore())
+	const { selectedObject } = storeToRefs(useSelectionStore())
 	if (selectedObject.value instanceof THREE.Mesh) {
 		return selectedObject.value
 	}

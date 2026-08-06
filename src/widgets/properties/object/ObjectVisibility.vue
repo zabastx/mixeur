@@ -24,19 +24,19 @@
 
 <script lang="ts" setup>
 import { useSceneStore } from '@/app/model/scene'
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { getUserData } from '@/shared/three/utils'
 import { storeToRefs } from 'pinia'
-import { computed, triggerRef } from 'vue'
+import { computed } from 'vue'
 
-const threeStore = useThreeStore()
+const selectionStore = useSelectionStore()
 const sceneStore = useSceneStore()
 
-const { selectedObject } = storeToRefs(threeStore)
+const { selectedObject } = storeToRefs(selectionStore)
 
 function updateObject() {
-	triggerRef(selectedObject)
+	selectionStore.refresh()
 }
 
 const isSelectable = computed<boolean>({

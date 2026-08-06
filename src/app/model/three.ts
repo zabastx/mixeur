@@ -1,5 +1,5 @@
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
-import { ref, shallowRef, type ShallowRef } from 'vue'
+import { ref, type ShallowRef } from 'vue'
 import THREE from '@/shared/three'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/Addons.js'
 import { useStats } from '@/shared/three/modules/extras/stats'
@@ -9,66 +9,10 @@ import { useCameraStore } from './camera'
 import { useControlsStore } from './controls'
 import { useRaycastStore } from './raycast'
 import { usePreferencesStore } from './preferences'
-import { getUserData } from '@/shared/three/utils'
 import { useSceneStore } from './scene'
 
 export const useThreeStore = defineStore('three', () => {
 	const isInitiated = ref(false)
-
-	const selectedObject = shallowRef<THREE.Object3D | THREE.Light | THREE.Mesh | null>(null)
-
-	function selectObject(target?: string | THREE.Object3D, raycasted?: boolean) {
-		if (!target) return (selectedObject.value = null)
-
-		const sceneStore = useSceneStore()
-		const { transformControls } = useControlsStore()
-		const { setOutlineObjects } = useComposerStore()
-
-		const object =
-			typeof target === 'string' ? sceneStore.scene.getObjectByProperty('uuid', target) : target
-
-		if (!object || (raycasted && !getUserData(object).isSelectable)) return
-
-		if (object instanceof THREE.Light) {
-			transformControls?.attach(object)
-			selectedObject.value = object
-			const helper = sceneStore.scene.getObjectByProperty('light', object)
-			if (helper) {
-				setOutlineObjects([helper])
-			}
-			return
-		}
-
-		if (object instanceof THREE.Camera) {
-			transformControls?.attach(object)
-			selectedObject.value = object
-			const helper = sceneStore.scene.getObjectByProperty('camera', object)
-			if (helper) {
-				setOutlineObjects([helper])
-			}
-			return
-		}
-
-		if ('light' in object) {
-			const light = object.light as THREE.Light
-			transformControls?.attach(light)
-			setOutlineObjects([object])
-			selectedObject.value = light
-			return
-		}
-
-		if ('camera' in object) {
-			const camera = object.camera as THREE.Camera
-			transformControls?.attach(camera)
-			setOutlineObjects([object])
-			selectedObject.value = camera
-			return
-		}
-
-		transformControls?.attach(object)
-		setOutlineObjects([object])
-		selectedObject.value = object
-	}
 
 	const { setFPSCounter, monitor, updateMonitor } = useStats()
 
@@ -142,8 +86,6 @@ export const useThreeStore = defineStore('three', () => {
 
 	return {
 		initScene,
-		selectedObject,
-		selectObject,
 		monitor,
 		isInitiated
 	}

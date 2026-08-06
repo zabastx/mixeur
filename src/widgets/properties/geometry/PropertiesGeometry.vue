@@ -13,7 +13,7 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { computed } from 'vue'
 import PropertiesGeometryBox from './PropertiesGeometryBox.vue'
@@ -27,7 +27,7 @@ import PropertiesGeometryTorus from './PropertiesGeometryTorus.vue'
 import { enableBVH } from '@/shared/three/utils'
 import { storeToRefs } from 'pinia'
 
-const { selectedObject } = storeToRefs(useThreeStore())
+const { selectedObject } = storeToRefs(useSelectionStore())
 
 const object = computed(() => selectedObject.value as THREE.Mesh)
 

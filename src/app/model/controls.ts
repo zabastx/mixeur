@@ -1,13 +1,11 @@
 import { ViewportGizmo } from 'three-viewport-gizmo'
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
-import { ref, shallowRef, triggerRef, watch } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { TransformControls, type TransformControlsMode } from 'three/examples/jsm/Addons.js'
 import THREE from '@/shared/three'
 import { useComposerStore } from './composer'
-import type { LightHelper } from '@/shared/three/modules/light'
-import { useThreeStore } from './three'
-import { getUserData } from '@/shared/three/utils'
+import { useSelectionStore } from './selection'
 import { useCameraStore } from './camera'
 import { useInputStore } from './input'
 import { MathUtils } from 'three'
@@ -122,7 +120,7 @@ export const useControlsStore = defineStore('controls', () => {
 			transformControls.value.camera = newCamera
 		})
 
-		const { selectedObject } = storeToRefs(useThreeStore())
+		const selectionStore = useSelectionStore()
 		const { isCtrlDown } = storeToRefs(useInputStore())
 
 		watch(isCtrlDown, (newVal) => {
@@ -144,7 +142,7 @@ export const useControlsStore = defineStore('controls', () => {
 		}
 
 		transformControls.value.addEventListener('objectChange', () => {
-			triggerRef(selectedObject)
+			selectionStore.refresh()
 		})
 
 		transformControls.value.addEventListener('dragging-changed', (e) => {
@@ -156,30 +154,6 @@ export const useControlsStore = defineStore('controls', () => {
 			}
 			isTransformDrag.value = !!e.value
 			wasDragging.value = !e.value
-		})
-
-		transformControls.value?.addEventListener('object-changed', (e) => {
-			const { outlinePassRef } = useComposerStore()
-			const { selectedObject } = storeToRefs(useThreeStore())
-
-			const object = e.target.object as unknown as THREE.Object3D | LightHelper | undefined
-
-			if (!object) {
-				if (!outlinePassRef) return
-				outlinePassRef.selectedObjects = []
-				return
-			}
-
-			if ('light' in object) {
-				transformControls.value?.attach(object.light)
-				selectedObject.value = object.light
-				return
-			}
-
-			if (getUserData(object).skipRaycast && object.parent) {
-				transformControls.value?.attach(object.parent)
-				selectedObject.value = object.parent
-			}
 		})
 
 		useEventListener(window, 'keydown', (e) => {
@@ -214,7 +188,7 @@ export const useControlsStore = defineStore('controls', () => {
 				quaternion.copy(stateBeforeDrag.quaternion)
 				scale.copy(stateBeforeDrag.scale)
 				transformControls.value.pointerUp(null)
-				triggerRef(selectedObject)
+				selectionStore.refresh()
 			}
 		})
 	}
