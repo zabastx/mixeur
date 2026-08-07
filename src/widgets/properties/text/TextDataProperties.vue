@@ -55,16 +55,13 @@ import { defaultFontsList, loadFont } from '@/shared/three/modules/loaders/font'
 import { createTextGeometry } from '@/shared/three/modules/text'
 import { enableBVH, getUserData } from '@/shared/three/utils'
 import { TextGeometry } from 'three/examples/jsm/Addons.js'
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 
 const store = useSelectionStore()
 
 const textData = reactive({
 	text: '',
-	font: defaultFontsList.find((item) => {
-		const cur = getCurrentTextData()?.font?.value
-		return item.value === cur
-	})?.value,
+	font: undefined as string | undefined,
 	depth: 1,
 	size: 2,
 	bevelEnabled: false,
@@ -74,7 +71,9 @@ const textData = reactive({
 	bevelSegments: 3
 })
 
-setCurrentTextData()
+// The properties panel keys its tab content by tab value, so this panel is not
+// remounted when the selection changes — the draft has to be resynced by hand.
+watch(() => store.selectedObject, setCurrentTextData, { immediate: true })
 
 async function onApply() {
 	if (!textData.text || !textData.font) return
@@ -133,6 +132,7 @@ function setCurrentTextData() {
 	const data = getCurrentTextData()
 	if (!data) return
 	textData.text = data.text ?? ''
+	textData.font = data.font?.value
 	textData.depth = data.geometry.depth ?? 1
 	textData.size = data.geometry.size ?? 2
 	textData.bevelEnabled = data.geometry.bevelEnabled ?? false

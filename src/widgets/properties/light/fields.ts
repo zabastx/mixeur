@@ -1,8 +1,8 @@
 import type THREE from '@/shared/three'
 import { MathUtils } from 'three'
-import type { InputField } from '@/shared/lib/input-field/types'
+import type { FieldDescriptor, ObjectProp } from '@/shared/lib/field-descriptor'
 
-const commonFields: InputField<THREE.Light>[] = [
+const commonFields: FieldDescriptor<THREE.Light>[] = [
 	{
 		prop: 'color',
 		type: 'color',
@@ -17,9 +17,9 @@ const commonFields: InputField<THREE.Light>[] = [
 ]
 
 const lightFields: {
-	spot: InputField<THREE.SpotLight>[]
-	point: InputField<THREE.PointLight>[]
-	rect: InputField<THREE.RectAreaLight>[]
+	spot: FieldDescriptor<THREE.SpotLight>[]
+	point: FieldDescriptor<THREE.PointLight>[]
+	rect: FieldDescriptor<THREE.RectAreaLight>[]
 } = {
 	point: [
 		{
@@ -91,7 +91,7 @@ const lightFields: {
 	]
 }
 
-export const lightShadowFields: InputField<THREE.LightShadow>[] = [
+export const lightShadowFields: FieldDescriptor<THREE.LightShadow>[] = [
 	{
 		prop: 'bias',
 		label: 'Bias',
@@ -139,17 +139,31 @@ export const lightShadowFields: InputField<THREE.LightShadow>[] = [
 	}
 ]
 
+/**
+ * Resizing `mapSize` leaves the already-allocated render target at the old
+ * resolution, so it has to be dropped for Three.js to reallocate it.
+ */
+export function invalidateShadowMap(
+	shadow: THREE.LightShadow,
+	prop: ObjectProp<THREE.LightShadow>
+) {
+	if (prop !== 'mapSize') return
+
+	shadow.map?.dispose()
+	shadow.map = null
+}
+
 export function getLightFields(light: THREE.Light) {
-	let arr: InputField<THREE.Light>[] = []
+	let arr: FieldDescriptor<THREE.Light>[] = []
 	switch (light.type) {
 		case 'PointLight':
-			arr = lightFields.point as InputField<THREE.Light>[]
+			arr = lightFields.point as FieldDescriptor<THREE.Light>[]
 			break
 		case 'SpotLight':
-			arr = lightFields.spot as InputField<THREE.Light>[]
+			arr = lightFields.spot as FieldDescriptor<THREE.Light>[]
 			break
 		case 'RectAreaLight':
-			arr = lightFields.rect as InputField<THREE.Light>[]
+			arr = lightFields.rect as FieldDescriptor<THREE.Light>[]
 			break
 	}
 
