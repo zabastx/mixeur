@@ -11,7 +11,9 @@ export const VARIANTS = [
 	{ key: 'off', name: 'App as it ships' },
 	{ key: 'A', name: 'Split viewport' },
 	{ key: 'B', name: 'Workspace tab' },
-	{ key: 'C', name: 'Sidebar dock' }
+	{ key: 'C', name: 'Sidebar dock' },
+	// The merge of A and B, and the one to judge the others against.
+	{ key: 'D', name: 'Workspace split' }
 ] as const
 
 export type VariantKey = (typeof VARIANTS)[number]['key']

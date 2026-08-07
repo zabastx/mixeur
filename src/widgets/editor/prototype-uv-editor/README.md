@@ -32,6 +32,7 @@ It only renders in dev builds.
 | `http://localhost:5173/?variant=A` | **A** — split viewport                |
 | `http://localhost:5173/?variant=B` | **B** — workspace tab                 |
 | `http://localhost:5173/?variant=C` | **C** — sidebar dock                  |
+| `http://localhost:5173/?variant=D` | **D** — workspace split (the merge)   |
 
 Without `?variant=`, `App.vue` renders the untouched layout — the prototype
 costs the normal app nothing.
@@ -40,9 +41,11 @@ Add a cube, select it, and press **Grid** / **UV grid texture** to put a
 labelled UV grid on its material. Then **Pack** — three.js maps every primitive
 face to the whole 0–1 tile, so until you pack there is nothing to look at.
 
-## The three bets
+## The bets
 
 Variants disagree about structure, not styling. Each one owns its own `<main>`.
+A, B and C are the three original bets; **D is the merge that came out of
+comparing them, and is the one to judge the rest against.**
 
 **A — Split viewport.** The 3D view gives up half its width; both views are
 permanently on screen with one dense control strip between them. Blender's UV
@@ -61,6 +64,19 @@ nudge with buttons. Deliberately unfashionable: no dragging, no modes, no pivot
 dropdown. _Bet: most UV work in a web editor is coarse — pack, spot an overlap,
 shove an island off another — and a list beats a canvas for exactly that, while
 costing the layout nothing._
+
+**D — Workspace split.** B's tabs, promoted out of the editor area and into the
+top-level header where Blender keeps them, driving A's permanent split: UV pane
+left, 3D right, outliner and properties still on the far right. B's labelled
+rail lives inside the UV pane. _Bet: a workspace swaps the whole layout, so its
+control belongs to the window rather than to any panel inside it — and once the
+tab has already committed you to UV work, the 3D view is worth keeping full
+size rather than shrinking to an inset._
+
+What each parent gave up: B loses the full-stage takeover and the 3D inset; A
+loses its cramped one-line control strip and gets back the outliner and
+properties it had to squeeze. The viewport is never unmounted when tabbing, only
+resized.
 
 ## What is real and what is not
 
@@ -81,11 +97,16 @@ same.
 | `uv-grid-texture.ts`                  | Maybe — a generated UV grid is useful on its own.                                          |
 | `UvCanvas.vue`                        | Partly — the drawing is sound; the component shape is not considered.                      |
 | `use-uv-editor.ts`                    | No — prototype glue, module-scoped singleton state.                                        |
-| `Variant*.vue`                        | No — two get deleted, one gets rewritten properly.                                         |
+| `Variant*.vue`                        | No — three get deleted, one gets rewritten properly.                                       |
+| `WorkspaceTabs.vue`, `workspace.ts`   | Maybe — workspaces are a real feature in their own right, well beyond UV editing.          |
 | `variant.ts`, `PrototypeSwitcher.vue` | No — scaffolding.                                                                          |
 
 ## Removing it
 
 1. Delete this folder.
-2. In `src/App.vue`, drop the `useVariant`/`isDev` lines, the three `Variant*`
-   branches, and `<PrototypeSwitcher />` — each is marked `PROTOTYPE`.
+2. In `src/App.vue`, drop the `useVariant`/`isDev` lines, the four `Variant*`
+   branches, and `<PrototypeSwitcher />`.
+3. In `src/widgets/editor/header/TopBar.vue`, drop the `useVariant` import, the
+   `uvVariant` line, and `<WorkspaceTabs />`.
+
+Every touchpoint outside this folder is marked `PROTOTYPE`.

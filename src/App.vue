@@ -10,6 +10,7 @@
 				<VariantASplit v-if="uvVariant === 'A'" />
 				<VariantBWorkspace v-else-if="uvVariant === 'B'" />
 				<VariantCDock v-else-if="uvVariant === 'C'" />
+				<VariantDWorkspaceSplit v-else-if="uvVariant === 'D'" />
 
 				<main
 					v-else

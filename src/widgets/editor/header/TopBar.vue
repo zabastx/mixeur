@@ -1,6 +1,9 @@
 <template>
 	<header class="flex items-center bg-topbar-background p-1 px-2 gap-2">
 		<MenuBar :items="menuItems" />
+		<!-- PROTOTYPE: variant D puts workspace tabs here, beside the menus, the
+		     way Blender does. Remove with src/widgets/editor/prototype-uv-editor/ -->
+		<WorkspaceTabs v-if="uvVariant === 'D'" />
 		<button
 			v-if="isUpdateAvailable"
 			class="ml-auto text-xs cursor-pointer flex gap-1 hover:brightness-125 border-ui-box-outline
@@ -31,6 +34,10 @@ import { usePWAUpdate } from '@/app/composables/usePWAUpdate'
 import type { IMenubarMenu } from '@/shared/ui/MenuBar.vue'
 import { storeToRefs } from 'pinia'
 import { useFileDialog } from '@vueuse/core'
+// PROTOTYPE — remove with src/widgets/editor/prototype-uv-editor/
+import { useVariant } from '@/widgets/editor/prototype-uv-editor/variant'
+
+const uvVariant = useVariant()
 
 const appStore = useAppStore()
 const sceneStore = useSceneStore()
