@@ -17,7 +17,7 @@
 <script lang="ts" setup>
 import { version } from '@/../package.json'
 import KeymapInformation from './KeymapInformation.vue'
-import { useThreeStore } from '@/app/model/three'
+import { useViewportStore } from '@/app/model/viewport'
 
-const store = useThreeStore()
+const store = useViewportStore()
 </script>

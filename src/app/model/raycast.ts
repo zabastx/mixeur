@@ -1,7 +1,7 @@
 import THREE from '@/shared/three'
 import { useEventListener } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
-import { shallowRef, type ShallowRef } from 'vue'
+import { shallowRef } from 'vue'
 import { useControlsStore } from './controls'
 import { useCameraStore } from './camera'
 import { useSelectionStore } from './selection'
@@ -10,7 +10,13 @@ import { getUserData } from '@/shared/three/utils'
 export const useRaycastStore = defineStore('raycast', () => {
 	const raycastObjects = shallowRef<THREE.Object3D[]>([])
 
-	function init(canvasRef: ShallowRef<HTMLCanvasElement | null>) {
+	/**
+	 * Bind viewport picking to `canvas`.
+	 *
+	 * Both listeners are reactive effects, so the caller's effect scope releases
+	 * them — there is nothing for this to hand back.
+	 */
+	function init(canvas: HTMLCanvasElement) {
 		const raycaster = new THREE.Raycaster()
 		const pointer = new THREE.Vector2()
 		raycaster.firstHitOnly = true
@@ -18,14 +24,14 @@ export const useRaycastStore = defineStore('raycast', () => {
 		const { wasDragging } = storeToRefs(useControlsStore())
 		const { activeCamera } = storeToRefs(useCameraStore())
 
-		useEventListener(canvasRef, 'pointermove', (e) => {
+		useEventListener(canvas, 'pointermove', (e) => {
 			const target = e.target as HTMLElement
 			if (!target) return
 			pointer.x = (e.offsetX / target.clientWidth) * 2 - 1
 			pointer.y = -(e.offsetY / target.clientHeight) * 2 + 1
 		})
 
-		useEventListener(canvasRef, 'click', () => {
+		useEventListener(canvas, 'click', () => {
 			// Prevents deselection when using transform controls
 			if (wasDragging.value) return (wasDragging.value = false)
 

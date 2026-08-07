@@ -1,6 +1,11 @@
 import THREE from '@/shared/three'
-import { initPMREMGenerator } from '@/shared/three/modules/extras/pmremGenerator'
-import { attachRenderer } from '@/shared/three/modules/loaders/renderer-context'
+import { createTeardown, type Teardown } from '@/shared/lib/teardown'
+import {
+	disposePMREMGenerator,
+	initPMREMGenerator
+} from '@/shared/three/modules/extras/pmremGenerator'
+import { attachRenderer, detachRenderer } from '@/shared/three/modules/loaders/renderer-context'
+import { disposeWorldMapCache } from '@/shared/three/modules/loaders/environment'
 import { useResizeObserver } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { ViewportGizmo } from 'three-viewport-gizmo'
@@ -57,13 +62,18 @@ export const useComposerStore = defineStore('composer', () => {
 		canvas,
 		gizmo,
 		scene,
-		renderer
-	}: ComposerParameters & { renderer: THREE.WebGLRenderer }) {
+		renderer,
+		teardown
+	}: ComposerParameters & { renderer: THREE.WebGLRenderer; teardown: Teardown }) {
 		const composer = new EffectComposer(renderer)
+		// `EffectComposer.dispose` only releases its own read/write buffers and
+		// copy pass — the passes added below are the caller's to release.
+		teardown.add(() => composer.dispose())
 		composer.setPixelRatio(window.devicePixelRatio)
 
 		const renderPass = new RenderPass(scene, camera.value)
 		composer.addPass(renderPass)
+		teardown.add(() => renderPass.dispose())
 
 		const outlinePass = new OutlinePass(
 			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
@@ -76,10 +86,12 @@ export const useComposerStore = defineStore('composer', () => {
 		outlinePass.visibleEdgeColor.set('#ffaa00')
 		outlinePass.hiddenEdgeColor.set('#ffaa00')
 		composer.addPass(outlinePass)
+		teardown.add(() => outlinePass.dispose())
 		outlinePassRef.value = outlinePass
 
 		const outputPass = new OutputPass()
 		composer.addPass(outputPass)
+		teardown.add(() => outputPass.dispose())
 
 		watch(camera, (newCamera) => {
 			renderPass.camera = newCamera
@@ -133,18 +145,44 @@ export const useComposerStore = defineStore('composer', () => {
 		return { composer, renderer }
 	}
 
+	/**
+	 * Build the viewport's renderer and post-processing chain, and return them
+	 * along with the release that undoes all of it.
+	 *
+	 * The watcher and resize observer set up along the way are left to the
+	 * caller's effect scope; `dispose` covers what Vue cannot see — GPU
+	 * resources and the two module-level references to the renderer.
+	 */
 	function init({ camera, canvas, gizmo, scene }: ComposerParameters) {
+		const teardown = createTeardown()
+
 		const renderer = setupRenderer({ canvas })
+		teardown.add(() => {
+			renderer.dispose()
+			// `dispose` frees what Three.js allocated; the GL context itself only
+			// goes away when the driver is told to drop it, and browsers cap how
+			// many contexts a page may hold at once.
+			renderer.forceContextLoss()
+		})
 
 		initPMREMGenerator(renderer)
+		teardown.add(disposePMREMGenerator)
+
+		// The cached world maps are PMREM output, so they belong to this renderer
+		// too — kept past its death they are handles into a GL context that is
+		// gone. Clearing the cache makes the next viewport rebuild them.
+		teardown.add(disposeWorldMapCache)
+
 		attachRenderer(renderer)
+		teardown.add(detachRenderer)
 
 		const { composer, handleResize, outlinePass } = setupComposer({
 			canvas,
 			camera,
 			gizmo,
 			scene,
-			renderer
+			renderer,
+			teardown
 		})
 
 		rendererRef.value = renderer
@@ -154,7 +192,15 @@ export const useComposerStore = defineStore('composer', () => {
 			composer,
 			handleResize,
 			outlinePass,
-			renderer
+			renderer,
+			dispose() {
+				teardown.run()
+				// Cleared after the releases have run, not as one of them: a
+				// release that read these would find them already gone.
+				rendererRef.value = undefined
+				composerRef.value = undefined
+				outlinePassRef.value = undefined
+			}
 		}
 	}
 

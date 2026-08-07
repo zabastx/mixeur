@@ -14,6 +14,14 @@ export function attachRenderer(renderer: THREE.WebGLRenderer) {
 	current = renderer
 }
 
+/**
+ * Paired with `attachRenderer`, so a disposed renderer is not handed to a
+ * loader that would then query a dead GL context.
+ */
+export function detachRenderer() {
+	current = null
+}
+
 export function activeRenderer() {
 	return current
 }

@@ -1,6 +1,7 @@
 import { useEventListener, useKeyModifier } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { ref, type ShallowRef } from 'vue'
+import { ref } from 'vue'
+import { onKeyDown } from '@/shared/lib/keyboard'
 import { useSelectionStore } from './selection'
 import { useSceneStore } from './scene'
 import { useControlsStore } from './controls'
@@ -14,13 +15,19 @@ export const useInputStore = defineStore('input', () => {
 
 	const pointerOnCanvas = ref(false)
 
-	function init(canvas: ShallowRef<HTMLCanvasElement | null>) {
+	/**
+	 * Bind the viewport's pointer, keyboard and wheel input.
+	 *
+	 * Everything registered here is a reactive effect, so the caller's effect
+	 * scope releases it — there is nothing for this to hand back.
+	 */
+	function init(canvas: HTMLCanvasElement) {
 		initPointerEvents(canvas)
 		initKeyboardEvents()
 		initWheelEvents(canvas)
 	}
 
-	function initPointerEvents(canvas: ShallowRef<HTMLCanvasElement | null>) {
+	function initPointerEvents(canvas: HTMLCanvasElement) {
 		useEventListener(canvas, 'pointerenter', () => (pointerOnCanvas.value = true))
 		useEventListener(canvas, 'pointerleave', () => (pointerOnCanvas.value = false))
 
@@ -33,9 +40,10 @@ export const useInputStore = defineStore('input', () => {
 	}
 
 	function initKeyboardEvents() {
-		const ignoredElements = ['input', 'textarea', 'select']
-
-		useEventListener(window, 'keydown', (e) => {
+		// Saving and opening must survive a focused text field, so they run in
+		// the `app` phase; everything below is editor input and is skipped while
+		// the user is typing.
+		onKeyDown('app', (e) => {
 			const sceneStore = useSceneStore()
 			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
 				e.preventDefault()
@@ -47,18 +55,10 @@ export const useInputStore = defineStore('input', () => {
 			}
 		})
 
-		useEventListener(window, 'keydown', (e) => {
+		onKeyDown('editor', (e) => {
 			const selectionStore = useSelectionStore()
 			const sceneStore = useSceneStore()
 			const appStore = useAppStore()
-
-			if (
-				e.target instanceof HTMLElement &&
-				ignoredElements.includes(e.target.tagName.toLowerCase())
-			) {
-				e.stopImmediatePropagation()
-				return
-			}
 
 			if (!pointerOnCanvas.value) return
 
@@ -85,7 +85,7 @@ export const useInputStore = defineStore('input', () => {
 		})
 	}
 
-	function initWheelEvents(canvas: ShallowRef<HTMLCanvasElement | null>) {
+	function initWheelEvents(canvas: HTMLCanvasElement) {
 		useEventListener(canvas, 'wheel', (event) => {
 			event.preventDefault()
 

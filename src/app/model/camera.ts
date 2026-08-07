@@ -4,7 +4,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useSceneStore } from './scene'
 import { getUserData } from '@/shared/three/utils'
-import { useEventListener } from '@vueuse/core'
+import { onKeyDown } from '@/shared/lib/keyboard'
 import { useComposerStore } from './composer'
 
 export const useCameraStore = defineStore('camera', () => {
@@ -57,7 +57,10 @@ export const useCameraStore = defineStore('camera', () => {
 	activeCamera.value.position.set(8, 8, 8)
 	activeCamera.value.lookAt(0, 0, 0)
 
-	useEventListener(window, 'keydown', (e) => {
+	// Registered in the store body, so it is released with the camera store
+	// rather than with the viewport — which camera is active is scene state and
+	// survives a viewport remount.
+	onKeyDown('editor', (e) => {
 		switch (e.code) {
 			case 'Numpad5': // Perspective / Orthographic camera toggle
 				e.preventDefault()
