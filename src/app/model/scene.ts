@@ -8,10 +8,9 @@ import { exportModel } from '@/shared/three/modules/addons/exporter'
 import { getUserData, enableBVH } from '@/shared/three/utils'
 import { useShadingStore } from './shading'
 import { useRaycastStore } from './raycast'
-import { useControlsStore } from './controls'
+import { useSelectionStore } from './selection'
 import { useComposerStore } from './composer'
 import { useCameraStore } from './camera'
-import { useThreeStore } from './three'
 import { downloadFile } from '@/shared/lib/files'
 import { useFileDialog } from '@vueuse/core'
 import { encodeProject, decodeProject } from '@/shared/lib/project-file'
@@ -142,8 +141,7 @@ export const useSceneStore = defineStore('scene', () => {
 
 		cacheNewObjectMaterials(object)
 
-		const threeStore = useThreeStore()
-		threeStore.selectObject(object)
+		useSelectionStore().select(object)
 		updateScene()
 	}
 
@@ -160,18 +158,18 @@ export const useSceneStore = defineStore('scene', () => {
 	}
 
 	function deleteFromScene(uuid: string) {
-		const { transformControls } = useControlsStore()
 		const { removeFromRaycaster } = useRaycastStore()
 		const { clearMaterialCache } = useShadingStore()
 		const { removeFromOutline } = useComposerStore()
-		const { selectObject, selectedObject } = useThreeStore()
+		const selectionStore = useSelectionStore()
 
-		transformControls?.detach()
 		const object = scene.value.getObjectByProperty('uuid', uuid)
 
 		if (!object) return console.warn('deleteFromScene: object is undefined')
 
-		if (selectedObject?.uuid === object.uuid) selectObject()
+		// Deleting a subtree takes its descendants with it, so the selection has to
+		// go if it lives anywhere inside the object being removed.
+		if (selectionStore.isSelectedWithin(object)) selectionStore.clear()
 
 		const helperUUID = getUserData(object).helperUUID
 		if (helperUUID) {

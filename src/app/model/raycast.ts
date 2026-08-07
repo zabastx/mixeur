@@ -3,9 +3,8 @@ import { useEventListener } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
 import { shallowRef, type ShallowRef } from 'vue'
 import { useControlsStore } from './controls'
-import { useComposerStore } from './composer'
 import { useCameraStore } from './camera'
-import { useThreeStore } from './three'
+import { useSelectionStore } from './selection'
 import { getUserData } from '@/shared/three/utils'
 
 export const useRaycastStore = defineStore('raycast', () => {
@@ -16,8 +15,7 @@ export const useRaycastStore = defineStore('raycast', () => {
 		const pointer = new THREE.Vector2()
 		raycaster.firstHitOnly = true
 
-		const { wasDragging, transformControls } = storeToRefs(useControlsStore())
-		const { outlinePassRef } = storeToRefs(useComposerStore())
+		const { wasDragging } = storeToRefs(useControlsStore())
 		const { activeCamera } = storeToRefs(useCameraStore())
 
 		useEventListener(canvasRef, 'pointermove', (e) => {
@@ -28,7 +26,6 @@ export const useRaycastStore = defineStore('raycast', () => {
 		})
 
 		useEventListener(canvasRef, 'click', () => {
-			if (!outlinePassRef.value) return
 			// Prevents deselection when using transform controls
 			if (wasDragging.value) return (wasDragging.value = false)
 
@@ -40,15 +37,11 @@ export const useRaycastStore = defineStore('raycast', () => {
 
 			const intersects = raycaster.intersectObjects(objects, true)
 
-			if (!intersects[0]) {
-				outlinePassRef.value.selectedObjects = []
-				transformControls.value?.detach()
-				return
-			}
+			const selectionStore = useSelectionStore()
 
-			const threeStore = useThreeStore()
+			if (!intersects[0]) return selectionStore.clear()
 
-			threeStore.selectObject(intersects[0].object, true)
+			selectionStore.select(intersects[0].object, { fromRaycast: true })
 		})
 	}
 

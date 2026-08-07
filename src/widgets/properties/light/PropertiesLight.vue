@@ -29,7 +29,7 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { lightHasShadow } from '@/shared/three/modules/light'
 import { storeToRefs } from 'pinia'
@@ -37,8 +37,8 @@ import { computed, ref, triggerRef, watch } from 'vue'
 import { getLightFields, lightShadowFields } from './fields'
 import { lightShadowTooltipMap, lightTooltipMap } from './tooltips'
 
-const threeStore = useThreeStore()
-const { selectedObject } = storeToRefs(threeStore)
+const selectionStore = useSelectionStore()
+const { selectedObject } = storeToRefs(selectionStore)
 
 const key = ref(0)
 

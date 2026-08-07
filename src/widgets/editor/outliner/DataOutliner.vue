@@ -39,19 +39,19 @@ import { getUserData } from '@/shared/three/utils'
 import { computed } from 'vue'
 import THREE from '@/shared/three'
 import { useCameraStore } from '@/app/model/camera'
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import type { OutlinerItem } from './types'
 
 const sceneStore = useSceneStore()
 const cameraStore = useCameraStore()
-const threeStore = useThreeStore()
+const selectionStore = useSelectionStore()
 
 const selectedObject = computed<OutlinerItem | undefined>({
 	set(obj) {
-		threeStore.selectObject(obj?.uuid)
+		selectionStore.select(obj?.uuid)
 	},
 	get() {
-		return threeStore.selectedObject ? parseObject(threeStore.selectedObject) : undefined
+		return selectionStore.selectedObject ? parseObject(selectionStore.selectedObject) : undefined
 	}
 })
 

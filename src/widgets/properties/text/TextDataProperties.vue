@@ -49,7 +49,7 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import { defaultFontsList, loadFont } from '@/shared/three/modules/loaders/font'
 import { createTextGeometry } from '@/shared/three/modules/text'
@@ -57,7 +57,7 @@ import { enableBVH, getUserData } from '@/shared/three/utils'
 import { TextGeometry } from 'three/examples/jsm/Addons.js'
 import { reactive } from 'vue'
 
-const store = useThreeStore()
+const store = useSelectionStore()
 
 const textData = reactive({
 	text: '',

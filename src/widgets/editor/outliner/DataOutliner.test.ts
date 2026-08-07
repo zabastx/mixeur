@@ -18,9 +18,9 @@ const cameraStore = vi.hoisted(() => ({
 	setRenderCamera: vi.fn()
 }))
 
-const threeStore = vi.hoisted(() => ({
+const selectionStore = vi.hoisted(() => ({
 	selectedObject: null as THREE.Object3D | null,
-	selectObject: vi.fn()
+	select: vi.fn()
 }))
 
 vi.mock('@/app/model/scene', () => ({
@@ -31,8 +31,8 @@ vi.mock('@/app/model/camera', () => ({
 	useCameraStore: () => cameraStore
 }))
 
-vi.mock('@/app/model/three', () => ({
-	useThreeStore: () => threeStore
+vi.mock('@/app/model/selection', () => ({
+	useSelectionStore: () => selectionStore
 }))
 
 function renderItems(items: OutlinerItem[]): VNode[] {
@@ -173,7 +173,7 @@ describe('DataOutliner', () => {
 		vi.clearAllMocks()
 		sceneStore.sceneChildren = []
 		cameraStore.renderCamera = null
-		threeStore.selectedObject = null
+		selectionStore.selectedObject = null
 	})
 
 	it('renders visible scene objects as outliner items and filters hidden objects', () => {
@@ -241,7 +241,7 @@ describe('DataOutliner', () => {
 
 		await userEvent.click(getByTestId('select-selected-mesh'))
 
-		expect(threeStore.selectObject).toHaveBeenCalledWith('selected-mesh')
+		expect(selectionStore.select).toHaveBeenCalledWith('selected-mesh')
 	})
 
 	it('passes the selected store object back to the tree model', () => {
@@ -250,7 +250,7 @@ describe('DataOutliner', () => {
 			name: 'Selected Mesh'
 		})
 		sceneStore.sceneChildren = [mesh]
-		threeStore.selectedObject = mesh
+		selectionStore.selectedObject = mesh
 
 		const { getByTestId } = renderDataOutliner()
 

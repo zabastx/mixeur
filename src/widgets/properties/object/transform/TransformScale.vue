@@ -13,11 +13,12 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import { storeToRefs } from 'pinia'
-import { computed, triggerRef } from 'vue'
+import { computed } from 'vue'
 
-const { selectedObject } = storeToRefs(useThreeStore())
+const store = useSelectionStore()
+const { selectedObject } = storeToRefs(store)
 
 const scaleX = computed({
 	get() {
@@ -26,7 +27,7 @@ const scaleX = computed({
 	set(value: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.scale.x = value
-		triggerRef(selectedObject)
+		store.refresh()
 	}
 })
 
@@ -37,7 +38,7 @@ const scaleY = computed({
 	set(value: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.scale.y = value
-		triggerRef(selectedObject)
+		store.refresh()
 	}
 })
 
@@ -48,7 +49,7 @@ const scaleZ = computed({
 	set(value: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.scale.z = value
-		triggerRef(selectedObject)
+		store.refresh()
 	}
 })
 </script>

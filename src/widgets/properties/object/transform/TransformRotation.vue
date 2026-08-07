@@ -13,13 +13,13 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
+import { useSelectionStore } from '@/app/model/selection'
 import THREE from '@/shared/three'
 import type { NumberFieldRootProps } from 'reka-ui'
 import { storeToRefs } from 'pinia'
-import { computed, triggerRef } from 'vue'
+import { computed } from 'vue'
 
-const store = useThreeStore()
+const store = useSelectionStore()
 const { selectedObject } = storeToRefs(store)
 
 const rotationX = computed({
@@ -30,7 +30,7 @@ const rotationX = computed({
 	set(value: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.rotation.x = THREE.MathUtils.degToRad(value)
-		triggerRef(selectedObject)
+		store.refresh()
 	}
 })
 
@@ -42,7 +42,7 @@ const rotationY = computed({
 	set(value: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.rotation.y = THREE.MathUtils.degToRad(value)
-		triggerRef(selectedObject)
+		store.refresh()
 	}
 })
 
@@ -54,7 +54,7 @@ const rotationZ = computed({
 	set(value: number) {
 		if (!selectedObject.value) return
 		selectedObject.value.rotation.z = THREE.MathUtils.degToRad(value)
-		triggerRef(selectedObject)
+		store.refresh()
 	}
 })
 

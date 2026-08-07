@@ -1,7 +1,7 @@
 import { useEventListener, useKeyModifier } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref, type ShallowRef } from 'vue'
-import { useThreeStore } from './three'
+import { useSelectionStore } from './selection'
 import { useSceneStore } from './scene'
 import { useControlsStore } from './controls'
 import { useCameraStore } from './camera'
@@ -48,7 +48,7 @@ export const useInputStore = defineStore('input', () => {
 		})
 
 		useEventListener(window, 'keydown', (e) => {
-			const threeStore = useThreeStore()
+			const selectionStore = useSelectionStore()
 			const sceneStore = useSceneStore()
 			const appStore = useAppStore()
 
@@ -65,15 +65,15 @@ export const useInputStore = defineStore('input', () => {
 			switch (e.code) {
 				case 'Delete':
 					e.preventDefault()
-					if (threeStore.selectedObject instanceof THREE.Object3D) {
-						sceneStore.deleteFromScene(threeStore.selectedObject.uuid)
+					if (selectionStore.selectedObject instanceof THREE.Object3D) {
+						sceneStore.deleteFromScene(selectionStore.selectedObject.uuid)
 					}
 					break
 
 				case 'KeyD':
 					e.preventDefault()
-					if (threeStore.selectedObject instanceof THREE.Object3D && e.shiftKey) {
-						sceneStore.cloneObject(threeStore.selectedObject.uuid)
+					if (selectionStore.selectedObject instanceof THREE.Object3D && e.shiftKey) {
+						sceneStore.cloneObject(selectionStore.selectedObject.uuid)
 					}
 					break
 
