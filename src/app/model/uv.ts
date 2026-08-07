@@ -77,6 +77,7 @@ export const useUvStore = defineStore('uv', () => {
 			}
 			layout.value = createUvLayout({
 				position: geometry.attributes.position.array,
+				uv: geometry.attributes.uv.array,
 				index: geometry.index?.array ?? null
 			})
 			revision.value++
