@@ -4,7 +4,17 @@
 			<div class="flex h-full flex-col font-sans text-gray-200">
 				<TopBar v-if="viewportStore.isMounted" />
 
-				<main class="grid min-h-0 flex-1 grid-cols-(--main-cols) bg-editor-border p-1 select-none">
+				<!-- PROTOTYPE: `?variant=` swaps the main area for a UV-editor layout.
+				     Without the param this renders exactly as it always has. Remove
+				     this block and src/widgets/editor/prototype-uv-editor/ together. -->
+				<VariantASplit v-if="uvVariant === 'A'" />
+				<VariantBWorkspace v-else-if="uvVariant === 'B'" />
+				<VariantCDock v-else-if="uvVariant === 'C'" />
+
+				<main
+					v-else
+					class="grid min-h-0 flex-1 grid-cols-(--main-cols) bg-editor-border p-1 select-none"
+				>
 					<MxViewport class="block-border" />
 					<div ref="divider" class="divider w-1 cursor-col-resize"></div>
 					<MxSidebar v-if="viewportStore.isMounted">
@@ -22,6 +32,7 @@
 				<ModelLoadingProgress />
 				<MxToast />
 				<ModalCollection />
+				<PrototypeSwitcher v-if="isDev" />
 			</div>
 		</TooltipProvider>
 	</ToastProvider>
@@ -34,6 +45,11 @@ import { ToastProvider, TooltipProvider } from 'reka-ui'
 import { useAppStore } from '@/app/model/app'
 import { useViewportStore } from '@/app/model/viewport'
 import { usePreferencesStore } from '@/app/model/preferences'
+// PROTOTYPE — remove with src/widgets/editor/prototype-uv-editor/
+import { useVariant } from '@/widgets/editor/prototype-uv-editor/variant'
+
+const uvVariant = useVariant()
+const isDev = import.meta.env.DEV
 
 const ModalCollection = defineAsyncComponent(() => import('@/widgets/modals/ModalCollection.vue'))
 
