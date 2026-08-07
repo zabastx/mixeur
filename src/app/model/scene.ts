@@ -3,7 +3,14 @@ import { computed, shallowRef, triggerRef } from 'vue'
 import THREE from '@/shared/three'
 import { setGridHelper } from '@/shared/three/modules/helpers/grid'
 import { disposeModel } from '@/shared/three/modules/core/dispose'
-import { getLightHelper, lightHasShadow, type LightHelper } from '@/shared/three/modules/light'
+import {
+	createLight,
+	getLightHelper,
+	lightHasShadow,
+	type LightHelper
+} from '@/shared/three/modules/light'
+import { createMesh } from '@/shared/three/modules/mesh'
+import { createCamera } from '@/shared/three/modules/camera/create'
 import { exportModel } from '@/shared/three/modules/addons/exporter'
 import { getUserData, enableBVH } from '@/shared/three/utils'
 import { useShadingStore } from './shading'
@@ -43,6 +50,42 @@ export const useSceneStore = defineStore('scene', () => {
 
 	function updateScene() {
 		triggerRef(sceneChildren)
+	}
+
+	let seeded = false
+
+	/**
+	 * Put the starting light, camera and cube into an empty project.
+	 *
+	 * Guarded rather than idempotent by construction: a viewport can be mounted
+	 * more than once over the life of the page, and the second mount must not
+	 * drop another copy of these into a scene the user has been editing.
+	 */
+	function seedDefaultScene() {
+		if (seeded) return
+		seeded = true
+
+		const pointLight = createLight({ type: 'point' })
+		pointLight.power = 1000
+		pointLight.position.set(4, 5, 1)
+
+		addObjectToScene(pointLight)
+
+		const camera = createCamera({
+			type: 'Perspective',
+			name: 'Camera',
+			near: 0.1,
+			far: 1000,
+			fov: 39.6
+		})
+
+		camera.position.set(-4, 4, 6)
+		camera.lookAt(0, 0, 0)
+
+		addObjectToScene(camera)
+		useCameraStore().setRenderCamera(camera.uuid)
+
+		addObjectToScene(createMesh('cube'))
 	}
 
 	function addGroup() {
@@ -402,6 +445,7 @@ export const useSceneStore = defineStore('scene', () => {
 		grid,
 		lightHelperObjects,
 		updateScene,
+		seedDefaultScene,
 		addGroup,
 		moveObjectToTarget,
 		addObjectToScene,

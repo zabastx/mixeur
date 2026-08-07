@@ -1,12 +1,12 @@
 <template>
 	<EditorWrapper>
 		<ViewportHeader
-			v-if="threeStore.isInitiated"
+			v-if="viewportStore.isMounted"
 			class="absolute top-0 left-0 z-1 w-full bg-viewport-header-bg"
 		/>
 
-		<div class="gizmo-wrapper absolute top-10 right-0"></div>
-		<ViewNavigationWidget v-if="threeStore.isInitiated" class="absolute top-40 right-2.5" />
+		<div :class="GIZMO_CONTAINER_CLASS" class="absolute top-10 right-0"></div>
+		<ViewNavigationWidget v-if="viewportStore.isMounted" class="absolute top-40 right-2.5" />
 		<div v-if="isError" ref="webglErrorRef" class="webgl-error"></div>
 		<canvas
 			v-else
@@ -17,7 +17,7 @@
 
 		<Transition name="slide-fade-left">
 			<ViewportToolbar
-				v-if="threeStore.isInitiated && appStore.showToolbar"
+				v-if="viewportStore.isMounted && appStore.showToolbar"
 				class="absolute top-20 left-2.5"
 			/>
 		</Transition>
@@ -25,27 +25,23 @@
 </template>
 
 <script lang="ts" setup>
-import { useThreeStore } from '@/app/model/three'
-import { onMounted, ref, useTemplateRef } from 'vue'
+import { useViewportStore, type Viewport } from '@/app/model/viewport'
+import { onMounted, onUnmounted, ref, shallowRef, useTemplateRef } from 'vue'
 import WebGL from 'three/addons/capabilities/WebGL.js'
 import ViewNavigationWidget from './ViewNavigationWidget.vue'
 import { useAppStore } from '@/app/model/app'
-import { useInputStore } from '@/app/model/input'
-import { createLight } from '@/shared/three/modules/light'
-import { createMesh } from '@/shared/three/modules/mesh'
-import { createCamera } from '@/shared/three/modules/camera/create'
-import { useCameraStore } from '@/app/model/camera'
+import { GIZMO_CONTAINER_CLASS } from '@/app/config/gizmo'
 import { useSceneStore } from '@/app/model/scene'
 
 const appStore = useAppStore()
-const inputStore = useInputStore()
 const canvasRef = useTemplateRef('canvasRef')
-inputStore.init(canvasRef)
 
 const sceneStore = useSceneStore()
-const threeStore = useThreeStore()
+const viewportStore = useViewportStore()
 const webglErrorRef = useTemplateRef('webglErrorRef')
 const isError = ref(false)
+
+const viewport = shallowRef<Viewport | null>(null)
 
 onMounted(() => {
 	if (!WebGL.isWebGL2Available()) {
@@ -56,37 +52,18 @@ onMounted(() => {
 		return
 	}
 
-	threeStore.initScene(canvasRef)
-	setInitialObjects()
+	if (!canvasRef.value) return
+
+	viewport.value = viewportStore.mount(canvasRef.value)
+	// Scene seeding, not viewport lifecycle: these objects belong to the
+	// project and outlive any one viewport.
+	sceneStore.seedDefaultScene()
 })
 
-function setInitialObjects() {
-	const pointLight = createLight({ type: 'point' })
-	pointLight.power = 1000
-	pointLight.position.set(4, 5, 1)
-
-	sceneStore.addObjectToScene(pointLight)
-
-	const camera = createCamera({
-		type: 'Perspective',
-		name: 'Camera',
-		near: 0.1,
-		far: 1000,
-		fov: 39.6
-	})
-
-	camera.position.set(-4, 4, 6)
-	camera.lookAt(0, 0, 0)
-
-	sceneStore.addObjectToScene(camera)
-
-	const cameraStore = useCameraStore()
-	cameraStore.setRenderCamera(camera.uuid)
-
-	const companionCube = createMesh('cube')
-
-	sceneStore.addObjectToScene(companionCube)
-}
+onUnmounted(() => {
+	viewport.value?.dispose()
+	viewport.value = null
+})
 </script>
 
 <style>

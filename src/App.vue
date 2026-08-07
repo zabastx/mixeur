@@ -2,12 +2,12 @@
 	<ToastProvider>
 		<TooltipProvider :delay-duration="300" disable-hoverable-content>
 			<div class="flex h-full flex-col font-sans text-gray-200">
-				<TopBar v-if="threeStore.isInitiated" />
+				<TopBar v-if="viewportStore.isMounted" />
 
 				<main class="grid min-h-0 flex-1 grid-cols-(--main-cols) bg-editor-border p-1 select-none">
 					<MxViewport class="block-border" />
 					<div ref="divider" class="divider w-1 cursor-col-resize"></div>
-					<MxSidebar v-if="threeStore.isInitiated">
+					<MxSidebar v-if="viewportStore.isMounted">
 						<template #top>
 							<DataOutliner />
 						</template>
@@ -32,12 +32,17 @@ import { defineAsyncComponent, ref, useTemplateRef } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import { ToastProvider, TooltipProvider } from 'reka-ui'
 import { useAppStore } from '@/app/model/app'
-import { useThreeStore } from '@/app/model/three'
+import { useViewportStore } from '@/app/model/viewport'
+import { usePreferencesStore } from '@/app/model/preferences'
 
 const ModalCollection = defineAsyncComponent(() => import('@/widgets/modals/ModalCollection.vue'))
 
 const appStore = useAppStore()
-const threeStore = useThreeStore()
+const viewportStore = useViewportStore()
+
+// Applied before the viewport mounts: the gizmo reads its colours from the
+// theme's custom properties when it is built.
+usePreferencesStore().initTheme()
 
 const divider = useTemplateRef('divider')
 const rightWidth = ref(window.innerWidth * 0.25)

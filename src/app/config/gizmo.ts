@@ -1,5 +1,12 @@
 import type { GizmoOptions } from 'three-viewport-gizmo'
 
+/**
+ * The element the gizmo renders into. `ViewportGizmo` takes a selector rather
+ * than an element, so the viewport markup and this config have to agree on one
+ * class name — hence the shared constant.
+ */
+export const GIZMO_CONTAINER_CLASS = 'gizmo-wrapper'
+
 export function getGizmoConfig(): GizmoOptions {
 	const rootStyle = getComputedStyle(document.documentElement)
 	const colorX = rootStyle.getPropertyValue('--color-axis-x') || undefined
@@ -7,7 +14,7 @@ export function getGizmoConfig(): GizmoOptions {
 	const colorZ = rootStyle.getPropertyValue('--color-axis-z') || undefined
 
 	return {
-		container: '.gizmo-wrapper',
+		container: `.${GIZMO_CONTAINER_CLASS}`,
 		className: 'gizmo',
 		size: 100,
 		placement: 'top-right',
