@@ -5,7 +5,6 @@
 				px-1 py-0.5"
 		>
 			<MxIcon name="editing/uv" class="shrink-0" />
-			<MenuBar :items="menuItems" />
 
 			<!-- One segmented control rather than four separate buttons: the modes
 			     are mutually exclusive, and joining them says so. Same shape as
@@ -32,6 +31,7 @@
 			</div>
 
 			<UvStickySelect />
+			<MenuBar :items="menuItems" />
 			<UvPivotSelect />
 		</div>
 

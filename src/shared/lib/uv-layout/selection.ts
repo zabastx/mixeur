@@ -14,7 +14,8 @@ export function createUvSelection(): UvSelection {
 		// unwrapped, so their seams were chosen by whoever unwrapped them;
 		// `shared-vertex` would quietly drag those seams shut on the first drag.
 		sticky: 'shared-location',
-		pivot: 'median',
+		// This one *is* Blender's default, so the muscle memory carries over.
+		pivot: 'bounding-box',
 		cursor: [0.5, 0.5]
 	}
 }
