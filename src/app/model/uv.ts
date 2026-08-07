@@ -19,6 +19,7 @@ import { createUvGridTexture } from '@/shared/three/modules/mesh/uv-grid'
 import { useSelectionStore } from './selection'
 import { useShadingStore } from './shading'
 import { useWorkspaceStore } from './workspace'
+import type { ShadingMode } from './types/shading'
 
 /**
  * Why the selected mesh has no editable UVs, when it doesn't.
@@ -66,6 +67,8 @@ export const useUvStore = defineStore('uv', () => {
 	const replacedMaps = new Map<string, THREE.Texture | null>()
 
 	let gridTexture: THREE.Texture | null = null
+	/** The shading mode the grid displaced, so taking the grid off can put it back. */
+	let shadingBeforeGrid: ShadingMode | null = null
 
 	/**
 	 * Whether the pointer is over the UV view, and which modal transform it is
@@ -245,14 +248,22 @@ export const useUvStore = defineStore('uv', () => {
 		if (replacedMaps.has(target.uuid)) {
 			material.map = replacedMaps.get(target.uuid) ?? null
 			replacedMaps.delete(target.uuid)
+			// Only if nothing has changed the mode since — the user switching
+			// shading deliberately outranks anything this borrowed.
+			if (shadingBeforeGrid && shadingStore.shadingMode === 'preview') {
+				shadingStore.setMode(shadingBeforeGrid)
+			}
+			shadingBeforeGrid = null
 			lastAction.value = 'Removed the UV grid'
 		} else {
 			gridTexture ??= createUvGridTexture()
 			replacedMaps.set(target.uuid, material.map)
 			material.map = gridTexture
 			// Flat shading modes ignore maps, so the grid would appear to do
-			// nothing at all.
+			// nothing at all. Borrowed, not taken: removing the grid hands the
+			// viewport back the mode it was in.
 			if (shadingStore.shadingMode === 'solid' || shadingStore.shadingMode === 'wireframe') {
+				shadingBeforeGrid = shadingStore.shadingMode
 				shadingStore.setMode('preview')
 			}
 			lastAction.value = 'Applied a UV grid'
@@ -266,6 +277,9 @@ export const useUvStore = defineStore('uv', () => {
 	function forget(uuid: string) {
 		originalUvs.delete(uuid)
 		replacedMaps.delete(uuid)
+		// The mesh that borrowed the shading mode may have been the one deleted,
+		// and no grid is left to hand it back.
+		if (!replacedMaps.size) shadingBeforeGrid = null
 	}
 
 	return {
