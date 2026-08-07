@@ -63,7 +63,7 @@
 					{{ uvStore.stats.offTileCount }} off tile
 				</span>
 			</template>
-			<span class="ml-auto truncate">{{ uvStore.lastAction || hint }}</span>
+			<span class="ml-auto truncate">{{ uvStore.lastAction }}</span>
 		</div>
 	</EditorWrapper>
 </template>
@@ -244,10 +244,4 @@ const menuItems = computed<IMenubarMenu[]>(() => [
 		]
 	}
 ])
-
-const hint = computed(() =>
-	uvStore.status === 'ready'
-		? 'G/R/S transform · drag to move · empty space box-selects · middle-drag pans · Alt+click sets the cursor'
-		: ''
-)
 </script>

@@ -1,5 +1,8 @@
 <template>
-	<div v-show="inputStore.pointerOnCanvas" class="flex items-center gap-2 text-xs select-none">
+	<div
+		v-show="inputStore.pointerOnCanvas || uvStore.pointerOnCanvas || uvStore.modalKind"
+		class="flex items-center gap-2 text-xs select-none"
+	>
 		<div v-for="item in activeHints" :key="item.text" class="align-center flex gap-1">
 			<MxIcon v-if="item.icon" class="text-xl" :name="item.icon" />
 			<div v-if="item.textHint" class="space-x-0.5">
@@ -16,9 +19,11 @@
 import { computed } from 'vue'
 import { useInputStore } from '@/app/model/input'
 import { useControlsStore } from '@/app/model/controls'
+import { useUvStore } from '@/app/model/uv'
 
 const inputStore = useInputStore()
 const controlsStore = useControlsStore()
+const uvStore = useUvStore()
 
 const keymapList: KeymapOption[] = [
 	{ icon: 'input/lmb', text: 'Select', key: null },
@@ -50,7 +55,29 @@ const transfromControlsHints: KeymapOption[] = [
 	}
 ]
 
+/**
+ * The UV editor's keyboard, which is a different one — the same status bar
+ * reports whichever editor the pointer is over, so the hints stay where the
+ * user already looks for them instead of each editor growing its own legend.
+ */
+const uvHints: KeymapOption[] = [
+	{ icon: 'input/lmb', text: 'Select' },
+	{ icon: 'input/mmb', text: 'Pan View' },
+	{ textHint: ['G', 'R', 'S'], text: 'Transform' },
+	{ icon: 'input/lmb', textHint: ['Alt'], text: '2D Cursor' }
+]
+
+const uvModalHints = computed<KeymapOption[]>(() => [
+	{ icon: 'input/lmb', text: 'Confirm' },
+	// A rotation in a plane has no axis to lock to.
+	...(uvStore.modalKind === 'rotate' ? [] : [{ textHint: ['X', 'Y'], text: 'Axis' }]),
+	{ textHint: ['ESC'], text: 'Cancel' }
+])
+
 const activeHints = computed(() => {
+	if (uvStore.pointerOnCanvas || uvStore.modalKind) {
+		return uvStore.modalKind ? uvModalHints.value : uvHints
+	}
 	if (controlsStore.isTransformDrag) {
 		return transfromControlsHints
 	}
@@ -67,6 +94,7 @@ interface KeymapOption {
 	icon?: MxIconName
 	textHint?: string[]
 	text: string
-	key: 'ctrl' | 'shift' | null
+	/** Which modifier reveals this hint. Absent means it is not modifier-gated. */
+	key?: 'ctrl' | 'shift' | null
 }
 </script>

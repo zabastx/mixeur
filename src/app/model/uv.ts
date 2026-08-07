@@ -10,6 +10,7 @@ import {
 	uvStats,
 	weldUvs,
 	type SelectMode,
+	type TransformKind,
 	type UvLayout,
 	type UvSelection,
 	type UvTransform
@@ -17,6 +18,7 @@ import {
 import { createUvGridTexture } from '@/shared/three/modules/mesh/uv-grid'
 import { useSelectionStore } from './selection'
 import { useShadingStore } from './shading'
+import { useWorkspaceStore } from './workspace'
 
 /**
  * Why the selected mesh has no editable UVs, when it doesn't.
@@ -65,11 +67,25 @@ export const useUvStore = defineStore('uv', () => {
 
 	let gridTexture: THREE.Texture | null = null
 
+	/**
+	 * Whether the pointer is over the UV view, and which modal transform it is
+	 * running. Both belong to the canvas, but the status bar's key hints are
+	 * outside the UV editor entirely and have to read them from somewhere.
+	 */
+	const pointerOnCanvas = ref(false)
+	const modalKind = ref<TransformKind | null>(null)
+
 	const selectionStore = useSelectionStore()
+	const workspaceStore = useWorkspaceStore()
 
 	watch(
-		() => selectionStore.selectedObject,
-		(object) => {
+		[() => selectionStore.selectedObject, () => workspaceStore.current],
+		([object, workspace]) => {
+			// Building a layout for a dense mesh costs a fifth of a second, so it
+			// only happens while the UV workspace is the one on screen. Arriving at
+			// that workspace is the other trigger, so nothing is ever stale on
+			// screen — only while it is not being looked at.
+			if (workspace !== 'uv') return
 			const next = object instanceof THREE.Mesh ? object : null
 			mesh.value = next
 			selection.value = createUvSelection()
@@ -262,6 +278,8 @@ export const useUvStore = defineStore('uv', () => {
 		lastAction,
 		hasGrid,
 		mapImage,
+		pointerOnCanvas,
+		modalKind,
 		uvBuffer,
 		commit,
 		touch,

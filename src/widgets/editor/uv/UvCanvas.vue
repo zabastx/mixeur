@@ -151,18 +151,29 @@ let pan: { x: number; y: number; u: number; v: number } | null = null
  * `from` is null until the pointer is first seen over the canvas, which is how
  * a modal started from the menu avoids jumping by the distance to the menu.
  */
-let modal: {
+type Modal = {
 	kind: TransformKind
 	axis: TransformAxis
 	from: UvPoint | null
 	origin: UvPoint
 	base: Float32Array
 	moved: number
-} | null = null
+} | null
+
+let modal: Modal = null
+
+/**
+ * The session stays a plain local so that pointer moves do not churn
+ * reactivity, but the status bar's key hints live outside this component and
+ * need to know a modal is running, so the kind alone is mirrored into the store.
+ */
+function setModal(next: Modal) {
+	modal = next
+	uvStore.modalKind = next?.kind ?? null
+}
 
 /** The last pointer position over the canvas, for a menu-started modal. */
 let pointer: UvPoint | null = null
-const hovered = ref(false)
 
 function draw() {
 	const canvas = canvasRef.value
@@ -327,10 +338,11 @@ function pickAt(point: UvPoint) {
 	}
 }
 
-const MODAL_HINT: Record<TransformKind, string> = {
-	move: 'Move — click to confirm, Esc to cancel, X/Y to lock an axis',
-	rotate: 'Rotate — click to confirm, Esc to cancel',
-	scale: 'Scale — click to confirm, Esc to cancel, X/Y to lock an axis'
+// What the keys do is the status bar's job now, so these only name the modal.
+const MODAL_START: Record<TransformKind, string> = {
+	move: 'Move',
+	rotate: 'Rotate',
+	scale: 'Scale'
 }
 const MODAL_DONE: Record<TransformKind, string> = {
 	move: 'Moved',
@@ -356,15 +368,15 @@ function beginTransform(kind: TransformKind) {
 
 	drag = null
 	box = null
-	modal = {
+	setModal({
 		kind,
 		axis: null,
 		from: pointer,
 		origin: transformOrigin(layout, uv, uvStore.selection),
 		base: Float32Array.from(uv),
 		moved: 0
-	}
-	uvStore.touch(MODAL_HINT[kind])
+	})
+	uvStore.touch(MODAL_START[kind])
 }
 
 function updateModal(point: UvPoint) {
@@ -402,14 +414,14 @@ function updateModal(point: UvPoint) {
 function confirmModal() {
 	if (!modal) return
 	const { kind, moved } = modal
-	modal = null
+	setModal(null)
 	uvStore.touch(`${MODAL_DONE[kind]} ${moved} UV vertices`)
 }
 
 function cancelModal() {
 	if (!modal) return
 	const { base } = modal
-	modal = null
+	setModal(null)
 	uvStore.commit(base, 'Cancelled')
 }
 
@@ -417,7 +429,7 @@ function onKey(event: KeyboardEvent) {
 	// Hovering is what makes this the UV editor's keyboard rather than the
 	// viewport's — except mid-modal, where a menu-started transform has to stay
 	// cancellable with the pointer wherever the menu left it.
-	if ((!hovered.value && !modal) || event.ctrlKey || event.metaKey || event.altKey) return
+	if ((!uvStore.pointerOnCanvas && !modal) || event.ctrlKey || event.metaKey || event.altKey) return
 
 	const mode = keyCodeToTransformMode[event.code]
 	if (mode) {
@@ -570,8 +582,8 @@ function onWheel(event: WheelEvent) {
 	draw()
 }
 
-const onEnter = () => (hovered.value = true)
-const onLeave = () => (hovered.value = false)
+const onEnter = () => (uvStore.pointerOnCanvas = true)
+const onLeave = () => (uvStore.pointerOnCanvas = false)
 
 onMounted(() => {
 	readTheme()
@@ -589,6 +601,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	cancelModal()
+	// `pointerleave` does not fire when the element goes away underneath it.
+	uvStore.pointerOnCanvas = false
 	const canvas = canvasRef.value
 	if (!canvas) return
 	canvas.removeEventListener('pointerdown', onPointerDown)
@@ -615,7 +629,7 @@ watch(
 	() => {
 		// Dropped rather than cancelled: `base` belongs to the mesh that just went
 		// away, and writing it back would land it on the new one's UVs.
-		modal = null
+		setModal(null)
 		drag = null
 		box = null
 		pan = null
