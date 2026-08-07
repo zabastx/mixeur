@@ -40,7 +40,9 @@ let ktx2: KTX2Loader | null = null
 let detectedAgainst: THREE.WebGLRenderer | null = null
 
 function ktx2Loader() {
-	if (!ktx2) ktx2 = new KTX2Loader()
+	// The Basis transcoder is fetched at runtime, not bundled, so it is shipped
+	// from `public/basis/` alongside the Draco decoders.
+	if (!ktx2) ktx2 = new KTX2Loader().setTranscoderPath('/basis/')
 
 	// `detectSupport` needs a renderer, which does not exist until the viewport
 	// mounts, so it cannot happen at construction time.
