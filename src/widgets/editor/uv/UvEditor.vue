@@ -6,24 +6,22 @@
 			class="flex items-center gap-2 border-b border-editor-outline bg-viewport-header-bg px-1
 				py-0.5"
 		>
-			<MxIcon name="ui/material-data" class="shrink-0" />
+			<MxIcon name="editing/uv" class="shrink-0" />
 
 			<!-- One segmented control rather than four separate buttons: the modes
-			     are mutually exclusive, and joining them says so. -->
+			     are mutually exclusive, and joining them says so. Same shape as
+			     the viewport's shading controls, which is the other toggle group
+			     of this kind in an editor header. -->
 			<div
-				class="flex divide-x divide-ui-radio-outline overflow-hidden rounded border
-					border-ui-radio-outline"
+				class="flex overflow-hidden rounded *:not-last:border-r"
 				role="radiogroup"
 				aria-label="UV select mode"
 			>
 				<MxTooltip v-for="mode in MODES" :key="mode.value" :tooltip="mode.tooltip">
 					<button
-						class="cursor-pointer px-2 py-1 text-base"
-						:class="
-							uvStore.selection.mode === mode.value
-								? 'btn--highlight text-white'
-								: 'bg-ui-radio-inner hover:brightness-125'
-						"
+						class="btn rounded-none border-0"
+						:class="{ 'bg-ui-radio-inner-selected': uvStore.selection.mode === mode.value }"
+						type="button"
 						role="radio"
 						:aria-checked="uvStore.selection.mode === mode.value"
 						:data-testid="`uv-mode-${mode.value}`"
@@ -33,6 +31,8 @@
 					</button>
 				</MxTooltip>
 			</div>
+
+			<UvStickySelect />
 
 			<div class="ml-auto flex gap-0.5">
 				<button class="btn text-xs" @click="uvStore.selectAll()">All</button>

@@ -5,22 +5,6 @@
 		data-testid="uv-tool-rail"
 	>
 		<section>
-			<h3 class="mb-1 text-xs text-header-text">Sticky</h3>
-			<div class="flex flex-col gap-1">
-				<button
-					v-for="option in STICKY"
-					:key="option.value"
-					class="btn text-left text-xs"
-					:class="{ 'btn--highlight': uvStore.selection.sticky === option.value }"
-					@click="setSticky(option.value)"
-				>
-					{{ option.label }}
-				</button>
-			</div>
-			<p class="mt-1 text-[10px] leading-snug text-header-text">{{ stickyHint }}</p>
-		</section>
-
-		<section>
 			<h3 class="mb-1 text-xs text-header-text">Pivot</h3>
 			<div class="flex flex-col gap-1">
 				<button
@@ -108,20 +92,14 @@
 <script lang="ts" setup>
 /**
  * The UV editor's controls. Labelled rather than a strip of glyphs, because
- * sticky and pivot are exactly the two settings nobody guesses right from an
- * icon, and getting sticky wrong is what makes a UV editor feel possessed.
+ * pivot is one of the two settings nobody guesses right from an icon. The
+ * other, sticky, lives in the header as a dropdown so it sits next to the
+ * select modes it modifies — see `UvStickySelect`.
  */
-import { computed } from 'vue'
-import type { PivotMode, StickyMode } from '@/shared/lib/uv-layout'
 import { useUvStore } from '@/app/model/uv'
+import type { PivotMode } from '@/shared/lib/uv-layout'
 
 const STEP_ROTATION = Math.PI / 12
-
-const STICKY: { value: StickyMode; label: string }[] = [
-	{ value: 'off', label: 'Off' },
-	{ value: 'shared-vertex', label: 'Shared vertex' },
-	{ value: 'shared-location', label: 'Shared location' }
-]
 
 const PIVOTS: { value: PivotMode; label: string }[] = [
 	{ value: 'median', label: 'Median point' },
@@ -131,24 +109,8 @@ const PIVOTS: { value: PivotMode; label: string }[] = [
 
 const uvStore = useUvStore()
 
-function setSticky(value: StickyMode) {
-	uvStore.selection.sticky = value
-	uvStore.touch()
-}
-
 function setPivot(value: PivotMode) {
 	uvStore.selection.pivot = value
 	uvStore.touch()
 }
-
-const stickyHint = computed(() => {
-	switch (uvStore.selection.sticky) {
-		case 'off':
-			return 'Moves exactly what you picked. Tears seams freely.'
-		case 'shared-vertex':
-			return 'Also moves every UV copy of the same mesh vertex. Closes deliberate seams.'
-		default:
-			return 'Also moves UV vertices already on the same spot. Keeps existing seams intact.'
-	}
-})
 </script>
