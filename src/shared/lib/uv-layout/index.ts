@@ -16,6 +16,7 @@ export {
 	createUvSelection,
 	movingVerts,
 	pickedVerts,
+	resolvePick,
 	selectedFaces
 } from './selection'
 export { boundsOf, packIslands, transformUvs, weldUvs } from './transform'

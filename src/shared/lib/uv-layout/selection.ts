@@ -116,6 +116,41 @@ export function allIds(layout: UvLayout, mode: UvSelection['mode']): Set<number>
 	}
 }
 
+/**
+ * What a click does to the selection, and whether it begins a drag.
+ *
+ * `hit` is the id under the pointer, or -1 for empty space. `additive` is the
+ * shift key.
+ *
+ * The subtlety is the last case: shift-clicking something already selected
+ * *removes* it, and that is a deselect gesture, not the start of a drag —
+ * arming one anyway means a pixel of pointer travel slides the rest of the
+ * selection away under the cursor.
+ */
+export function resolvePick(
+	current: Set<number>,
+	hit: number,
+	additive: boolean
+): { ids: Set<number>; startsDrag: boolean } {
+	if (hit < 0) {
+		// Empty space. Shift keeps what is there so a box can extend it.
+		return { ids: additive ? new Set(current) : new Set(), startsDrag: false }
+	}
+	if (current.has(hit)) {
+		if (additive) {
+			const ids = new Set(current)
+			ids.delete(hit)
+			return { ids, startsDrag: false }
+		}
+		// Already selected: keep the whole selection, so dragging moves all of
+		// it rather than collapsing to the one thing under the pointer.
+		return { ids: new Set(current), startsDrag: true }
+	}
+	const ids = additive ? new Set(current) : new Set<number>()
+	ids.add(hit)
+	return { ids, startsDrag: true }
+}
+
 export function centroid(uv: ArrayLike<number>, verts: Iterable<number>): UvPoint {
 	let u = 0
 	let v = 0

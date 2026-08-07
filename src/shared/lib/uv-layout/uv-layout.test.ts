@@ -11,6 +11,7 @@ import {
 	nearestVert,
 	packIslands,
 	pickedVerts,
+	resolvePick,
 	selectedFaces,
 	transformUvs,
 	uvStats,
@@ -208,6 +209,65 @@ describe('pickedVerts and selectedFaces', () => {
 
 		expect(pickedVerts(layout, select({ mode: 'face', ids: new Set([999]) })).size).toBe(0)
 		expect(pickedVerts(layout, select({ mode: 'island', ids: new Set([999]) })).size).toBe(0)
+	})
+})
+
+describe('resolvePick', () => {
+	it('replaces the selection when clicking something new', () => {
+		expect(resolvePick(new Set([1, 2]), 7, false)).toEqual({
+			ids: new Set([7]),
+			startsDrag: true
+		})
+	})
+
+	it('extends the selection when shift-clicking something new', () => {
+		expect(resolvePick(new Set([1, 2]), 7, true)).toEqual({
+			ids: new Set([1, 2, 7]),
+			startsDrag: true
+		})
+	})
+
+	it('keeps the whole selection when clicking one of its members', () => {
+		// Otherwise dragging a multi-selection would collapse it to whatever
+		// happened to be under the pointer.
+		expect(resolvePick(new Set([1, 2, 3]), 2, false)).toEqual({
+			ids: new Set([1, 2, 3]),
+			startsDrag: true
+		})
+	})
+
+	it('does not arm a drag when shift-clicking removes something', () => {
+		// The bug this guards: deselecting also began a drag, so a pixel of
+		// pointer travel slid the rest of the selection away.
+		expect(resolvePick(new Set([1, 2, 3]), 2, true)).toEqual({
+			ids: new Set([1, 3]),
+			startsDrag: false
+		})
+	})
+
+	it('clears on empty space, and keeps the selection when shift is held', () => {
+		expect(resolvePick(new Set([1, 2]), -1, false)).toEqual({
+			ids: new Set(),
+			startsDrag: false
+		})
+		expect(resolvePick(new Set([1, 2]), -1, true)).toEqual({
+			ids: new Set([1, 2]),
+			startsDrag: false
+		})
+	})
+
+	it('never hands back the caller’s set', () => {
+		const current = new Set([1, 2])
+
+		for (const result of [
+			resolvePick(current, 7, false),
+			resolvePick(current, 1, false),
+			resolvePick(current, 1, true),
+			resolvePick(current, -1, true)
+		]) {
+			expect(result.ids).not.toBe(current)
+		}
+		expect(current).toEqual(new Set([1, 2]))
 	})
 })
 

@@ -30,6 +30,7 @@ import {
 	nearestEdge,
 	nearestVert,
 	pickedVerts,
+	resolvePick,
 	selectedFaces,
 	transformUvs,
 	type UvPoint,
@@ -96,7 +97,7 @@ function fit() {
 	draw()
 }
 
-let box: (UvRect & { start: UvPoint }) | null = null
+let box: (UvRect & { start: UvPoint; base: Set<number> }) | null = null
 let drag: { from: UvPoint; base: Float32Array } | null = null
 
 function draw() {
@@ -258,23 +259,26 @@ function onPointerDown(event: PointerEvent) {
 	}
 
 	const hit = pickAt(point)
-	if (hit >= 0) {
-		// Dragging something already selected moves the whole selection rather
-		// than reducing it to the one thing under the cursor.
-		if (!selection.ids.has(hit)) {
-			if (!event.shiftKey) selection.ids.clear()
-			selection.ids.add(hit)
-		} else if (event.shiftKey) {
-			selection.ids.delete(hit)
-		}
-		drag = { from: point, base: Float32Array.from(uv) }
-		uvStore.touch(`Selected ${selection.ids.size} ${selection.mode}(s)`)
-		return
-	}
+	const { ids, startsDrag } = resolvePick(selection.ids, hit, event.shiftKey)
+	selection.ids = ids
 
-	if (!event.shiftKey) selection.ids.clear()
-	box = { start: point, u0: point[0], u1: point[0], v0: point[1], v1: point[1] }
-	uvStore.touch('')
+	if (startsDrag) {
+		drag = { from: point, base: Float32Array.from(uv) }
+	} else if (hit < 0) {
+		// `base` is what the selection was before the box opened, so every
+		// pointer move can recompute from it. Adding to the live selection
+		// instead would make the box a one-way ratchet — dragging back over an
+		// overshoot would leave everything it had already swept up selected.
+		box = {
+			start: point,
+			base: new Set(ids),
+			u0: point[0],
+			u1: point[0],
+			v0: point[1],
+			v1: point[1]
+		}
+	}
+	uvStore.touch(`Selected ${ids.size} ${selection.mode}(s)`)
 }
 
 function onPointerMove(event: PointerEvent) {
@@ -298,7 +302,9 @@ function onPointerMove(event: PointerEvent) {
 		box.u1 = Math.max(box.start[0], point[0])
 		box.v0 = Math.min(box.start[1], point[1])
 		box.v1 = Math.max(box.start[1], point[1])
-		for (const id of idsInRect(layout, uv, uvStore.selection, box)) uvStore.selection.ids.add(id)
+		const swept = new Set(box.base)
+		for (const id of idsInRect(layout, uv, uvStore.selection, box)) swept.add(id)
+		uvStore.selection.ids = swept
 		uvStore.touch('')
 	}
 }
