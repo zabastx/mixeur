@@ -30,8 +30,15 @@ export type SelectMode = 'vertex' | 'edge' | 'face' | 'island'
  */
 export type StickyMode = 'off' | 'shared-vertex' | 'shared-location'
 
-/** What a rotation or scale turns around. */
-export type PivotMode = 'median' | 'cursor' | 'individual'
+/**
+ * What a rotation or scale turns around.
+ *
+ * `bounding-box` and `median` differ whenever the selection is lopsided: the
+ * first is the centre of its extents, the second the average of its vertices,
+ * so a dense cluster at one end pulls `median` towards it and leaves
+ * `bounding-box` where it was.
+ */
+export type PivotMode = 'bounding-box' | 'median' | 'cursor' | 'individual'
 
 /** A point in UV space. */
 export type UvPoint = [u: number, v: number]

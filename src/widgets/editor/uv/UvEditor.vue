@@ -1,12 +1,11 @@
 <template>
 	<EditorWrapper class="grid min-w-0 grid-rows-[auto_1fr_auto]">
-		<!-- A thin header for the settings that change constantly; everything
-		     else lives in the rail. -->
 		<div
-			class="flex items-center gap-2 border-b border-editor-outline bg-viewport-header-bg px-1
-				py-0.5"
+			class="flex flex-wrap items-center gap-2 border-b border-editor-outline bg-viewport-header-bg
+				px-1 py-0.5"
 		>
 			<MxIcon name="editing/uv" class="shrink-0" />
+			<MenuBar :items="menuItems" />
 
 			<!-- One segmented control rather than four separate buttons: the modes
 			     are mutually exclusive, and joining them says so. Same shape as
@@ -33,30 +32,45 @@
 			</div>
 
 			<UvStickySelect />
-
-			<div class="ml-auto flex gap-0.5">
-				<button class="btn text-xs" @click="uvStore.selectAll()">All</button>
-				<button class="btn text-xs" @click="uvStore.clearSelection()">None</button>
-			</div>
+			<UvPivotSelect />
 		</div>
 
-		<div class="grid min-h-0 grid-cols-[auto_1fr]">
-			<UvToolRail />
-			<UvCanvas />
-		</div>
+		<UvCanvas />
 
+		<!--
+			The numbers that matter are Picked against Moving: the gap between them
+			is the sticky rule at work, which is otherwise invisible until
+			something moves unexpectedly.
+		-->
 		<div
-			class="truncate border-t border-editor-outline bg-panel-sub-background px-2 py-0.5 text-xs
-				text-header-text"
+			class="flex flex-wrap items-center gap-x-4 border-t border-editor-outline
+				bg-panel-sub-background px-2 py-0.5 text-xs text-header-text"
 		>
-			{{ uvStore.lastAction || hint }}
+			<template v-if="uvStore.stats">
+				<span>{{ uvStore.stats.islandCount }} islands</span>
+				<span>{{ uvStore.stats.seamCount }} seams</span>
+				<span>
+					{{ uvStore.stats.pickedCount }} picked →
+					<span class="text-outliner-active-object">{{ uvStore.stats.movingCount }}</span> moving
+					<template v-if="uvStore.stats.stickyCount">
+						(+{{ uvStore.stats.stickyCount }} by sticky)
+					</template>
+				</span>
+				<span v-if="uvStore.stats.overlappingPairs" class="text-orange-400">
+					{{ uvStore.stats.overlappingPairs }} overlapping
+				</span>
+				<span v-if="uvStore.stats.offTileCount" class="text-orange-400">
+					{{ uvStore.stats.offTileCount }} off tile
+				</span>
+			</template>
+			<span class="ml-auto truncate">{{ uvStore.lastAction || hint }}</span>
 		</div>
 	</EditorWrapper>
 </template>
 
 <script lang="ts" setup>
 /**
- * The UV editor pane: header, tool rail, canvas, status line.
+ * The UV editor pane: header, canvas, status line.
  *
  * It edits the whole selected mesh — see `useUvStore` for why that scope, and
  * what sub-object selection would buy.
@@ -64,7 +78,11 @@
 import { computed } from 'vue'
 import type { SelectMode } from '@/shared/lib/uv-layout'
 import type { MxTooltipContent } from '@/shared/lib/types'
+import type { IMenubarMenu } from '@/shared/ui/MenuBar.vue'
 import { useUvStore } from '@/app/model/uv'
+
+const STEP_ROTATION = Math.PI / 12
+const STEP_SCALE = 1.1
 
 interface ModeButton {
 	value: SelectMode
@@ -119,6 +137,111 @@ const MODES: ModeButton[] = [
 ]
 
 const uvStore = useUvStore()
+
+const gridEnabled = computed({
+	get: () => uvStore.hasGrid,
+	set: () => uvStore.toggleGrid()
+})
+
+/**
+ * Menus, not a rail of buttons. Following the viewport header, which already
+ * puts its one-shot commands behind `View`/`Add` and keeps only the controls
+ * you change mid-gesture on the bar itself.
+ */
+const menuItems = computed<IMenubarMenu[]>(() => [
+	{
+		label: 'Select',
+		items: [
+			{
+				type: 'item',
+				key: 'select_all',
+				label: 'All',
+				onClick: () => uvStore.selectAll()
+			},
+			{
+				type: 'item',
+				key: 'select_none',
+				label: 'None',
+				onClick: () => uvStore.clearSelection()
+			}
+		]
+	},
+	{
+		label: 'UV',
+		items: [
+			{
+				type: 'sub',
+				key: 'transform',
+				label: 'Transform',
+				items: [
+					{
+						type: 'item',
+						key: 'rotate_ccw',
+						label: 'Rotate 15° left',
+						onClick: () => uvStore.apply({ rotate: STEP_ROTATION }, 'Rotated')
+					},
+					{
+						type: 'item',
+						key: 'rotate_cw',
+						label: 'Rotate 15° right',
+						onClick: () => uvStore.apply({ rotate: -STEP_ROTATION }, 'Rotated')
+					},
+					{
+						type: 'item',
+						key: 'scale_up',
+						label: 'Scale up',
+						onClick: () => uvStore.apply({ scale: [STEP_SCALE, STEP_SCALE] }, 'Scaled up')
+					},
+					{
+						type: 'item',
+						key: 'scale_down',
+						label: 'Scale down',
+						onClick: () => uvStore.apply({ scale: [1 / STEP_SCALE, 1 / STEP_SCALE] }, 'Scaled down')
+					},
+					{
+						type: 'item',
+						key: 'flip_u',
+						label: 'Flip in U',
+						onClick: () => uvStore.apply({ scale: [-1, 1] }, 'Flipped in U')
+					},
+					{
+						type: 'item',
+						key: 'flip_v',
+						label: 'Flip in V',
+						onClick: () => uvStore.apply({ scale: [1, -1] }, 'Flipped in V')
+					}
+				]
+			},
+			{ type: 'separator', key: 'sep_layout' },
+			{
+				type: 'item',
+				key: 'pack_islands',
+				label: 'Pack Islands',
+				onClick: () => uvStore.pack()
+			},
+			{
+				type: 'item',
+				key: 'weld',
+				label: 'Weld Selected',
+				onClick: () => uvStore.weld()
+			},
+			{ type: 'separator', key: 'sep_reset' },
+			{
+				type: 'checkbox',
+				key: 'uv_grid',
+				label: 'UV Grid Texture',
+				// `MenuBar` writes through `v-model`, so this has to be writable.
+				model: gridEnabled
+			},
+			{
+				type: 'item',
+				key: 'reset',
+				label: 'Reset UVs',
+				onClick: () => uvStore.reset()
+			}
+		]
+	}
+])
 
 const hint = computed(() =>
 	uvStore.status === 'ready'

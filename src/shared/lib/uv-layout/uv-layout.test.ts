@@ -327,6 +327,25 @@ describe('transformUvs', () => {
 		expect(Math.hypot(after[0] - before[0], after[1] - before[1])).toBeGreaterThan(0.05)
 	})
 
+	// A right triangle is the cheapest shape where the two disagree: its
+	// vertices average to (1/3, 2/3) while its extents centre on (0.5, 0.5).
+	it.each([
+		['bounding-box' as const, [0.5, 0.5]],
+		['median' as const, [1 / 3, 2 / 3]]
+	])('rotates a lopsided selection around its %s', (pivot, expected) => {
+		const { layout, uv } = read(new THREE.PlaneGeometry())
+		const selection = select({ mode: 'vertex', ids: new Set([0, 1, 2]), sticky: 'off', pivot })
+
+		// Half a turn maps every point to `2 * pivot - point`, so the pivot is
+		// readable straight off the result.
+		const { uv: next } = transformUvs(layout, uv, selection, { rotate: Math.PI })
+
+		for (const vert of [0, 1, 2]) {
+			expect(next[vert * 2]).toBeCloseTo(2 * expected[0] - uv[vert * 2])
+			expect(next[vert * 2 + 1]).toBeCloseTo(2 * expected[1] - uv[vert * 2 + 1])
+		}
+	})
+
 	it('rotates around the 2D cursor when asked', () => {
 		const { layout, uv } = cube()
 		const selection = select({

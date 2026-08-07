@@ -70,6 +70,12 @@ function pivotResolver(
 		return () => cursor
 	}
 
+	if (selection.pivot === 'bounding-box') {
+		const bounds = boundsOf(uv, verts)
+		const centre: UvPoint = [(bounds.u0 + bounds.u1) / 2, (bounds.v0 + bounds.v1) / 2]
+		return () => centre
+	}
+
 	if (selection.pivot === 'individual') {
 		const sums = new Map<number, [number, number, number]>()
 		for (const vert of verts) {
