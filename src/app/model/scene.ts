@@ -12,7 +12,7 @@ import {
 import { createMesh } from '@/shared/three/modules/mesh'
 import { createCamera } from '@/shared/three/modules/camera/create'
 import { exportModel } from '@/shared/three/modules/addons/exporter'
-import { getUserData, enableBVH } from '@/shared/three/utils'
+import { getUserData, enableBVH, isWithin } from '@/shared/three/utils'
 import { useShadingStore } from './shading'
 import { useRaycastStore } from './raycast'
 import { useSelectionStore } from './selection'
@@ -228,8 +228,10 @@ export const useSceneStore = defineStore('scene', () => {
 			}
 		}
 
+		// Same containment rule as the selection above: the render camera goes with
+		// the subtree whether it is the deleted object or lives anywhere beneath it.
 		const cameraStore = useCameraStore()
-		if (cameraStore.renderCamera?.uuid === object.uuid) {
+		if (isWithin(cameraStore.renderCamera, object)) {
 			cameraStore.renderCamera = null
 		}
 

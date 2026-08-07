@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { shallowRef, triggerRef } from 'vue'
 import THREE from '@/shared/three'
-import { getUserData } from '@/shared/three/utils'
+import { getUserData, isWithin } from '@/shared/three/utils'
 import { useSceneStore } from './scene'
 import { useControlsStore } from './controls'
 import { useComposerStore } from './composer'
@@ -94,12 +94,7 @@ export const useSelectionStore = defineStore('selection', () => {
 	 * removing a subtree use this to decide whether the selection goes with it.
 	 */
 	function isSelectedWithin(object: THREE.Object3D) {
-		let node = selectedObject.value
-		while (node) {
-			if (node.uuid === object.uuid) return true
-			node = node.parent
-		}
-		return false
+		return isWithin(selectedObject.value, object)
 	}
 
 	/**

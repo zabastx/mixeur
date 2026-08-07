@@ -70,6 +70,58 @@ describe('useSceneStore graph operations', () => {
 
 			expect(selectionHolder.clear).not.toHaveBeenCalled()
 		})
+
+		it('clears the render camera when it lives inside the deleted object', () => {
+			const store = useSceneStore()
+			const group = new THREE.Group()
+			const camera = new THREE.PerspectiveCamera()
+			group.add(camera)
+			store.addObjectToScene(group)
+			cameraHolder.renderCamera = camera
+
+			store.deleteFromScene(group.uuid)
+
+			expect(cameraHolder.renderCamera).toBeNull()
+		})
+
+		it('clears the render camera nested more than one level down', () => {
+			const store = useSceneStore()
+			const outer = new THREE.Group()
+			const inner = new THREE.Group()
+			const camera = new THREE.PerspectiveCamera()
+			inner.add(camera)
+			outer.add(inner)
+			store.addObjectToScene(outer)
+			cameraHolder.renderCamera = camera
+
+			store.deleteFromScene(outer.uuid)
+
+			expect(cameraHolder.renderCamera).toBeNull()
+		})
+
+		it('clears the render camera when the camera itself is deleted', () => {
+			const store = useSceneStore()
+			const camera = new THREE.PerspectiveCamera()
+			store.addObjectToScene(camera)
+			cameraHolder.renderCamera = camera
+
+			store.deleteFromScene(camera.uuid)
+
+			expect(cameraHolder.renderCamera).toBeNull()
+		})
+
+		it('leaves the render camera alone when it is outside the deleted subtree', () => {
+			const store = useSceneStore()
+			const camera = new THREE.PerspectiveCamera()
+			store.addObjectToScene(camera)
+			const group = new THREE.Group()
+			store.addObjectToScene(group)
+			cameraHolder.renderCamera = camera
+
+			store.deleteFromScene(group.uuid)
+
+			expect(cameraHolder.renderCamera).toBe(camera)
+		})
 	})
 
 	describe('addGroup', () => {
@@ -198,6 +250,19 @@ describe('useSceneStore graph operations', () => {
 			expect(store.scene.children.filter((c) => getUserData(c).isSystemObj).length).toBe(
 				systemBefore
 			)
+		})
+
+		it('clears a render camera nested inside one of the cleared objects', () => {
+			const store = useSceneStore()
+			const group = new THREE.Group()
+			const camera = new THREE.PerspectiveCamera()
+			group.add(camera)
+			store.addObjectToScene(group)
+			cameraHolder.renderCamera = camera
+
+			store.clearScene()
+
+			expect(cameraHolder.renderCamera).toBeNull()
 		})
 	})
 })
