@@ -5,6 +5,7 @@ import {
 	initPMREMGenerator
 } from '@/shared/three/modules/extras/pmremGenerator'
 import { attachRenderer, detachRenderer } from '@/shared/three/modules/loaders/renderer-context'
+import { disposeWorldMapCache } from '@/shared/three/modules/loaders/environment'
 import { useResizeObserver } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { ViewportGizmo } from 'three-viewport-gizmo'
@@ -165,10 +166,15 @@ export const useComposerStore = defineStore('composer', () => {
 		})
 
 		initPMREMGenerator(renderer)
-		teardown.add(() => disposePMREMGenerator())
+		teardown.add(disposePMREMGenerator)
+
+		// The cached world maps are PMREM output, so they belong to this renderer
+		// too — kept past its death they are handles into a GL context that is
+		// gone. Clearing the cache makes the next viewport rebuild them.
+		teardown.add(disposeWorldMapCache)
 
 		attachRenderer(renderer)
-		teardown.add(() => detachRenderer())
+		teardown.add(detachRenderer)
 
 		const { composer, handleResize, outlinePass } = setupComposer({
 			canvas,
@@ -181,18 +187,20 @@ export const useComposerStore = defineStore('composer', () => {
 
 		rendererRef.value = renderer
 		composerRef.value = composer
-		teardown.add(() => {
-			rendererRef.value = undefined
-			composerRef.value = undefined
-			outlinePassRef.value = undefined
-		})
 
 		return {
 			composer,
 			handleResize,
 			outlinePass,
 			renderer,
-			dispose: teardown.run
+			dispose() {
+				teardown.run()
+				// Cleared after the releases have run, not as one of them: a
+				// release that read these would find them already gone.
+				rendererRef.value = undefined
+				composerRef.value = undefined
+				outlinePassRef.value = undefined
+			}
 		}
 	}
 

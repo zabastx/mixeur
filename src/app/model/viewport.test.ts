@@ -7,13 +7,19 @@ import { useRaycastStore } from './raycast'
 /**
  * What `mount` does with the parts of the viewport that need no GL context.
  *
- * The renderer, composer and controls cannot be exercised here: the headless
- * `gl` context the test setup installs is WebGL 1.0, and Three.js needs WebGL 2
- * (it calls `texImage3D` while initialising, which WebGL 1 has no such method
- * for). So `useViewportStore().mount` itself is out of reach, and this covers
- * the property it delegates to the effect scope — that pointer, wheel, keyboard
- * and picking listeners are all released together — for the two stores that
- * bind them. The rest is covered end-to-end by the Playwright suite.
+ * `useViewportStore().mount` itself is out of reach here: the headless `gl`
+ * context the test setup installs is WebGL 1.0, and Three.js needs WebGL 2 (it
+ * calls `texImage3D` while initialising, which WebGL 1 has no equivalent of),
+ * so `new WebGLRenderer()` throws before a viewport can exist. What is covered
+ * below is the property `mount` delegates to its effect scope — that pointer,
+ * wheel, keyboard and picking listeners are released together — for the two
+ * stores that bind them.
+ *
+ * Nothing here covers `dispose` releasing the renderer, composer or controls;
+ * that needs a real GPU context and no automated test asserts it today. It was
+ * checked by hand in Chromium by making the viewport unmountable and cycling it
+ * three times: three GL contexts created, three lost, one transform helper left
+ * in the helper scene, no console errors.
  */
 
 interface Registration {

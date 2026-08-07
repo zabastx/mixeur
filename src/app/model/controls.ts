@@ -42,9 +42,8 @@ export const useControlsStore = defineStore('controls', () => {
 	 * and return the release that detaches them again.
 	 *
 	 * Watchers and key handlers registered along the way are left to the
-	 * caller's effect scope; `dispose` covers the Three.js objects, the helper
-	 * this adds to `helperScene` (which outlives the viewport) and the store
-	 * references other panels read.
+	 * caller's effect scope; `dispose` covers the Three.js objects and the
+	 * helper this adds to `helperScene`, which outlives the viewport.
 	 */
 	function initControls(helperScene: THREE.Scene) {
 		const teardown = createTeardown()
@@ -52,13 +51,16 @@ export const useControlsStore = defineStore('controls', () => {
 		setTransformControls(helperScene, teardown)
 		setOrbitControls(teardown)
 
-		teardown.add(() => {
-			controls.value = undefined
-			gizmo.value = undefined
-			transformControls.value = undefined
-		})
-
-		return teardown.run
+		return {
+			dispose() {
+				teardown.run()
+				// Cleared after the releases have run, not as one of them: a
+				// release that read these would find them already gone.
+				controls.value = undefined
+				gizmo.value = undefined
+				transformControls.value = undefined
+			}
+		}
 	}
 
 	function setOrbitControls(teardown: Teardown) {
@@ -68,8 +70,11 @@ export const useControlsStore = defineStore('controls', () => {
 
 		if (!rendererRef) return console.warn('setOrbitControls: renderer is undefined')
 
-		controls.value = new OrbitControls(activeCamera.value, rendererRef.domElement)
-		teardown.add(() => controls.value?.dispose())
+		// Releases below close over locals rather than the store refs, so they
+		// hold what they were given no matter what else teardown has already run.
+		const orbitControls = new OrbitControls(activeCamera.value, rendererRef.domElement)
+		teardown.add(() => orbitControls.dispose())
+		controls.value = orbitControls
 		controls.value.enablePan = true
 		controls.value.screenSpacePanning = true
 		controls.value.enableZoom = false
@@ -83,10 +88,11 @@ export const useControlsStore = defineStore('controls', () => {
 			TWO: THREE.TOUCH.PAN
 		}
 
-		gizmo.value = new ViewportGizmo(activeCamera.value, rendererRef, getGizmoConfig())
-		teardown.add(() => gizmo.value?.dispose())
-		gizmo.value.attachControls(controls.value)
-		teardown.add(() => gizmo.value?.detachControls())
+		const viewportGizmo = new ViewportGizmo(activeCamera.value, rendererRef, getGizmoConfig())
+		teardown.add(() => viewportGizmo.dispose())
+		gizmo.value = viewportGizmo
+		viewportGizmo.attachControls(orbitControls)
+		teardown.add(() => viewportGizmo.detachControls())
 
 		const { viewportCameras } = cameraStore
 
@@ -131,14 +137,17 @@ export const useControlsStore = defineStore('controls', () => {
 
 		if (!rendererRef) return console.warn('setTransformControls: renderer is undefined')
 
-		transformControls.value = new TransformControls(activeCamera.value, rendererRef.domElement)
+		// As in `setOrbitControls`, the releases close over this local rather than
+		// the store ref, so they cannot be defeated by the ref being cleared.
+		const transform = new TransformControls(activeCamera.value, rendererRef.domElement)
 		teardown.add(() => {
-			transformControls.value?.detach()
+			transform.detach()
 			// Also disposes the helper root returned by `getHelper`.
-			transformControls.value?.dispose()
+			transform.dispose()
 		})
-		transformControls.value.setMode(currentTransformMode.value)
-		const transformHelper = transformControls.value.getHelper()
+		transformControls.value = transform
+		transform.setMode(currentTransformMode.value)
+		const transformHelper = transform.getHelper()
 		transformHelper.name = 'TransformHelper'
 
 		// `helperScene` belongs to the scene store and outlives the viewport, so
@@ -185,11 +194,11 @@ export const useControlsStore = defineStore('controls', () => {
 			wasDragging.value = !e.value
 		}
 
-		transformControls.value.addEventListener('objectChange', onObjectChange)
-		transformControls.value.addEventListener('dragging-changed', onDraggingChanged)
+		transform.addEventListener('objectChange', onObjectChange)
+		transform.addEventListener('dragging-changed', onDraggingChanged)
 		teardown.add(() => {
-			transformControls.value?.removeEventListener('objectChange', onObjectChange)
-			transformControls.value?.removeEventListener('dragging-changed', onDraggingChanged)
+			transform.removeEventListener('objectChange', onObjectChange)
+			transform.removeEventListener('dragging-changed', onDraggingChanged)
 		})
 
 		onKeyDown('editor', (e) => {

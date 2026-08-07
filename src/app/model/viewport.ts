@@ -96,7 +96,7 @@ export const useViewportStore = defineStore('viewport', () => {
 			// so this order is a real dependency rather than a convention. The
 			// keyboard handlers these register are ordered by phase instead of by
 			// registration — see `@/shared/lib/keyboard`.
-			teardown.add(controlsStore.initControls(sceneStore.helperScene as THREE.Scene))
+			teardown.add(controlsStore.initControls(sceneStore.helperScene as THREE.Scene).dispose)
 			raycastStore.init(canvas)
 			inputStore.init(canvas)
 
@@ -136,12 +136,16 @@ export const useViewportStore = defineStore('viewport', () => {
 
 		const viewport: Viewport = {
 			dispose() {
-				if (current === viewport) current = null
+				// Only the viewport still on screen owns `isMounted`; a stale handle
+				// disposed after a newer one mounted must not report it gone.
+				if (current === viewport) {
+					current = null
+					isMounted.value = false
+				}
 				// Stopped first, so no watcher or listener observes a viewport that
 				// is halfway through being released.
 				scope.stop()
 				teardown.run()
-				isMounted.value = false
 			}
 		}
 

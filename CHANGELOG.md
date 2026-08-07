@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keyboard shortcuts: which shortcuts a keypress reaches is now decided by whether the shortcut is an application one (save, open — these still work while typing) or an editor one (transform tools, view directions, delete — these stay suppressed while typing), rather than by the order the handlers happened to be registered in. Behaviour is unchanged; it is no longer accidental
 - Starting scene: the default light, camera and cube are seeded once per project rather than once per viewport, so restarting the viewport no longer adds a second copy of each
 
+## [0.29.1] - 2026-08-07
+
 ### Added
 
 - Test suite: unit tests (Vitest) and end-to-end tests (Playwright) across chromium, firefox and webkit, with coverage configuration
