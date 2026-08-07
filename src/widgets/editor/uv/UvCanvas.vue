@@ -26,16 +26,23 @@ import { useResizeObserver } from '@vueuse/core'
 import {
 	faceAt,
 	idsInRect,
+	MIN_REFERENCE,
+	modalTransform,
 	movingVerts,
 	nearestEdge,
 	nearestVert,
 	pickedVerts,
 	resolvePick,
 	selectedFaces,
+	transformOrigin,
 	transformUvs,
+	type TransformAxis,
+	type TransformKind,
 	type UvPoint,
 	type UvRect
 } from '@/shared/lib/uv-layout'
+import { onKeyDown } from '@/shared/lib/keyboard'
+import { keyCodeToTransformAxis, keyCodeToTransformMode } from '@/app/config/keymaps'
 import { useUvStore } from '@/app/model/uv'
 
 const props = withDefaults(defineProps<{ span?: number }>(), { span: 1.45 })
@@ -68,7 +75,7 @@ let dpr = 1
  * frame would be felt during a drag.
  */
 const colours = {
-	background: '#4b4b4b',
+	background: '#333333',
 	tileOutline: '#ffffff',
 	wire: '#ffffffbf',
 	seam: '#ff5a50',
@@ -131,6 +138,31 @@ function fit() {
 
 let box: (UvRect & { start: UvPoint; base: Set<number> }) | null = null
 let drag: { from: UvPoint; base: Float32Array } | null = null
+/** Middle-drag view pan: where it began, and the view centre at that moment. */
+let pan: { x: number; y: number; u: number; v: number } | null = null
+
+/**
+ * A running modal transform.
+ *
+ * `base` is the UV buffer as it was when the modal started; every pointer move
+ * re-applies the whole transform to it rather than nudging the live buffer, so
+ * cancelling is exact and the numbers in the status line stay absolute.
+ *
+ * `from` is null until the pointer is first seen over the canvas, which is how
+ * a modal started from the menu avoids jumping by the distance to the menu.
+ */
+let modal: {
+	kind: TransformKind
+	axis: TransformAxis
+	from: UvPoint | null
+	origin: UvPoint
+	base: Float32Array
+	moved: number
+} | null = null
+
+/** The last pointer position over the canvas, for a menu-started modal. */
+let pointer: UvPoint | null = null
+const hovered = ref(false)
 
 function draw() {
 	const canvas = canvasRef.value
@@ -146,38 +178,41 @@ function draw() {
 	if (!layout || !uv) return
 	const selection = uvStore.selection
 
-	// The 0–1 tile: an alpha checkerboard, then whatever the material is
-	// actually mapped with. Only the one tile, as Blender draws it — repeating
-	// it would say the layout tiles, which is a property of the texture's wrap
-	// mode rather than of anything visible here.
+	// The 0–1 tile: whatever the material is actually mapped with, over an alpha
+	// checkerboard. Only the one tile, as Blender draws it — repeating it would
+	// say the layout tiles, which is a property of the texture's wrap mode
+	// rather than of anything visible here.
 	const [left, top] = toScreen(0, 1)
 	const [right, bottom] = toScreen(1, 0)
 	const tileWidth = right - left
 	const tileHeight = bottom - top
 
-	ctx.save()
-	ctx.beginPath()
-	ctx.rect(left, top, tileWidth, tileHeight)
-	ctx.clip()
-	ctx.fillStyle = colours.checkerA
-	ctx.fillRect(left, top, tileWidth, tileHeight)
-	ctx.fillStyle = colours.checkerB
-	// Screen-space squares, so the checker reads as "nothing here" at any zoom
-	// instead of looking like part of the texture.
-	const originX = left - (((left % (CHECKER_SIZE * 2)) + CHECKER_SIZE * 2) % (CHECKER_SIZE * 2))
-	const originY = top - (((top % (CHECKER_SIZE * 2)) + CHECKER_SIZE * 2) % (CHECKER_SIZE * 2))
-	for (let y = originY; y < top + tileHeight; y += CHECKER_SIZE) {
-		for (let x = originX; x < left + tileWidth; x += CHECKER_SIZE) {
-			const odd =
-				(Math.round((x - originX) / CHECKER_SIZE) + Math.round((y - originY) / CHECKER_SIZE)) % 2
-			if (odd) ctx.fillRect(x, y, CHECKER_SIZE, CHECKER_SIZE)
-		}
-	}
+	// The checkerboard is there to show alpha through, so it only appears under
+	// an image. With no map the tile is just background, as Blender's UV editor
+	// is with no image loaded.
 	if (uvStore.mapImage) {
+		ctx.save()
+		ctx.beginPath()
+		ctx.rect(left, top, tileWidth, tileHeight)
+		ctx.clip()
+		ctx.fillStyle = colours.checkerA
+		ctx.fillRect(left, top, tileWidth, tileHeight)
+		ctx.fillStyle = colours.checkerB
+		// Screen-space squares, so the checker reads as "nothing here" at any
+		// zoom instead of looking like part of the texture.
+		const originX = left - (((left % (CHECKER_SIZE * 2)) + CHECKER_SIZE * 2) % (CHECKER_SIZE * 2))
+		const originY = top - (((top % (CHECKER_SIZE * 2)) + CHECKER_SIZE * 2) % (CHECKER_SIZE * 2))
+		for (let y = originY; y < top + tileHeight; y += CHECKER_SIZE) {
+			for (let x = originX; x < left + tileWidth; x += CHECKER_SIZE) {
+				const odd =
+					(Math.round((x - originX) / CHECKER_SIZE) + Math.round((y - originY) / CHECKER_SIZE)) % 2
+				if (odd) ctx.fillRect(x, y, CHECKER_SIZE, CHECKER_SIZE)
+			}
+		}
 		ctx.imageSmoothingEnabled = tileWidth < 512
 		ctx.drawImage(uvStore.mapImage, left, top, tileWidth, tileHeight)
+		ctx.restore()
 	}
-	ctx.restore()
 
 	ctx.strokeStyle = colours.tileOutline
 	ctx.lineWidth = 1.5
@@ -292,13 +327,149 @@ function pickAt(point: UvPoint) {
 	}
 }
 
+const MODAL_HINT: Record<TransformKind, string> = {
+	move: 'Move — click to confirm, Esc to cancel, X/Y to lock an axis',
+	rotate: 'Rotate — click to confirm, Esc to cancel',
+	scale: 'Scale — click to confirm, Esc to cancel, X/Y to lock an axis'
+}
+const MODAL_DONE: Record<TransformKind, string> = {
+	move: 'Moved',
+	rotate: 'Rotated',
+	scale: 'Scaled'
+}
+
+/**
+ * Start a modal move, rotate or scale — Blender's G, R and S.
+ *
+ * The pointer is the handle, which is the whole reason this is modal rather
+ * than a gizmo: nothing is drawn over the texture you are trying to judge.
+ * Pressing another of the three mid-modal switches to it rather than
+ * compounding, which is how you recover from reaching for the wrong key.
+ */
+function beginTransform(kind: TransformKind) {
+	const layout = uvStore.layout
+	if (uvStore.status !== 'ready' || !layout) return
+	cancelModal()
+	const uv = uvStore.uvBuffer()
+	if (!uv) return
+	if (!movingVerts(layout, uv, uvStore.selection).size) return uvStore.touch('Nothing selected')
+
+	drag = null
+	box = null
+	modal = {
+		kind,
+		axis: null,
+		from: pointer,
+		origin: transformOrigin(layout, uv, uvStore.selection),
+		base: Float32Array.from(uv),
+		moved: 0
+	}
+	uvStore.touch(MODAL_HINT[kind])
+}
+
+function updateModal(point: UvPoint) {
+	const layout = uvStore.layout
+	if (!modal || !layout) return
+	// The first move only fixes the reference: a modal started from the menu has
+	// no pointer history, and measuring from the menu would fling the selection.
+	if (!modal.from) {
+		modal.from = point
+		return
+	}
+	// Rotate and scale measure against the origin, so a reference sitting on top
+	// of it has no angle and no radius — and never gains one, because it is the
+	// reference that is degenerate, not the travel. Keep re-seeding until the
+	// pointer has left, which is the usual case anyway.
+	if (
+		modal.kind !== 'move' &&
+		Math.hypot(modal.from[0] - modal.origin[0], modal.from[1] - modal.origin[1]) < MIN_REFERENCE
+	) {
+		modal.from = point
+		return
+	}
+	const { transform, label } = modalTransform(
+		modal.kind,
+		modal.from,
+		point,
+		modal.origin,
+		modal.axis
+	)
+	const result = transformUvs(layout, modal.base, uvStore.selection, transform)
+	modal.moved = result.moved
+	uvStore.commit(result.uv, label)
+}
+
+function confirmModal() {
+	if (!modal) return
+	const { kind, moved } = modal
+	modal = null
+	uvStore.touch(`${MODAL_DONE[kind]} ${moved} UV vertices`)
+}
+
+function cancelModal() {
+	if (!modal) return
+	const { base } = modal
+	modal = null
+	uvStore.commit(base, 'Cancelled')
+}
+
+function onKey(event: KeyboardEvent) {
+	// Hovering is what makes this the UV editor's keyboard rather than the
+	// viewport's — except mid-modal, where a menu-started transform has to stay
+	// cancellable with the pointer wherever the menu left it.
+	if ((!hovered.value && !modal) || event.ctrlKey || event.metaKey || event.altKey) return
+
+	const mode = keyCodeToTransformMode[event.code]
+	if (mode) {
+		event.preventDefault()
+		beginTransform(mode === 'translate' ? 'move' : mode)
+		return
+	}
+	if (!modal) return
+
+	// The viewport's axis keys. UV space has no third axis, so Z is left alone.
+	const axis = keyCodeToTransformAxis[event.code]
+	if (axis === 'x' || axis === 'y' || axis === 'clear') {
+		event.preventDefault()
+		const next: TransformAxis = axis === 'x' ? 'u' : axis === 'y' ? 'v' : null
+		modal.axis = modal.axis === next ? null : next
+		if (pointer) updateModal(pointer)
+		return
+	}
+	if (event.code === 'Escape') {
+		event.preventDefault()
+		cancelModal()
+	} else if (event.code === 'Enter' || event.code === 'NumpadEnter') {
+		event.preventDefault()
+		confirmModal()
+	}
+}
+
 function onPointerDown(event: PointerEvent) {
-	if (uvStore.status !== 'ready') return
+	const host = event.currentTarget as HTMLElement
+
+	// Middle-drag pans, as everywhere else in the app. Before the modal check so
+	// the view stays movable while a transform is running.
+	if (event.button === 1) {
+		event.preventDefault()
+		host.setPointerCapture(event.pointerId)
+		pan = { x: event.clientX, y: event.clientY, u: view.value.u, v: view.value.v }
+		return
+	}
+
+	if (modal) {
+		event.preventDefault()
+		if (event.button === 0) confirmModal()
+		else cancelModal()
+		return
+	}
+
+	if (event.button !== 0 || uvStore.status !== 'ready') return
 	const uv = uvStore.uvBuffer()
 	if (!uv) return
 	const point = eventUv(event)
 	const selection = uvStore.selection
-	;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+	host.setPointerCapture(event.pointerId)
 
 	if (event.altKey) {
 		selection.cursor = point
@@ -331,11 +502,25 @@ function onPointerDown(event: PointerEvent) {
 }
 
 function onPointerMove(event: PointerEvent) {
+	if (pan) {
+		const s = scale()
+		view.value.u = pan.u - (event.clientX - pan.x) / s
+		view.value.v = pan.v + (event.clientY - pan.y) / s
+		draw()
+		return
+	}
+
+	const point = eventUv(event)
+	pointer = point
 	const layout = uvStore.layout
 	if (!layout) return
 
+	if (modal) {
+		updateModal(point)
+		return
+	}
+
 	if (drag) {
-		const point = eventUv(event)
 		const result = transformUvs(layout, drag.base, uvStore.selection, {
 			translate: [point[0] - drag.from[0], point[1] - drag.from[1]]
 		})
@@ -346,7 +531,6 @@ function onPointerMove(event: PointerEvent) {
 	if (box) {
 		const uv = uvStore.uvBuffer()
 		if (!uv) return
-		const point = eventUv(event)
 		box.u0 = Math.min(box.start[0], point[0])
 		box.u1 = Math.max(box.start[0], point[0])
 		box.v0 = Math.min(box.start[1], point[1])
@@ -359,11 +543,17 @@ function onPointerMove(event: PointerEvent) {
 }
 
 function onPointerUp() {
+	pan = null
 	if (box) {
 		box = null
 		uvStore.touch(`Selected ${uvStore.selection.ids.size} ${uvStore.selection.mode}(s)`)
 	}
 	drag = null
+}
+
+/** Only while a modal is running, where the right button means cancel. */
+function onContextMenu(event: MouseEvent) {
+	if (modal) event.preventDefault()
 }
 
 function onWheel(event: WheelEvent) {
@@ -380,6 +570,9 @@ function onWheel(event: WheelEvent) {
 	draw()
 }
 
+const onEnter = () => (hovered.value = true)
+const onLeave = () => (hovered.value = false)
+
 onMounted(() => {
 	readTheme()
 	fit()
@@ -388,17 +581,30 @@ onMounted(() => {
 	canvas.addEventListener('pointerdown', onPointerDown)
 	canvas.addEventListener('pointermove', onPointerMove)
 	canvas.addEventListener('pointerup', onPointerUp)
+	canvas.addEventListener('pointerenter', onEnter)
+	canvas.addEventListener('pointerleave', onLeave)
+	canvas.addEventListener('contextmenu', onContextMenu)
 	canvas.addEventListener('wheel', onWheel, { passive: false })
 })
 
 onBeforeUnmount(() => {
+	cancelModal()
 	const canvas = canvasRef.value
 	if (!canvas) return
 	canvas.removeEventListener('pointerdown', onPointerDown)
 	canvas.removeEventListener('pointermove', onPointerMove)
 	canvas.removeEventListener('pointerup', onPointerUp)
+	canvas.removeEventListener('pointerenter', onEnter)
+	canvas.removeEventListener('pointerleave', onLeave)
+	canvas.removeEventListener('contextmenu', onContextMenu)
 	canvas.removeEventListener('wheel', onWheel)
 })
+
+// Released with the component's effect scope.
+onKeyDown('editor', onKey)
+
+// So the UV menu can start the same modal the keys do.
+defineExpose({ beginTransform })
 
 useResizeObserver(hostRef, fit)
 watch(() => uvStore.revision, draw)
@@ -407,6 +613,12 @@ watch(() => uvStore.mapImage, draw)
 watch(
 	() => uvStore.mesh,
 	() => {
+		// Dropped rather than cancelled: `base` belongs to the mesh that just went
+		// away, and writing it back would land it on the new one's UVs.
+		modal = null
+		drag = null
+		box = null
+		pan = null
 		view.value = { u: 0.5, v: 0.5, span: props.span }
 		draw()
 	}

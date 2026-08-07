@@ -161,7 +161,8 @@ export const useControlsStore = defineStore('controls', () => {
 		})
 
 		const selectionStore = useSelectionStore()
-		const { isCtrlDown } = storeToRefs(useInputStore())
+		const inputStore = useInputStore()
+		const { isCtrlDown } = storeToRefs(inputStore)
 
 		watch(isCtrlDown, (newVal) => {
 			if (newVal) {
@@ -203,6 +204,10 @@ export const useControlsStore = defineStore('controls', () => {
 
 		onKeyDown('editor', (e) => {
 			if (!transformControls.value) return
+			// G, R and S belong to whichever editor the pointer is over — the UV
+			// editor binds the same keys — so the gizmo only answers over the
+			// viewport, the rule `Delete` and `Shift+D` already follow.
+			if (!inputStore.pointerOnCanvas) return
 
 			const mode = keyCodeToTransformMode[e.code]
 			const axis = keyCodeToTransformAxis[e.code]

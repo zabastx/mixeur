@@ -35,7 +35,7 @@
 			<UvPivotSelect />
 		</div>
 
-		<UvCanvas />
+		<UvCanvas ref="canvasRef" />
 
 		<!--
 			The numbers that matter are Picked against Moving: the gap between them
@@ -75,14 +75,11 @@
  * It edits the whole selected mesh — see `useUvStore` for why that scope, and
  * what sub-object selection would buy.
  */
-import { computed } from 'vue'
-import type { SelectMode } from '@/shared/lib/uv-layout'
+import { computed, useTemplateRef } from 'vue'
+import type { SelectMode, TransformKind } from '@/shared/lib/uv-layout'
 import type { MxTooltipContent } from '@/shared/lib/types'
 import type { IMenubarMenu } from '@/shared/ui/MenuBar.vue'
 import { useUvStore } from '@/app/model/uv'
-
-const STEP_ROTATION = Math.PI / 12
-const STEP_SCALE = 1.1
 
 interface ModeButton {
 	value: SelectMode
@@ -138,6 +135,14 @@ const MODES: ModeButton[] = [
 
 const uvStore = useUvStore()
 
+/**
+ * The modal transforms live on the canvas, because they are driven by the
+ * pointer over it. The menu entries exist so the shortcuts are discoverable,
+ * and they invoke exactly the same thing the keys do.
+ */
+const canvasRef = useTemplateRef('canvasRef')
+const transform = (kind: TransformKind) => canvasRef.value?.beginTransform(kind)
+
 const gridEnabled = computed({
 	get: () => uvStore.hasGrid,
 	set: () => uvStore.toggleGrid()
@@ -176,27 +181,24 @@ const menuItems = computed<IMenubarMenu[]>(() => [
 				items: [
 					{
 						type: 'item',
-						key: 'rotate_ccw',
-						label: 'Rotate 15° left',
-						onClick: () => uvStore.apply({ rotate: STEP_ROTATION }, 'Rotated')
+						key: 'move',
+						label: 'Move',
+						shortcut: 'G',
+						onClick: () => transform('move')
 					},
 					{
 						type: 'item',
-						key: 'rotate_cw',
-						label: 'Rotate 15° right',
-						onClick: () => uvStore.apply({ rotate: -STEP_ROTATION }, 'Rotated')
+						key: 'rotate',
+						label: 'Rotate',
+						shortcut: 'R',
+						onClick: () => transform('rotate')
 					},
 					{
 						type: 'item',
-						key: 'scale_up',
-						label: 'Scale up',
-						onClick: () => uvStore.apply({ scale: [STEP_SCALE, STEP_SCALE] }, 'Scaled up')
-					},
-					{
-						type: 'item',
-						key: 'scale_down',
-						label: 'Scale down',
-						onClick: () => uvStore.apply({ scale: [1 / STEP_SCALE, 1 / STEP_SCALE] }, 'Scaled down')
+						key: 'scale',
+						label: 'Scale',
+						shortcut: 'S',
+						onClick: () => transform('scale')
 					},
 					{
 						type: 'item',
@@ -245,7 +247,7 @@ const menuItems = computed<IMenubarMenu[]>(() => [
 
 const hint = computed(() =>
 	uvStore.status === 'ready'
-		? 'Drag to move · drag empty space to box-select · Shift extends · Alt+click sets the 2D cursor'
+		? 'G/R/S transform · drag to move · empty space box-selects · middle-drag pans · Alt+click sets the cursor'
 		: ''
 )
 </script>

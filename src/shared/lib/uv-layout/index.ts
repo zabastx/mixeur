@@ -20,4 +20,11 @@ export {
 	selectedFaces
 } from './selection'
 export { boundsOf, packIslands, transformUvs, weldUvs } from './transform'
+export {
+	MIN_REFERENCE,
+	modalTransform,
+	transformOrigin,
+	type TransformAxis,
+	type TransformKind
+} from './modal'
 export { faceAt, idsInRect, nearestEdge, nearestVert, uvStats, vertsInRect } from './pick'
