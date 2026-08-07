@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.1] - 2026-08-07
+
+### Added
+
+- Test suite: unit tests (Vitest) and end-to-end tests (Playwright) across chromium, firefox and webkit, with coverage configuration
+- Basis transcoder: `public/basis/` now ships the KTX2 transcoder alongside the existing Draco decoders, and an end-to-end test asserts both are being served
+
+### Changed
+
+- Asset loading: one entry point per kind of asset — `loadModel`, `loadTexture`, `loadFont` — each accepting a file or a URL. Format detection, temporary URL cleanup, progress reporting and error handling are handled internally instead of by each caller
+- Property panels: light, shadow and material panels now share one field vocabulary and one renderer, so conditional fields and number formatting behave the same in all of them. `showIf` is now `enabledIf`, which disables a field rather than hiding it
+- Material surfaces: the Alpha, Environment, Emission, Normal & Bump, Light and Ambient Occlusion groups are defined once instead of being copied into each of the seven surface types. No field was added, dropped or reordered
+- Selection: the selected object, the viewport outline and the transform gizmo are now driven from one place, so they can no longer disagree
+- Light properties: open and collapsed sections now stay as you left them when switching between lights
+- Texture loading: shows an indeterminate progress entry instead of a progress bar frozen at 0%, since image decoding reports no byte counts
+
+### Fixed
+
+- Viewport: clicking empty space now deselects. Previously the outline and gizmo disappeared but the outliner row stayed highlighted and the Properties panel kept editing the old object
+- Viewport: deleting a group or parent that contains the selected object now clears the selection, instead of leaving the transform gizmo attached to a deleted object
+- Text properties: switching between text objects now updates the panel, which previously kept showing the first object's values. The font is restored along with the rest
+- glTF import: files using `KHR_texture_basisu` no longer hang the import modal on a progress bar that never clears — the Basis transcoder they need is now served
+- Progress: loading an OBJ with its material library no longer removes the wrong entry from the progress list
+- Import: a failed import now reports one error toast instead of two
+
 ## [0.29.0] - 2026-06-23
 
 ### Added
@@ -206,6 +231,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Material Preview settings: fixed broken thumbnail url
 
+[0.29.1]: https://github.com/zabastx/mixeur/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/zabastx/mixeur/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/zabastx/mixeur/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/zabastx/mixeur/compare/v0.27.0...v0.27.1
