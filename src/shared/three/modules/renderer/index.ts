@@ -1,5 +1,6 @@
 import THREE from '@/shared/three'
 import { initPMREMGenerator } from '../extras/pmremGenerator'
+import { attachRenderer } from '../loaders/renderer-context'
 
 /**
  * Creates WebGLRenderer with settings similar to Blender Eevee (Filmic)
@@ -26,6 +27,7 @@ export function createBlenderRenderer({ canvas }: { canvas: HTMLCanvasElement })
 	renderer.autoClear = false
 
 	initPMREMGenerator(renderer)
+	attachRenderer(renderer)
 
 	return renderer
 }

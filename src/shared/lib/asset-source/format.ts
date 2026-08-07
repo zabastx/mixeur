@@ -1,3 +1,11 @@
+/**
+ * Format detection by content rather than by file extension, plus extraction of
+ * the relative URIs an asset references. Pure byte inspection — no Three.js, no
+ * DOM beyond `File`.
+ */
+
+import { uriExtension } from './uri'
+
 export type ModelFormat = 'glb' | 'gltf' | 'obj' | 'fbx'
 
 export interface ModelAssets {
@@ -107,32 +115,28 @@ function extractGLBJson(bytes: Uint8Array): unknown {
 	}
 }
 
-async function extractGLBUris(file: File): Promise<string[]> {
-	const { bytes } = await readFile(file, file.size)
-	const json = extractGLBJson(bytes)
+/** glTF names its dependencies the same way whether the JSON was embedded or standalone. */
+function collectGLTFUris(json: unknown): string[] {
 	if (!isGLTFJson(json)) return []
 
 	const uris: string[] = []
 	json.buffers?.forEach((b) => b.uri && uris.push(b.uri))
 	json.images?.forEach((i) => i.uri && uris.push(i.uri))
+
 	return [...new Set(uris)].filter(isRelativeUri)
 }
 
+async function extractGLBUris(file: File): Promise<string[]> {
+	const { bytes } = await readFile(file, file.size)
+	return collectGLTFUris(extractGLBJson(bytes))
+}
+
 async function extractGLTFUris(file: File): Promise<string[]> {
-	let json: unknown
 	try {
-		json = JSON.parse(await file.text())
+		return collectGLTFUris(JSON.parse(await file.text()))
 	} catch {
 		return []
 	}
-
-	if (!isGLTFJson(json)) return []
-
-	const uris: string[] = []
-	json.buffers?.forEach((b) => b.uri && uris.push(b.uri))
-	json.images?.forEach((i) => i.uri && uris.push(i.uri))
-
-	return [...new Set(uris)].filter(isRelativeUri)
 }
 
 function extractOBJUris({ text }: FileHead): string[] {
@@ -263,3 +267,34 @@ export async function analyzeModelFile(file: File): Promise<ModelAssets | null> 
 		return null
 	}
 }
+
+// ── Detection for sources that are only a URL ──────────────────────────────────
+
+const MODEL_EXTENSIONS = new Map<string, ModelFormat>([
+	['glb', 'glb'],
+	['gltf', 'gltf'],
+	['obj', 'obj'],
+	['fbx', 'fbx']
+])
+
+/**
+ * A URL's bytes are not available before the transfer, so its format has to
+ * come from the extension. Returns `null` when the extension names no model
+ * format we can load.
+ */
+export function modelFormatFromUrl(url: string): ModelFormat | null {
+	return MODEL_EXTENSIONS.get(uriExtension(url)) ?? null
+}
+
+export function isEXRUrl(url: string): boolean {
+	return uriExtension(url) === 'exr'
+}
+
+/** Whether `file` is an OpenEXR image, by its magic number. */
+export async function isEXRFile(file: File): Promise<boolean> {
+	if (file.size < EXR_MAGIC.length) return isEXRUrl(file.name)
+	const { bytes } = await readFile(file, EXR_MAGIC.length)
+	return EXR_MAGIC.every((byte, i) => bytes[i] === byte)
+}
+
+const EXR_MAGIC = [0x76, 0x2f, 0x31, 0x01]

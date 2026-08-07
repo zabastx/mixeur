@@ -1,6 +1,6 @@
 import THREE from '@/shared/three'
-import { loadEXR } from './exr'
-import { textureToEnvMap } from '@/shared/three/utils'
+import { loaded, type LoadResult } from '@/shared/lib/asset-source'
+import { loadTexture } from '.'
 
 const worldMapCache = new Map<string, THREE.Texture>()
 
@@ -10,33 +10,25 @@ export function disposeWorldMapCache() {
 }
 
 /**
- * Loads a world texture (EXR) and processes it for PBR environment lighting.
- * Results are cached by name — subsequent calls with the same name return the cached texture.
- *
- * @param name - One of the predefined world map names (see `DEFAULT_WORLD_MAPS`)
- * @returns The PMREM-processed texture ready for use as `scene.environment`, or `null` if
- * the EXR failed to load or `pmremGenerator` is not yet initialized
+ * Loads one of the bundled world maps as a PMREM-processed environment map,
+ * ready for `scene.environment`. Cached by name — a repeat request for the same
+ * map returns the texture already built.
  */
-export async function loadWorldTexture(name: (typeof DEFAULT_WORLD_MAPS)[number]) {
+export async function loadWorldTexture(
+	name: (typeof DEFAULT_WORLD_MAPS)[number]
+): Promise<LoadResult<THREE.Texture>> {
 	const cached = worldMapCache.get(name)
-	if (cached) return cached
+	if (cached) return loaded(cached)
 
 	const filename = `${name}.exr`
-	const url = `/textures/world/${filename}`
+	const result = await loadTexture({ url: `/textures/world/${filename}` }, { isEnvMap: true })
 
-	const texture = await loadEXR({ url, filename })
+	if (!result.ok) return result
 
-	if (!texture) return null
+	result.value.name = name
+	worldMapCache.set(name, result.value)
 
-	const envMap = textureToEnvMap(texture)
-
-	if (!envMap) return null
-
-	envMap.name = name
-
-	worldMapCache.set(name, envMap)
-
-	return envMap
+	return result
 }
 
 export const DEFAULT_WORLD_MAPS = [

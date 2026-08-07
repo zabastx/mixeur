@@ -82,12 +82,10 @@ import { computed, reactive, shallowRef, useTemplateRef, watch } from 'vue'
 import ImportSceneFiles from './ImportSceneFiles.vue'
 import type { ModelFileItem } from './types'
 import type ImportSceneSettings from './ImportSceneSettings.vue'
-import { detectMTL } from './parse-scene'
-import { useToast } from '@/shared/lib/toast'
+import { lookupUri, type AssetResolver } from '@/shared/lib/asset-source'
 import { useSceneStore } from '@/app/model/scene'
 
 const isOpen = defineModel<boolean>()
-const toast = useToast()
 
 const sceneFilesRef = useTemplateRef<InstanceType<typeof ImportSceneFiles> | null>('sceneFilesRef')
 
@@ -150,153 +148,30 @@ function onAssetSelect(sceneFileId: string, key: string, val?: string) {
 const settingsRef = useTemplateRef<InstanceType<typeof ImportSceneSettings> | null>('settingsRef')
 const sceneStore = useSceneStore()
 
-// ── Shared urlModifier factory to avoid duplication and ensure blob cleanup ────
-
-function createUrlModifier(sceneFileId: string, primaryUrl: string, blobUrls: string[]) {
+/** Turns the user's asset mapping into the answer a loader needs for a URI. */
+function createResolver(sceneFileId: string): AssetResolver {
 	const map = assetsMap[sceneFileId]
-	return (url: string) => {
-		if (url === primaryUrl) return url
-		const blobBase = primaryUrl.substring(0, primaryUrl.lastIndexOf('/') + 1)
-		const relativeUri = decodeURIComponent(url.replace(blobBase, ''))
-		let assetId = map.get(relativeUri)
 
-		if (!assetId) {
-			const filename = relativeUri.split('/').pop() ?? ''
-			for (const [uri, id] of map) {
-				if (uri.split('/').pop() === filename) {
-					assetId = id
-					break
-				}
-			}
-		}
-
-		if (!assetId) return url
-		const asset = sceneFilesRef.value?.assetFiles.find((f) => f.id === assetId)
-		if (!asset) return url
-		const newUrl = URL.createObjectURL(asset.file)
-		blobUrls.push(newUrl)
-		return newUrl
+	return (uri) => {
+		const assetId = lookupUri(map, uri)
+		if (!assetId) return null
+		return sceneFilesRef.value?.assetFiles.find((f) => f.id === assetId)?.file
 	}
 }
 
 async function importScene() {
-	if (!selectedFile.value) return
+	const sceneFile = selectedFile.value
+	if (!sceneFile) return
 
-	try {
-		switch (selectedFile.value.type) {
-			case 'gltf':
-				await importGLTF(selectedFile.value)
-				break
-			case 'glb':
-				await importGLTF(selectedFile.value)
-				break
-			case 'obj':
-				await importOBJScene(selectedFile.value)
-				break
-			case 'fbx':
-				await importFBX(selectedFile.value)
-				break
-		}
-	} catch (e) {
-		console.error('Failed to import scene:', e)
-		toast.add({ type: 'error', message: `Failed to import ${selectedFile.value.file.name}` })
-	}
-}
+	const { loadModel } = await import('@/shared/three/modules/loaders')
 
-async function importGLTF(sceneFile: ModelFileItem) {
-	const gltfUrl = URL.createObjectURL(sceneFile.file)
-	const blobUrls: string[] = [gltfUrl]
+	const result = await loadModel(sceneFile.file, {
+		format: sceneFile.type,
+		resolve: createResolver(sceneFile.id),
+		materialOptions: settingsRef.value?.settings.mtl
+	})
 
-	try {
-		const { loadGTLF } = await import('@/shared/three/modules/loaders/gltf')
-		const gltf = await loadGTLF({
-			url: gltfUrl,
-			filename: sceneFile.file.name,
-			isBinary: sceneFile.type === 'glb',
-			urlModifier: createUrlModifier(sceneFile.id, gltfUrl, blobUrls)
-		})
-		isOpen.value = false
-
-		if (gltf) {
-			gltf.scene.name = sceneFile.file.name
-			sceneStore.addObjectToScene(gltf.scene)
-		}
-	} finally {
-		blobUrls.forEach((url) => URL.revokeObjectURL(url))
-	}
-}
-
-async function importFBX(sceneFile: ModelFileItem) {
-	const fbxUrl = URL.createObjectURL(sceneFile.file)
-	const blobUrls: string[] = [fbxUrl]
-
-	try {
-		const { loadFBX } = await import('@/shared/three/modules/loaders/fbx')
-		const fbx = await loadFBX({
-			url: fbxUrl,
-			filename: sceneFile.file.name,
-			urlModifier: createUrlModifier(sceneFile.id, fbxUrl, blobUrls)
-		})
-		isOpen.value = false
-
-		if (fbx) {
-			fbx.name = sceneFile.file.name
-			sceneStore.addObjectToScene(fbx)
-		}
-	} finally {
-		blobUrls.forEach((url) => URL.revokeObjectURL(url))
-	}
-}
-
-async function importOBJScene(sceneFile: ModelFileItem) {
-	const objUrl = URL.createObjectURL(sceneFile.file)
-	const blobUrls: string[] = [objUrl]
-
-	try {
-		const { loadOBJ } = await import('@/shared/three/modules/loaders/obj')
-		const map = assetsMap[sceneFile.id]
-		const mtlId = map.get(sceneFile.assets[0])
-		let mtlFile = sceneFilesRef.value?.assetFiles.find((f) => f.id === mtlId)
-
-		if (mtlFile) {
-			const buffer = await mtlFile.file.arrayBuffer()
-			const text = new TextDecoder().decode(buffer)
-			if (!detectMTL({ text })) mtlFile = undefined
-		}
-
-		let obj: Awaited<ReturnType<typeof loadOBJ>>
-
-		if (mtlFile) {
-			const { loadMTL } = await import('@/shared/three/modules/loaders/mtl')
-			const mtlUrl = URL.createObjectURL(mtlFile.file)
-			blobUrls.push(mtlUrl)
-			const materials = await loadMTL({
-				url: mtlUrl,
-				filename: mtlFile.file.name,
-				materialOptions: settingsRef.value?.settings.mtl,
-				urlModifier: createUrlModifier(sceneFile.id, mtlUrl, blobUrls)
-			})
-
-			obj = await loadOBJ({
-				url: objUrl,
-				filename: sceneFile.file.name,
-				materials
-			})
-		} else {
-			obj = await loadOBJ({
-				url: objUrl,
-				filename: sceneFile.file.name
-			})
-		}
-
-		isOpen.value = false
-
-		if (obj) {
-			obj.name = sceneFile.file.name
-			sceneStore.addObjectToScene(obj)
-		}
-	} finally {
-		blobUrls.forEach((url) => URL.revokeObjectURL(url))
-	}
+	isOpen.value = false
+	if (result.ok) sceneStore.addObjectToScene(result.value)
 }
 </script>

@@ -67,9 +67,8 @@ const isUpdating = ref(false)
 async function changeEnvMap(map: (typeof DEFAULT_WORLD_MAPS)[number]) {
 	if (isUpdating.value || currentMapName.value === map) return
 	isUpdating.value = true
-	const texture = await loadWorldTexture(map)
-	if (!texture) return (isUpdating.value = false)
-	shadingStore.setEnvironmentMap(texture)
+	const result = await loadWorldTexture(map)
+	if (result.ok) shadingStore.setEnvironmentMap(result.value)
 	isUpdating.value = false
 }
 

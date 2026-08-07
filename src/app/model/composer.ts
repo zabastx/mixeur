@@ -1,5 +1,6 @@
 import THREE from '@/shared/three'
 import { initPMREMGenerator } from '@/shared/three/modules/extras/pmremGenerator'
+import { attachRenderer } from '@/shared/three/modules/loaders/renderer-context'
 import { useResizeObserver } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { ViewportGizmo } from 'three-viewport-gizmo'
@@ -136,6 +137,7 @@ export const useComposerStore = defineStore('composer', () => {
 		const renderer = setupRenderer({ canvas })
 
 		initPMREMGenerator(renderer)
+		attachRenderer(renderer)
 
 		const { composer, handleResize, outlinePass } = setupComposer({
 			canvas,

@@ -17,7 +17,11 @@ export default mergeConfig(
 					'src/app/test/**',
 					'src/**/types.ts',
 					'src/app/model/types/**',
-					// Three.js wrappers/addons are thin glue over heavy WebGL — not unit-testable.
+					// Thin glue over heavy WebGL — not unit-testable. The pieces that are
+					// (format detection, URI resolution, the load result) live in
+					// `src/shared/lib/asset-source` so they fall outside this exclusion;
+					// what stays here is loader orchestration, covered by the E2E import
+					// tests instead.
 					'src/shared/three/**',
 					'**/assets/**'
 				]

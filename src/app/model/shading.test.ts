@@ -13,7 +13,9 @@ vi.mock('./scene', () => ({
 }))
 
 vi.mock('@/shared/three/modules/loaders/environment', () => ({
-	loadWorldTexture: vi.fn().mockResolvedValue(null)
+	loadWorldTexture: vi
+		.fn()
+		.mockResolvedValue({ ok: false, error: new Error('not loaded in tests') })
 }))
 
 import { useShadingStore } from './shading'
