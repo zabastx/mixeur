@@ -19,7 +19,7 @@ export function createUvGridTexture() {
 	return texture
 }
 
-export function drawUvGrid(size = SIZE, cells = CELLS) {
+function drawUvGrid(size = SIZE, cells = CELLS) {
 	const canvas = document.createElement('canvas')
 	canvas.width = canvas.height = size
 	const ctx = canvas.getContext('2d')

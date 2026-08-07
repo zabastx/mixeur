@@ -36,7 +36,6 @@ import {
 	type UvPoint,
 	type UvRect
 } from '@/shared/lib/uv-layout'
-import { drawUvGrid } from '@/shared/three/modules/mesh/uv-grid'
 import { useUvStore } from '@/app/model/uv'
 
 const props = withDefaults(defineProps<{ span?: number }>(), { span: 1.45 })
@@ -58,11 +57,44 @@ const emptyMessage = computed(() => {
 	}
 })
 
-const tile = drawUvGrid()
 const view = ref({ u: 0.5, v: 0.5, span: props.span })
 let width = 0
 let height = 0
 let dpr = 1
+
+/**
+ * Canvas colours come from the theme rather than literals, the same way the
+ * viewport gizmo reads its axis colours. Resolved once — `getComputedStyle` per
+ * frame would be felt during a drag.
+ */
+const colours = {
+	background: '#4b4b4b',
+	tileOutline: '#ffffff',
+	wire: '#ffffffbf',
+	seam: '#ff5a50',
+	border: '#67c37b',
+	vertex: '#dcdcdccc',
+	selected: '#ffaf29',
+	picked: '#ffffff',
+	checkerA: '#333333',
+	checkerB: '#262626'
+}
+const CHECKER_SIZE = 16
+
+function readTheme() {
+	const style = getComputedStyle(document.documentElement)
+	const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback
+	colours.background = read('--color-uv-background', colours.background)
+	colours.tileOutline = read('--color-uv-tile-outline', colours.tileOutline)
+	colours.wire = read('--color-uv-wire', colours.wire)
+	colours.seam = read('--color-uv-seam', colours.seam)
+	colours.border = read('--color-uv-border', colours.border)
+	colours.vertex = read('--color-uv-vertex', colours.vertex)
+	colours.selected = read('--color-uv-selected', colours.selected)
+	colours.picked = read('--color-uv-picked', colours.picked)
+	colours.checkerA = read('--color-checkerboard-primary', colours.checkerA)
+	colours.checkerB = read('--color-checkerboard-secondary', colours.checkerB)
+}
 
 /** The smaller side sets the scale, so the tile stays square in any panel. */
 const scale = () => Math.min(width, height) / view.value.span
@@ -106,7 +138,7 @@ function draw() {
 	if (!canvas || !ctx) return
 
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-	ctx.fillStyle = '#232323'
+	ctx.fillStyle = colours.background
 	ctx.fillRect(0, 0, width, height)
 
 	const layout = uvStore.layout
@@ -114,27 +146,42 @@ function draw() {
 	if (!layout || !uv) return
 	const selection = uvStore.selection
 
-	// The tile, plus faint repeats so leaving 0–1 reads as "the texture wraps"
-	// rather than "the texture ran out".
+	// The 0–1 tile: an alpha checkerboard, then whatever the material is
+	// actually mapped with. Only the one tile, as Blender draws it — repeating
+	// it would say the layout tiles, which is a property of the texture's wrap
+	// mode rather than of anything visible here.
 	const [left, top] = toScreen(0, 1)
 	const [right, bottom] = toScreen(1, 0)
-	ctx.imageSmoothingEnabled = false
-	for (let ru = -1; ru <= 1; ru++) {
-		for (let rv = -1; rv <= 1; rv++) {
-			ctx.globalAlpha = ru === 0 && rv === 0 ? 0.6 : 0.08
-			ctx.drawImage(
-				tile,
-				left + ru * (right - left),
-				top - rv * (bottom - top),
-				right - left,
-				bottom - top
-			)
+	const tileWidth = right - left
+	const tileHeight = bottom - top
+
+	ctx.save()
+	ctx.beginPath()
+	ctx.rect(left, top, tileWidth, tileHeight)
+	ctx.clip()
+	ctx.fillStyle = colours.checkerA
+	ctx.fillRect(left, top, tileWidth, tileHeight)
+	ctx.fillStyle = colours.checkerB
+	// Screen-space squares, so the checker reads as "nothing here" at any zoom
+	// instead of looking like part of the texture.
+	const originX = left - (((left % (CHECKER_SIZE * 2)) + CHECKER_SIZE * 2) % (CHECKER_SIZE * 2))
+	const originY = top - (((top % (CHECKER_SIZE * 2)) + CHECKER_SIZE * 2) % (CHECKER_SIZE * 2))
+	for (let y = originY; y < top + tileHeight; y += CHECKER_SIZE) {
+		for (let x = originX; x < left + tileWidth; x += CHECKER_SIZE) {
+			const odd =
+				(Math.round((x - originX) / CHECKER_SIZE) + Math.round((y - originY) / CHECKER_SIZE)) % 2
+			if (odd) ctx.fillRect(x, y, CHECKER_SIZE, CHECKER_SIZE)
 		}
 	}
-	ctx.globalAlpha = 1
-	ctx.strokeStyle = '#ffffff'
+	if (uvStore.mapImage) {
+		ctx.imageSmoothingEnabled = tileWidth < 512
+		ctx.drawImage(uvStore.mapImage, left, top, tileWidth, tileHeight)
+	}
+	ctx.restore()
+
+	ctx.strokeStyle = colours.tileOutline
 	ctx.lineWidth = 1.5
-	ctx.strokeRect(left, top, right - left, bottom - top)
+	ctx.strokeRect(left, top, tileWidth, tileHeight)
 
 	const picked = pickedVerts(layout, selection)
 	const moving = movingVerts(layout, uv, selection)
@@ -149,8 +196,10 @@ function draw() {
 			else ctx.moveTo(x, y)
 		}
 		ctx.closePath()
-		ctx.fillStyle = 'rgba(255,175,41,.28)'
+		ctx.globalAlpha = 0.28
+		ctx.fillStyle = colours.selected
 		ctx.fill()
+		ctx.globalAlpha = 1
 	}
 
 	// Every line gets a dark halo first: a hairline is invisible over a texture
@@ -171,9 +220,9 @@ function draw() {
 	for (const edge of layout.edges) {
 		const [ax, ay] = toScreen(uv[edge.a * 2], uv[edge.a * 2 + 1])
 		const [bx, by] = toScreen(uv[edge.b * 2], uv[edge.b * 2 + 1])
-		if (edge.seam) stroke(ax, ay, bx, by, '#ff5a50', 2.5)
-		else if (edge.border) stroke(ax, ay, bx, by, '#67c37b', 2.5)
-		else stroke(ax, ay, bx, by, 'rgba(255,255,255,.75)', 1)
+		if (edge.seam) stroke(ax, ay, bx, by, colours.seam, 2.5)
+		else if (edge.border) stroke(ax, ay, bx, by, colours.border, 2.5)
+		else stroke(ax, ay, bx, by, colours.wire, 1)
 	}
 	if (selection.mode === 'edge') {
 		for (const id of selection.ids) {
@@ -181,7 +230,7 @@ function draw() {
 			if (!edge) continue
 			const [ax, ay] = toScreen(uv[edge.a * 2], uv[edge.a * 2 + 1])
 			const [bx, by] = toScreen(uv[edge.b * 2], uv[edge.b * 2 + 1])
-			stroke(ax, ay, bx, by, '#ffaf29', 4)
+			stroke(ax, ay, bx, by, colours.selected, 4)
 		}
 	}
 
@@ -195,7 +244,7 @@ function draw() {
 		if (dense && !isMoving && !isPicked) continue
 		const [x, y] = toScreen(uv[vert * 2], uv[vert * 2 + 1])
 		const r = isMoving ? 3.5 : 2.5
-		ctx.fillStyle = isPicked ? '#ffffff' : isMoving ? '#ffaf29' : 'rgba(220,220,220,.8)'
+		ctx.fillStyle = isPicked ? colours.picked : isMoving ? colours.selected : colours.vertex
 		ctx.strokeStyle = 'rgba(0,0,0,.7)'
 		ctx.lineWidth = 1
 		ctx.strokeRect(x - r - 0.5, y - r - 0.5, r * 2 + 1, r * 2 + 1)
@@ -204,7 +253,7 @@ function draw() {
 
 	if (selection.pivot === 'cursor') {
 		const [cx, cy] = toScreen(selection.cursor[0], selection.cursor[1])
-		ctx.strokeStyle = '#ffffff'
+		ctx.strokeStyle = colours.tileOutline
 		ctx.lineWidth = 1
 		ctx.beginPath()
 		ctx.arc(cx, cy, 8, 0, Math.PI * 2)
@@ -218,7 +267,7 @@ function draw() {
 	if (box) {
 		const [ax, ay] = toScreen(box.u0, box.v1)
 		const [bx, by] = toScreen(box.u1, box.v0)
-		ctx.strokeStyle = '#ffaf29'
+		ctx.strokeStyle = colours.selected
 		ctx.setLineDash([6, 4])
 		ctx.lineWidth = 1.5
 		ctx.strokeRect(ax, ay, bx - ax, by - ay)
@@ -332,6 +381,7 @@ function onWheel(event: WheelEvent) {
 }
 
 onMounted(() => {
+	readTheme()
 	fit()
 	const canvas = canvasRef.value
 	if (!canvas) return
@@ -352,6 +402,8 @@ onBeforeUnmount(() => {
 
 useResizeObserver(hostRef, fit)
 watch(() => uvStore.revision, draw)
+// The image arrives asynchronously when a texture is still loading.
+watch(() => uvStore.mapImage, draw)
 watch(
 	() => uvStore.mesh,
 	() => {

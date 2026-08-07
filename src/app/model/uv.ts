@@ -24,6 +24,15 @@ import { useShadingStore } from './shading'
  */
 export type UvStatus = 'ready' | 'no-selection' | 'not-a-mesh' | 'no-uvs'
 
+/** Whether a texture's `image` is something `drawImage` will accept. */
+function isDrawable(image: unknown): image is CanvasImageSource {
+	return (
+		image instanceof HTMLImageElement ||
+		image instanceof HTMLCanvasElement ||
+		image instanceof ImageBitmap
+	)
+}
+
 /**
  * UV editing for the object selected in the scene.
  *
@@ -168,6 +177,35 @@ export const useUvStore = defineStore('uv', () => {
 		touch('Deselected')
 	}
 
+	/**
+	 * The material the mesh is really shaded with.
+	 *
+	 * The shading store's cached original, not `mesh.material` — solid and
+	 * wireframe modes substitute a flat material, and reading or writing that
+	 * one would be undone the moment the shading mode changed.
+	 */
+	function shadedMaterial(target: THREE.Mesh) {
+		const cached = useShadingStore().getMaterialCache(target)?.original
+		const material = Array.isArray(cached) ? cached[0] : (cached ?? target.material)
+		return Array.isArray(material) ? material[0] : material
+	}
+
+	/**
+	 * The image the mesh is textured with, for the UV view to draw the layout
+	 * over. Editing against the real texture rather than a stand-in is the whole
+	 * point of a UV editor — a grid only helps when there is nothing else.
+	 *
+	 * Null when the material has no map, or when the map is something a canvas
+	 * cannot draw (a compressed KTX2 texture holds no decodable image).
+	 */
+	const mapImage = computed<CanvasImageSource | null>(() => {
+		void revision.value
+		const target = mesh.value
+		if (!target) return null
+		const image = (shadedMaterial(target) as THREE.MeshStandardMaterial | undefined)?.map?.image
+		return isDrawable(image) ? image : null
+	})
+
 	const hasGrid = computed(() => {
 		void revision.value
 		return mesh.value ? replacedMaps.has(mesh.value.uuid) : false
@@ -185,10 +223,7 @@ export const useUvStore = defineStore('uv', () => {
 		if (!target || Array.isArray(target.material)) return
 
 		const shadingStore = useShadingStore()
-		const cached = shadingStore.getMaterialCache(target)?.original
-		const material = (Array.isArray(cached) ? cached[0] : (cached ?? target.material)) as
-			| THREE.MeshStandardMaterial
-			| undefined
+		const material = shadedMaterial(target) as THREE.MeshStandardMaterial | undefined
 		if (!material) return
 
 		if (replacedMaps.has(target.uuid)) {
@@ -226,6 +261,7 @@ export const useUvStore = defineStore('uv', () => {
 		revision,
 		lastAction,
 		hasGrid,
+		mapImage,
 		uvBuffer,
 		commit,
 		touch,
