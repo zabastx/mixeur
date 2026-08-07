@@ -87,15 +87,65 @@ describe('useCameraStore', () => {
 	})
 
 	describe('renderCameraList', () => {
+		function makeRenderCamera() {
+			const camera = new THREE.PerspectiveCamera()
+			getUserData(camera).isRenderCamera = true
+			return camera
+		}
+
 		it('returns only cameras flagged as render cameras', () => {
 			const store = useCameraStore()
-			const renderCam = new THREE.PerspectiveCamera()
-			getUserData(renderCam).isRenderCamera = true
+			const renderCam = makeRenderCamera()
 			const plainCam = new THREE.PerspectiveCamera()
 			const mesh = new THREE.Mesh()
 			sceneHolder.sceneChildren = [renderCam, plainCam, mesh]
 
 			expect(store.renderCameraList).toEqual([renderCam])
+		})
+
+		it('finds a render camera nested inside a group', () => {
+			const store = useCameraStore()
+			const renderCam = makeRenderCamera()
+			const group = new THREE.Group()
+			group.add(renderCam)
+			sceneHolder.sceneChildren = [group]
+
+			expect(store.renderCameraList).toEqual([renderCam])
+		})
+
+		it('finds a render camera nested several groups deep', () => {
+			const store = useCameraStore()
+			const renderCam = makeRenderCamera()
+			const inner = new THREE.Group()
+			inner.add(renderCam)
+			const outer = new THREE.Group()
+			outer.add(inner)
+			sceneHolder.sceneChildren = [outer]
+
+			expect(store.renderCameraList).toEqual([renderCam])
+		})
+
+		it('applies the same filter at depth as it does at the top level', () => {
+			const store = useCameraStore()
+			const renderCam = makeRenderCamera()
+			const plainCam = new THREE.PerspectiveCamera()
+			const mesh = new THREE.Mesh()
+			const group = new THREE.Group()
+			group.add(renderCam, plainCam, mesh)
+			sceneHolder.sceneChildren = [group]
+
+			expect(store.renderCameraList).toEqual([renderCam])
+		})
+
+		it('lists top-level and nested render cameras together', () => {
+			const store = useCameraStore()
+			const topCam = makeRenderCamera()
+			const nestedCam = makeRenderCamera()
+			const group = new THREE.Group()
+			group.add(nestedCam)
+			sceneHolder.sceneChildren = [topCam, group]
+
+			expect(store.renderCameraList).toEqual([topCam, nestedCam])
 		})
 	})
 })

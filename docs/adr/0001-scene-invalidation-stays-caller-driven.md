@@ -17,7 +17,7 @@ turn up was of a kind the proposal would not have caught.
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `outlinerItems` (`src/widgets/editor/outliner/DataOutliner.vue`) | `children` recursively, `name`, `type`, `uuid`, `userData.userVisible`, `userData.hideInOutliner`, `isCamera` |
 | `sceneGroups` (`src/app/model/scene.ts`)                         | `children` recursively, group-ness, `userData.hideInOutliner`                                                 |
-| `renderCameraList` (`src/app/model/camera.ts`)                   | top-level `children`, `userData.isRenderCamera`                                                               |
+| `renderCameraList` (`src/app/model/camera.ts`)                   | `children` recursively, camera-ness, `userData.isRenderCamera`                                                |
 
 `selectionStore.refresh()` is `triggerRef(selectedObject)`. Property panels read
 through it without knowing they do: `createObjectTarget` resolves its source on
@@ -42,9 +42,10 @@ projection reads was traced:
   modal's scene and the exporter's scene are not projected.
 - **`shading.init()`** adds three lights without invalidating, because
   `setMode(currentMode.value)` returns early on an unchanged mode. Those lights
-  carry `hideInOutliner`, `isHelper` and `isSystemObj`, so all three projections
-  filter them out. Latent, not live — and it stays latent only as long as those
-  flags do.
+  carry `hideInOutliner`, `isHelper` and `isSystemObj`, so the outliner and
+  `sceneGroups` filter them out; `renderCameraList` never admits them because
+  they are not cameras. Latent, not live — and it stays latent only as long as
+  those flags do.
 - **`name`** — written only by `ObjectProperties.vue`, which notifies on
   `@change`. The outliner therefore commits the name on blur or Enter rather
   than per keystroke. This matches Blender and is intended.
@@ -58,8 +59,8 @@ projection reads was traced:
 **Mutation goes through the store and the store invalidates.** Rejected. It
 buys nothing today, and it aims at the wrong failure. The one defect the audit
 found — `renderCameraList` filtering top-level children instead of traversing,
-so a camera moved into a group vanishes from the list — happened _after_
-`moveObjectToTarget` invalidated correctly. The invalidation fired; the
+so a camera moved into a group vanishes from the list (fixed in #20) — happened
+_after_ `moveObjectToTarget` invalidated correctly. The invalidation fired; the
 projection was wrong. Owning invalidation does not make a projection read the
 right thing.
 

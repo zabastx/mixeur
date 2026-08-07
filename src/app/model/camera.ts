@@ -32,11 +32,17 @@ export const useCameraStore = defineStore('camera', () => {
 
 	const renderCamera = shallowRef<THREE.Camera | null>(null)
 
-	const renderCameraList = computed(() => {
+	// Cameras can be re-parented into groups, so the list has to walk the whole
+	// tree rather than the scene's top-level children. Mirrors `sceneGroups`.
+	const renderCameraList = computed<THREE.Camera[]>(() => {
 		const sceneStore = useSceneStore()
-		return sceneStore.sceneChildren.filter(
-			(obj) => obj instanceof THREE.Camera && getUserData(obj).isRenderCamera
-		) as THREE.Camera[]
+		const cameras: THREE.Camera[] = []
+		sceneStore.sceneChildren.forEach((item) => {
+			item.traverse((obj) => {
+				if (obj instanceof THREE.Camera && getUserData(obj).isRenderCamera) cameras.push(obj)
+			})
+		})
+		return cameras
 	})
 
 	watch(viewportCameraType, (newVal, oldVal) => {
