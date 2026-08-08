@@ -1,5 +1,5 @@
 import { boundsOf } from './transform'
-import { movingVerts, pickedVerts } from './selection'
+import { faceFullyIn, movingVerts, pickedVerts } from './selection'
 import type { UvLayout, UvPoint, UvRect, UvSelection, UvStats } from './types'
 
 /**
@@ -82,8 +82,7 @@ export function vertsInRect(layout: UvLayout, uv: ArrayLike<number>, rect: UvRec
 
 /**
  * Everything inside `rect`, expressed in the ids the current mode selects by.
- * Faces and islands need all three corners inside, which is what makes a box
- * drag feel like it grabs shapes rather than stray points.
+ * Faces and islands need every corner inside — see `faceFullyIn`.
  */
 export function idsInRect(
 	layout: UvLayout,
@@ -102,9 +101,9 @@ export function idsInRect(
 		return ids
 	}
 	for (let f = 0; f < layout.faceCount; f++) {
-		let corners = 0
-		for (let k = 0; k < 3; k++) if (inside.has(layout.faces[f * 3 + k])) corners++
-		if (corners === 3) ids.add(selection.mode === 'face' ? f : layout.islandOfFace[f])
+		if (faceFullyIn(layout, f, inside)) {
+			ids.add(selection.mode === 'face' ? f : layout.islandOfFace[f])
+		}
 	}
 	return ids
 }

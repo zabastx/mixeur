@@ -55,6 +55,28 @@ export function transformUvs(
 }
 
 /**
+ * The one point a selection turns around, for the three modes that have one.
+ *
+ * `individual` is the exception and is not answered here — having no single
+ * point is the whole reason it is a separate mode. Callers that can only use
+ * one, like the modal transforms measuring an angle from the pointer, get the
+ * median for it, which is what `pivotResolver` would give each island on
+ * average anyway.
+ */
+export function singlePivot(
+	uv: ArrayLike<number>,
+	verts: Iterable<number>,
+	selection: UvSelection
+): UvPoint {
+	if (selection.pivot === 'cursor') return selection.cursor
+	if (selection.pivot === 'bounding-box') {
+		const bounds = boundsOf(uv, verts)
+		return [(bounds.u0 + bounds.u1) / 2, (bounds.v0 + bounds.v1) / 2]
+	}
+	return centroid(uv, verts)
+}
+
+/**
  * Where each moving vertex turns around. `individual` gives every island its
  * own centre, which is why rotating two islands at once has two right answers
  * and the mode cannot be retrofitted later.
@@ -65,34 +87,23 @@ function pivotResolver(
 	verts: Set<number>,
 	selection: UvSelection
 ): (vert: number) => UvPoint {
-	if (selection.pivot === 'cursor') {
-		const cursor = selection.cursor
-		return () => cursor
+	if (selection.pivot !== 'individual') {
+		const pivot = singlePivot(uv, verts, selection)
+		return () => pivot
 	}
 
-	if (selection.pivot === 'bounding-box') {
-		const bounds = boundsOf(uv, verts)
-		const centre: UvPoint = [(bounds.u0 + bounds.u1) / 2, (bounds.v0 + bounds.v1) / 2]
-		return () => centre
+	const sums = new Map<number, [number, number, number]>()
+	for (const vert of verts) {
+		const island = layout.islandOfVert[vert]
+		const sum = sums.get(island) ?? [0, 0, 0]
+		sum[0] += uv[vert * 2]
+		sum[1] += uv[vert * 2 + 1]
+		sum[2]++
+		sums.set(island, sum)
 	}
-
-	if (selection.pivot === 'individual') {
-		const sums = new Map<number, [number, number, number]>()
-		for (const vert of verts) {
-			const island = layout.islandOfVert[vert]
-			const sum = sums.get(island) ?? [0, 0, 0]
-			sum[0] += uv[vert * 2]
-			sum[1] += uv[vert * 2 + 1]
-			sum[2]++
-			sums.set(island, sum)
-		}
-		const centres = new Map<number, UvPoint>()
-		for (const [island, [u, v, count]] of sums) centres.set(island, [u / count, v / count])
-		return (vert) => centres.get(layout.islandOfVert[vert]) ?? [0.5, 0.5]
-	}
-
-	const median = centroid(uv, verts)
-	return () => median
+	const centres = new Map<number, UvPoint>()
+	for (const [island, [u, v, count]] of sums) centres.set(island, [u / count, v / count])
+	return (vert) => centres.get(layout.islandOfVert[vert]) ?? [0.5, 0.5]
 }
 
 /**

@@ -1,7 +1,5 @@
+import { quantize } from './same-spot'
 import type { UvLayout, UvEdge } from './types'
-
-/** UV coordinates closer than this count as the same point. */
-const SAME_SPOT = 1e-4
 
 /**
  * Hash a float by its bits, so grouping vertices by position stays exact
@@ -115,8 +113,8 @@ export function createUvLayout(geometry: {
 	const quantU = new Int32Array(vertCount)
 	const quantV = new Int32Array(vertCount)
 	for (let v = 0; v < vertCount; v++) {
-		quantU[v] = Math.round(uv[v * 2] / SAME_SPOT)
-		quantV[v] = Math.round(uv[v * 2 + 1] / SAME_SPOT)
+		quantU[v] = quantize(uv[v * 2])
+		quantV[v] = quantize(uv[v * 2 + 1])
 	}
 
 	// Pairs are packed into one number instead of a string. Both id spaces fit

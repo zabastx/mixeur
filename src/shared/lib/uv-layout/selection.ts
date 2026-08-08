@@ -1,10 +1,8 @@
+import { quantize } from './same-spot'
 import type { UvLayout, UvPoint, UvSelection } from './types'
 
-/** Two UV coordinates count as the same spot below this distance. */
-const SAME_SPOT = 1e-4
-
 const locationKey = (uv: ArrayLike<number>, v: number) =>
-	`${Math.round(uv[v * 2] / SAME_SPOT)}|${Math.round(uv[v * 2 + 1] / SAME_SPOT)}`
+	`${quantize(uv[v * 2])}|${quantize(uv[v * 2 + 1])}`
 
 export function createUvSelection(): UvSelection {
 	return {
@@ -91,6 +89,20 @@ export function movingVerts(
 	return moving
 }
 
+/**
+ * Whether every corner of a face is in `verts`.
+ *
+ * Wholly covered, not merely touched — which is what makes both the face
+ * highlight and a box drag feel like they grab shapes rather than stray points.
+ */
+export function faceFullyIn(layout: UvLayout, face: number, verts: ReadonlySet<number>): boolean {
+	return (
+		verts.has(layout.faces[face * 3]) &&
+		verts.has(layout.faces[face * 3 + 1]) &&
+		verts.has(layout.faces[face * 3 + 2])
+	)
+}
+
 /** Every face whose three corners are all picked — what the views highlight. */
 export function selectedFaces(layout: UvLayout, selection: UvSelection): Set<number> {
 	const faces = new Set<number>()
@@ -104,9 +116,7 @@ export function selectedFaces(layout: UvLayout, selection: UvSelection): Set<num
 	}
 	const picked = pickedVerts(layout, selection)
 	for (let f = 0; f < layout.faceCount; f++) {
-		let corners = 0
-		for (let k = 0; k < 3; k++) if (picked.has(layout.faces[f * 3 + k])) corners++
-		if (corners === 3) faces.add(f)
+		if (faceFullyIn(layout, f, picked)) faces.add(f)
 	}
 	return faces
 }

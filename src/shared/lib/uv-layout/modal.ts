@@ -1,5 +1,5 @@
-import { movingVerts, centroid } from './selection'
-import { boundsOf } from './transform'
+import { movingVerts } from './selection'
+import { singlePivot } from './transform'
 import type { UvLayout, UvPoint, UvSelection, UvTransform } from './types'
 
 /**
@@ -35,13 +35,11 @@ export function transformOrigin(
 	uv: ArrayLike<number>,
 	selection: UvSelection
 ): UvPoint {
+	// Answered before the selection is gathered: the cursor is the one pivot
+	// that does not depend on what is selected, and gathering costs real time on
+	// a dense mesh.
 	if (selection.pivot === 'cursor') return selection.cursor
-	const verts = movingVerts(layout, uv, selection)
-	if (selection.pivot === 'bounding-box') {
-		const bounds = boundsOf(uv, verts)
-		return [(bounds.u0 + bounds.u1) / 2, (bounds.v0 + bounds.v1) / 2]
-	}
-	return centroid(uv, verts)
+	return singlePivot(uv, movingVerts(layout, uv, selection), selection)
 }
 
 /**
