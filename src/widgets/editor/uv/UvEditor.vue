@@ -30,9 +30,21 @@
 				</MxTooltip>
 			</div>
 
-			<UvStickySelect />
+			<UvModeSelect
+				:model-value="uvStore.selection.sticky"
+				heading="Sticky Selection Mode"
+				testid="uv-sticky"
+				:options="STICKY_MODES"
+				@update:model-value="setSticky"
+			/>
 			<MenuBar :items="menuItems" />
-			<UvPivotSelect />
+			<UvModeSelect
+				:model-value="uvStore.selection.pivot"
+				heading="Pivot"
+				testid="uv-pivot"
+				:options="PIVOT_MODES"
+				@update:model-value="setPivot"
+			/>
 		</div>
 
 		<UvCanvas ref="canvasRef" />
@@ -76,9 +88,10 @@
  * what sub-object selection would buy.
  */
 import { computed, useTemplateRef } from 'vue'
-import type { SelectMode, TransformKind } from '@/shared/lib/uv-layout'
+import type { PivotMode, SelectMode, StickyMode, TransformKind } from '@/shared/lib/uv-layout'
 import type { MxTooltipContent } from '@/shared/lib/types'
 import type { IMenubarMenu } from '@/shared/ui/MenuBar.vue'
+import type { UvModeOption } from './UvModeSelect.vue'
 import { useUvStore } from '@/app/model/uv'
 
 interface ModeButton {
@@ -133,7 +146,85 @@ const MODES: ModeButton[] = [
 	}
 ]
 
+/**
+ * What comes along when you move what you picked.
+ *
+ * The setting the whole editor turns on: a mesh vertex can own several UV
+ * vertices, so "move this corner" has three defensible answers. Order and
+ * labels follow Blender's, and so does the default — see `createUvSelection`.
+ */
+const STICKY_MODES: UvModeOption<StickyMode>[] = [
+	{
+		value: 'off',
+		label: 'Disabled',
+		icon: 'snapping/sticky-disable',
+		description: 'Select only the UVs you pick. Moving them tears the layout freely.'
+	},
+	{
+		value: 'shared-location',
+		label: 'Shared Location',
+		icon: 'snapping/sticky-loc',
+		description:
+			'Select UVs that share a mesh vertex and sit at the same location. Welded points stay welded, and seams that were deliberately cut stay cut.'
+	},
+	{
+		value: 'shared-vertex',
+		label: 'Shared Vertex',
+		icon: 'snapping/sticky-vert',
+		description:
+			'Select UVs that share a mesh vertex, whether or not they are at the same location. Convenient on an accidental seam, but it will drag a deliberate one shut.'
+	}
+]
+
+/**
+ * What rotations and scales turn around.
+ *
+ * Rotating two islands at once has two defensible answers — orbit each other,
+ * or spin in place — which is why this is a mode rather than a fixed rule, and
+ * why it could not be retrofitted once transforms assumed a single centre.
+ */
+const PIVOT_MODES: UvModeOption<PivotMode>[] = [
+	{
+		value: 'bounding-box',
+		label: 'Bounding Box Center',
+		icon: 'editing/pivot-boundbox',
+		description: 'Pivot around the centre of the selection’s bounding box.'
+	},
+	{
+		value: 'median',
+		label: 'Median Point',
+		icon: 'editing/pivot-median',
+		description:
+			'Pivot around the average of the selected UVs. A dense cluster pulls it, where the bounding box would ignore that.'
+	},
+	{
+		value: 'cursor',
+		label: '2D Cursor',
+		icon: 'editing/pivot-cursor',
+		description: 'Pivot around the 2D cursor. Alt-click in the UV view to place it.'
+	},
+	{
+		value: 'individual',
+		label: 'Individual Origins',
+		icon: 'editing/pivot-individual',
+		description:
+			'Pivot around each selected island’s own median point, so islands spin in place instead of orbiting each other.'
+	}
+]
+
 const uvStore = useUvStore()
+
+// Both are plain fields on the selection, so the store only has to be told
+// afterwards — `touch` is what gets the canvas to redraw with the new rule.
+function setSticky(value: StickyMode) {
+	uvStore.selection.sticky = value
+	uvStore.touch()
+}
+
+function setPivot(value: PivotMode) {
+	uvStore.selection.pivot = value
+	uvStore.touch()
+}
 
 /**
  * The modal transforms live on the canvas, because they are driven by the
