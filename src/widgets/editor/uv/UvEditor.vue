@@ -61,8 +61,14 @@
 			<template v-if="uvStore.stats">
 				<span>{{ uvStore.stats.islandCount }} islands</span>
 				<span>{{ uvStore.stats.seamCount }} seams</span>
-				<span>
-					{{ uvStore.stats.pickedCount }} picked →
+				<!--
+					A drawn arrow, not a "→": the Inter subsets we load cover ↑ and ↓ but
+					not →, so the character comes from whatever fallback font the system
+					picks and sits off the line.
+				-->
+				<span class="inline-flex items-center gap-1">
+					{{ uvStore.stats.pickedCount }} picked
+					<MxIcon name="base/arrow-long-right" />
 					<span class="text-outliner-active-object">{{ uvStore.stats.movingCount }}</span> moving
 					<template v-if="uvStore.stats.stickyCount">
 						(+{{ uvStore.stats.stickyCount }} by sticky)
