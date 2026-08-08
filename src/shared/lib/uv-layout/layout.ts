@@ -131,8 +131,8 @@ export function createUvLayout(geometry: {
 	// edge and with what UVs, and the UV edges themselves.
 	const facesOfVert: number[][] = Array.from({ length: vertCount }, () => [])
 	const meshEdgeUses = new Map<number, MeshEdgeUse[]>()
-	const uvEdgeSlots = new Map<number, number>()
-	const uvEdgeList: { a: number; b: number; faces: number[]; meshEdge: number }[] = []
+	const seenUvEdges = new Set<number>()
+	const uvEdgeList: { a: number; b: number; meshEdge: number }[] = []
 
 	for (let f = 0; f < faceCount; f++) {
 		for (let k = 0; k < 3; k++) {
@@ -146,12 +146,10 @@ export function createUvLayout(geometry: {
 			// joins nothing and has no meaningful mesh edge.
 			const meshEdge = meshA === meshB ? -1 : meshEdgeId(meshA, meshB)
 
-			const slot = uvEdgeSlots.get(uvEdgeId(a, b))
-			if (slot === undefined) {
-				uvEdgeSlots.set(uvEdgeId(a, b), uvEdgeList.length)
-				uvEdgeList.push({ a, b, faces: [f], meshEdge })
-			} else {
-				uvEdgeList[slot].faces.push(f)
+			const uvEdge = uvEdgeId(a, b)
+			if (!seenUvEdges.has(uvEdge)) {
+				seenUvEdges.add(uvEdge)
+				uvEdgeList.push({ a, b, meshEdge })
 			}
 
 			if (meshEdge < 0) continue
@@ -256,7 +254,7 @@ export function createUvLayout(geometry: {
 		const shared = edge.meshEdge >= 0 && (meshEdgeUses.get(edge.meshEdge)?.length ?? 0) > 1
 		const seam = shared && !continuous
 		if (seam) seamCount++
-		edges.push({ a: edge.a, b: edge.b, faces: edge.faces, border: !continuous, seam })
+		edges.push({ a: edge.a, b: edge.b, border: !continuous, seam })
 	}
 
 	return {

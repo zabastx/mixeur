@@ -78,8 +78,13 @@ export function movingVerts(
 	// unrelated mesh vertices, so any two islands that overlapped — which
 	// mirrored parts do deliberately — would drag each other around.
 	for (const v of picked) {
+		const twins = layout.uvVertsOfMeshVert[layout.meshVertOfUvVert[v]]
+		// A mesh vertex with one UV copy can only join itself, and most of them
+		// are: skipping those before building a location key is what keeps this
+		// off the critical path of a drag.
+		if (twins.length < 2) continue
 		const spot = locationKey(uv, v)
-		for (const twin of layout.uvVertsOfMeshVert[layout.meshVertOfUvVert[v]]) {
+		for (const twin of twins) {
 			if (locationKey(uv, twin) === spot) moving.add(twin)
 		}
 	}

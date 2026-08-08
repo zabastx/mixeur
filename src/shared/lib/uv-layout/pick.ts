@@ -122,13 +122,7 @@ export function uvStats(layout: UvLayout, uv: ArrayLike<number>, selection: UvSe
 	}
 
 	// Reported, never blocked: mirrored parts share texture space on purpose.
-	const bounds = layout.vertsOfIsland.map((verts) => boundsOf(uv, verts))
-	let overlappingPairs = 0
-	for (let i = 0; i < bounds.length; i++) {
-		for (let j = i + 1; j < bounds.length; j++) {
-			if (rectsOverlap(bounds[i], bounds[j])) overlappingPairs++
-		}
-	}
+	const overlappingPairs = countOverlaps(layout.vertsOfIsland.map((verts) => boundsOf(uv, verts)))
 
 	return {
 		islandCount: layout.islandCount,
@@ -139,6 +133,40 @@ export function uvStats(layout: UvLayout, uv: ArrayLike<number>, selection: UvSe
 		offTileCount,
 		overlappingPairs
 	}
+}
+
+/**
+ * How many pairs of island bounds intersect.
+ *
+ * A sweep along u rather than every pair against every other. This runs on
+ * every pointer move of a drag, and comparing all pairs is quadratic in the
+ * island count — which is not a proxy for mesh size: 400 separate cubes are
+ * 2400 islands at only 4800 triangles, and cost more here than a 64k-triangle
+ * mesh that happens to unwrap as one piece.
+ *
+ * Islands are visited left to right, and each is tested only against those
+ * still open — the ones whose right edge has not yet passed its left. The
+ * pruning is all this does; `rectsOverlap` still decides every pair, so the
+ * count is the same one the exhaustive loop produced.
+ */
+function countOverlaps(bounds: UvRect[]) {
+	const order = bounds.map((_, island) => island).sort((a, b) => bounds[a].u0 - bounds[b].u0)
+	const open: number[] = []
+	let pairs = 0
+
+	for (const island of order) {
+		const rect = bounds[island]
+		let kept = 0
+		for (const other of open) {
+			// Closed for good: nothing further right can reach back to it either.
+			if (bounds[other].u1 <= rect.u0) continue
+			open[kept++] = other
+			if (rectsOverlap(rect, bounds[other])) pairs++
+		}
+		open.length = kept
+		open.push(island)
+	}
+	return pairs
 }
 
 function rectsOverlap(a: UvRect, b: UvRect) {

@@ -505,6 +505,32 @@ describe('uvStats', () => {
 
 		expect(uvStats(layout, next, selection).offTileCount).toBeGreaterThan(0)
 	})
+
+	it('counts every pair of islands sharing texture space', () => {
+		const { layout, uv } = cube()
+
+		// Three.js maps all six faces to the whole tile, so every pair of the
+		// six islands overlaps: C(6,2).
+		expect(uvStats(layout, uv, select()).overlappingPairs).toBe(15)
+		// Packed into a grid with margins, none of them do.
+		expect(uvStats(layout, packIslands(layout, uv), select()).overlappingPairs).toBe(0)
+	})
+
+	it('counts only the pairs that really meet, not everything to the left', () => {
+		// The sweep visits islands left to right and prunes on u. This is the
+		// case that catches it pruning too little or too much: one island moved
+		// exactly one cell right lands on its neighbour and on nothing else.
+		const { layout, uv } = cube()
+		const packed = packIslands(layout, uv)
+		const columns = Math.ceil(Math.sqrt(layout.islandCount))
+		const selection = select({ mode: 'island', ids: new Set([0]) })
+
+		const { uv: moved } = transformUvs(layout, packed, selection, {
+			translate: [1 / columns, 0]
+		})
+
+		expect(uvStats(layout, moved, selection).overlappingPairs).toBe(1)
+	})
 })
 
 describe('modal transforms', () => {

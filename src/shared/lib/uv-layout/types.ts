@@ -56,8 +56,12 @@ export interface UvRect {
 export interface UvEdge {
 	a: number
 	b: number
-	faces: number[]
-	/** Used by exactly one face — part of an island's outline. */
+	/**
+	 * The layout stops here — part of an island's outline. Read from the mesh
+	 * edge rather than from how many UV faces share this edge, so non-indexed
+	 * geometry, where no UV edge is ever shared, does not report every edge as
+	 * a border.
+	 */
 	border: boolean
 	/** A border whose mesh edge is shared, i.e. the island was cut here. */
 	seam: boolean
