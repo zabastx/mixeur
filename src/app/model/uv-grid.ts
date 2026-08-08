@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref } from 'vue'
 import THREE from '@/shared/three'
-import { createUvGridTexture } from '@/shared/three/modules/mesh/uv-grid'
+import { createUvGridTexture } from '@/shared/three/modules/mesh'
 import { useSelectionStore } from './selection'
 import { useShadingStore } from './shading'
 import type { ShadingMode } from './types/shading'

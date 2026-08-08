@@ -45,7 +45,12 @@ import { onKeyDown } from '@/shared/lib/keyboard'
 import { keyCodeToTransformAxis, keyCodeToTransformMode } from '@/app/config/keymaps'
 import { useUvStore } from '@/app/model/uv'
 
-const props = withDefaults(defineProps<{ span?: number }>(), { span: 1.45 })
+/**
+ * How much UV space the view shows at rest — a little wider than the tile, so
+ * the layout has visible room around it and islands nudged off the edge do not
+ * vanish.
+ */
+const INITIAL_SPAN = 1.45
 
 const uvStore = useUvStore()
 const canvasRef = useTemplateRef('canvasRef')
@@ -64,7 +69,7 @@ const emptyMessage = computed(() => {
 	}
 })
 
-const view = ref({ u: 0.5, v: 0.5, span: props.span })
+const view = ref({ u: 0.5, v: 0.5, span: INITIAL_SPAN })
 let width = 0
 let height = 0
 let dpr = 1
@@ -626,7 +631,7 @@ watch(
 		drag = null
 		box = null
 		pan = null
-		view.value = { u: 0.5, v: 0.5, span: props.span }
+		view.value = { u: 0.5, v: 0.5, span: INITIAL_SPAN }
 		draw()
 	}
 )
