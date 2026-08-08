@@ -31,6 +31,10 @@ vi.mock('./raycast', () => ({ useRaycastStore: () => raycastHolder }))
 vi.mock('./composer', () => ({ useComposerStore: () => composerHolder }))
 vi.mock('./camera', () => ({ useCameraStore: () => cameraHolder }))
 vi.mock('./selection', () => ({ useSelectionStore: () => selectionHolder }))
+const uvHolder = vi.hoisted(() => ({ forget: vi.fn() }))
+vi.mock('./uv', () => ({ useUvStore: () => uvHolder }))
+const uvGridHolder = vi.hoisted(() => ({ forget: vi.fn() }))
+vi.mock('./uv-grid', () => ({ useUvGridStore: () => uvGridHolder }))
 
 import { useSceneStore } from './scene'
 
@@ -121,6 +125,24 @@ describe('useSceneStore graph operations', () => {
 			store.deleteFromScene(group.uuid)
 
 			expect(cameraHolder.renderCamera).toBe(camera)
+		})
+
+		it('lets the UV stores forget every mesh in the deleted subtree', () => {
+			// They remember a mesh's original UVs and replaced map against its
+			// uuid, and deleting a group takes its meshes with it — so the whole
+			// subtree has to be released, not just the object that was named.
+			const store = useSceneStore()
+			const group = new THREE.Group()
+			const mesh = makeMesh()
+			group.add(mesh)
+			store.addObjectToScene(group)
+
+			store.deleteFromScene(group.uuid)
+
+			expect(uvHolder.forget).toHaveBeenCalledWith(group.uuid)
+			expect(uvHolder.forget).toHaveBeenCalledWith(mesh.uuid)
+			expect(uvGridHolder.forget).toHaveBeenCalledWith(group.uuid)
+			expect(uvGridHolder.forget).toHaveBeenCalledWith(mesh.uuid)
 		})
 	})
 

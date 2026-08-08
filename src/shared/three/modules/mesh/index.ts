@@ -1,5 +1,7 @@
 import THREE from '@/shared/three'
 
+export * from './uv-grid'
+
 const meshCountMap = new Map<GeometryTypes, number>([
 	['plane', 0],
 	['cube', 0],

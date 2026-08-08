@@ -256,6 +256,23 @@ export const useShadingStore = defineStore('shading', () => {
 		return cache
 	}
 
+	/**
+	 * The material a mesh is really shaded with — the cached original, not
+	 * `mesh.material`.
+	 *
+	 * Solid and wireframe substitute a flat material, so anything that reads or
+	 * writes `mesh.material` in those modes is looking at a stand-in that the
+	 * next mode change will throw away. Callers outside this store cannot know
+	 * that, which is why the answer belongs here rather than at each of them.
+	 *
+	 * Multi-material meshes report their first slot; there is no single answer
+	 * for them, and every caller so far wants one.
+	 */
+	function shadedMaterial(mesh: THREE.Mesh): THREE.Material | undefined {
+		const material = materialCache.get(mesh.uuid)?.original ?? mesh.material
+		return Array.isArray(material) ? material[0] : material
+	}
+
 	function updateMaterial<T extends THREE.Material = THREE.Material, K extends keyof T = keyof T>(
 		mesh: THREE.Mesh,
 		data: { prop: K; value: T[K] }
@@ -328,6 +345,7 @@ export const useShadingStore = defineStore('shading', () => {
 		shadingMode,
 		materialCache,
 		getMaterialCache,
+		shadedMaterial,
 		updateMaterial,
 		changeMaterial,
 		clearMaterialCache

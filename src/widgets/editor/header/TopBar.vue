@@ -1,6 +1,7 @@
 <template>
 	<header class="flex items-center bg-topbar-background p-1 px-2 gap-2">
 		<MenuBar :items="menuItems" />
+		<WorkspaceTabs />
 		<button
 			v-if="isUpdateAvailable"
 			class="ml-auto text-xs cursor-pointer flex gap-1 hover:brightness-125 border-ui-box-outline

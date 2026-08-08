@@ -18,6 +18,8 @@ import { useRaycastStore } from './raycast'
 import { useSelectionStore } from './selection'
 import { useComposerStore } from './composer'
 import { useCameraStore } from './camera'
+import { useUvStore } from './uv'
+import { useUvGridStore } from './uv-grid'
 import { downloadFile } from '@/shared/lib/files'
 import { useFileDialog } from '@vueuse/core'
 import { encodeProject, decodeProject } from '@/shared/lib/project-file'
@@ -237,6 +239,15 @@ export const useSceneStore = defineStore('scene', () => {
 
 		removeFromOutline(object.uuid)
 		removeFromRaycaster(object.uuid)
+
+		// Traversed, because a deleted group takes its meshes with it and each of
+		// them may have UVs or a replaced map remembered against its uuid.
+		const uvStore = useUvStore()
+		const uvGridStore = useUvGridStore()
+		object.traverse((child) => {
+			uvStore.forget(child.uuid)
+			uvGridStore.forget(child.uuid)
+		})
 
 		disposeModel(object)
 		clearMaterialCache(object.uuid)

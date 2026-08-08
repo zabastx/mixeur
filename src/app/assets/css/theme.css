@@ -7,6 +7,23 @@
 	--color-topbar-background: #161616;
 	--color-status-background: #161616;
 
+	/* Workspace tabs sit on the topbar, so they read as raised rather than as
+	   panels attached to the editor below. */
+	--color-workspace-tab-active: #3d3d3d;
+	--color-workspace-tab-hover: #ffffff14;
+
+	/* The UV editor draws to a canvas, so none of this can be a class. Read
+	   through `getComputedStyle` the way the viewport gizmo reads its axes,
+	   which keeps the colours in the theme where they can be edited. */
+	--color-uv-background: #333333;
+	--color-uv-tile-outline: #ffffff;
+	--color-uv-wire: #ffffffbf;
+	--color-uv-seam: #ff5a50;
+	--color-uv-border: #67c37b;
+	--color-uv-vertex: #dcdcdccc;
+	--color-uv-selected: #ffaf29;
+	--color-uv-picked: #ffffff;
+
 	--color-panel-header: #3d3d3dff;
 	--color-panel-background: #3d3d3dff;
 	--color-panel-sub-background: #0000001f;
