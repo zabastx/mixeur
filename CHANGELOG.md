@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.2] - 2026-08-08
+
+A maintenance release. Nothing changes in the editor itself — this is dependency updates and build housekeeping.
+
+### Changed
+
+- Updated dependencies, including Three.js to r185 and Vue to 3.5.41
+- Three.js r185 moved two of its bundled loaders onto a CDN. Nothing in Mixeur used them, but they were being pulled in anyway through a shared entry point; addons are now imported individually so nothing reaches for the network that did not before
+- TypeScript stays on 6.x. The 7.0 rewrite is not yet supported by the type checker, linter and Vue compiler this project builds with
+
 ## [0.30.1] - 2026-08-08
 
 ### Changed
