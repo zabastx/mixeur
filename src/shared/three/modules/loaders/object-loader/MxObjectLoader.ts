@@ -1,5 +1,6 @@
 import THREE from '@/shared/three'
-import { FontLoader, TextGeometry } from 'three/examples/jsm/Addons.js'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 const fontLoader = new FontLoader()
 

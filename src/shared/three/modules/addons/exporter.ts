@@ -2,7 +2,7 @@ import { useToast } from '@/shared/lib/toast'
 import THREE from '@/shared/three'
 import { getUserData } from '@/shared/three/utils'
 import { downloadFile } from '@/shared/lib/files'
-import { GLTFExporter } from 'three/examples/jsm/Addons.js'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 
 const toast = useToast()
 

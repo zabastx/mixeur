@@ -1,4 +1,7 @@
-import { TextGeometry, type TextGeometryParameters } from 'three/examples/jsm/Addons.js'
+import {
+	TextGeometry,
+	type TextGeometryParameters
+} from 'three/examples/jsm/geometries/TextGeometry.js'
 import { loadFont } from '../loaders'
 import THREE from '@/shared/three'
 import { getUserData } from '@/shared/three/utils'

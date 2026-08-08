@@ -1,4 +1,4 @@
-import { EXRLoader } from 'three/examples/jsm/Addons.js'
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
 import type { LoadRequest } from './request'
 
 /**

@@ -1,4 +1,4 @@
-import { FBXLoader } from 'three/examples/jsm/Addons.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { applyUrlModifier, type LoadRequest } from './request'
 
 /**

@@ -2,7 +2,10 @@ import { ViewportGizmo } from 'three-viewport-gizmo'
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
 import { ref, shallowRef, watch } from 'vue'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { TransformControls, type TransformControlsMode } from 'three/examples/jsm/Addons.js'
+import {
+	TransformControls,
+	type TransformControlsMode
+} from 'three/examples/jsm/controls/TransformControls.js'
 import THREE from '@/shared/three'
 import { useComposerStore } from './composer'
 import { useSelectionStore } from './selection'

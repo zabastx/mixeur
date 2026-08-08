@@ -100,7 +100,7 @@ import { useToast } from '@/shared/lib/toast'
 import { getUserData } from '@/shared/three/utils'
 import { useCameraStore } from '@/app/model/camera'
 import { useComposerStore } from '@/app/model/composer'
-import type { EffectComposer } from 'three/examples/jsm/Addons.js'
+import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 
 const isOpen = defineModel<boolean>({ default: false })
 

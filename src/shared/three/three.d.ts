@@ -6,7 +6,7 @@ import {
 	disposeBatchedBoundsTree,
 	acceleratedRaycast
 } from 'three-mesh-bvh'
-import type { TextGeometry } from 'three/examples/jsm/Addons.js'
+import type { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 interface MxTextObjectData {
 	textValue: string

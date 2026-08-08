@@ -11,7 +11,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { MaterialCreatorOptions } from 'three/examples/jsm/Addons.js'
+import type { MaterialCreatorOptions } from 'three/examples/jsm/loaders/MTLLoader.js'
 import type { FileListItem } from './types'
 import THREE from '@/shared/three'
 import { reactive } from 'vue'

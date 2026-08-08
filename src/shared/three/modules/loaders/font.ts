@@ -1,4 +1,4 @@
-import { FontLoader } from 'three/examples/jsm/Addons.js'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import type { LoadRequest } from './request'
 
 /**

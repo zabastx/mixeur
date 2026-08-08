@@ -10,7 +10,7 @@
 import { useControlsStore } from '@/app/model/controls'
 import type { InputSelectOption } from '@/shared/lib/types'
 import { storeToRefs } from 'pinia'
-import type { TransformControls } from 'three/examples/jsm/Addons.js'
+import type { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { computed, triggerRef } from 'vue'
 
 const { transformControls } = storeToRefs(useControlsStore())

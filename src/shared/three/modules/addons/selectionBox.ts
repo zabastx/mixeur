@@ -1,5 +1,7 @@
 import THREE from '@/shared/three'
-import { type OrbitControls, SelectionBox, SelectionHelper } from 'three/examples/jsm/Addons.js'
+import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { SelectionBox } from 'three/examples/jsm/interactive/SelectionBox.js'
+import { SelectionHelper } from 'three/examples/jsm/interactive/SelectionHelper.js'
 import { ref, watch, type Ref } from 'vue'
 
 export function setSelectionBox({ camera, renderer, scene, canvas, controls }: SelectionBoxParams) {

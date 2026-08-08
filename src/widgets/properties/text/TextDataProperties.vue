@@ -54,7 +54,7 @@ import THREE from '@/shared/three'
 import { defaultFontsList, loadFont } from '@/shared/three/modules/loaders'
 import { createTextGeometry } from '@/shared/three/modules/text'
 import { enableBVH, getUserData } from '@/shared/three/utils'
-import { TextGeometry } from 'three/examples/jsm/Addons.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { reactive, watch } from 'vue'
 
 const store = useSelectionStore()
