@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-08-08
+
+### Added
+
+- UV Editing workspace: a second workspace, reachable from the tabs beside the menus, showing the selected mesh's UV layout drawn over the texture it is actually mapped with. Edits go straight to the mesh, so the 3D view updates as you drag. It edits existing UVs — it does not unwrap, and there is no undo, though Reset UVs restores what the geometry was loaded with
+- UV selection by vertex, edge, face or island. Click to select, shift-click to add or remove, drag a box over empty space to sweep up everything inside it. Faces and islands are caught only when the box covers all of their corners, so a box grabs shapes rather than stray points
+- Move, rotate and scale the selection with `G`, `R` and `S` — the same keys the 3D viewport uses. `X` and `Y` lock to one axis, click or `Enter` confirms, `Esc` or a right-click puts everything back exactly as it was. The status bar reports the distance, angle or factor as you move
+- Sticky selection modes — Disabled, Shared Location, Shared Vertex — deciding what comes along when you move a corner that several faces map separately. Shared Location is the default, as in Blender: welded points stay welded and seams that were cut on purpose stay cut
+- Pivot modes for rotate and scale — Bounding Box Center, Median Point, 2D Cursor, Individual Origins. Alt-click in the UV view places the 2D cursor. Individual Origins spins each island in place instead of swinging them around each other
+- Pack Islands, which spreads a layout into a grid inside the tile. Freshly added primitives map every face to the whole tile, so their islands arrive stacked exactly on top of each other and this is what makes them editable
+- Weld Selected, which closes a seam by collapsing nearly-coincident selected UVs onto one point, and Flip in U / Flip in V
+- UV Grid Texture, which puts a lettered checker grid on the mesh so the layout is readable in the viewport, and takes it off again along with any shading mode it had to change to show the map
+- A status line reporting islands, seams, and how many UVs you picked against how many will actually move — the gap between those two numbers is the sticky rule at work. It also warns when islands overlap or UVs sit outside the 0–1 tile; both are legal, and both are usually worth knowing about
+- The middle mouse button pans the UV view, and the wheel zooms towards the pointer
+
+### Changed
+
+- The top bar now carries workspace tabs, Layout and UV Editing, which swap the whole editor area
+- Transform shortcuts in the 3D viewport (`G`, `R`, `S`, the axis keys, and `Esc` to cancel a drag) now only respond while the pointer is over the viewport, which is the rule `Delete` and `Shift+D` already followed. Previously they responded from anywhere in the window, so working in another editor could quietly retune the gizmo behind it
+- The status bar's key hints now describe whichever editor the pointer is over, rather than always describing the viewport
+
 ## [0.29.2] - 2026-08-07
 
 ### Changed
@@ -244,6 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Material Preview settings: fixed broken thumbnail url
 
+[0.30.0]: https://github.com/zabastx/mixeur/compare/v0.29.2...v0.30.0
 [0.29.2]: https://github.com/zabastx/mixeur/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/zabastx/mixeur/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/zabastx/mixeur/compare/v0.28.0...v0.29.0
