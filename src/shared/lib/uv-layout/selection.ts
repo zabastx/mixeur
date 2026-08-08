@@ -10,11 +10,12 @@ export function createUvSelection(): UvSelection {
 	return {
 		mode: 'island',
 		ids: new Set(),
-		// Not Blender's default, deliberately. Meshes reach Mixeur already
-		// unwrapped, so their seams were chosen by whoever unwrapped them;
-		// `shared-vertex` would quietly drag those seams shut on the first drag.
+		// Blender's default, and the right one here for a second reason: meshes
+		// reach Mixeur already unwrapped, so their seams were chosen by whoever
+		// unwrapped them, and `shared-vertex` would drag those shut on the first
+		// drag.
 		sticky: 'shared-location',
-		// This one *is* Blender's default, so the muscle memory carries over.
+		// Blender's default too, so the muscle memory carries over.
 		pivot: 'bounding-box',
 		cursor: [0.5, 0.5]
 	}
@@ -71,10 +72,16 @@ export function movingVerts(
 		return moving
 	}
 
-	const occupied = new Set<string>()
-	for (const v of picked) occupied.add(locationKey(uv, v))
-	for (let v = 0; v < layout.vertCount; v++) {
-		if (occupied.has(locationKey(uv, v))) moving.add(v)
+	// Shared location is a *narrowing* of shared vertex, not a different rule:
+	// the UV copies of the same mesh vertex that also happen to sit on the same
+	// spot. Matching on location alone would join UV vertices belonging to
+	// unrelated mesh vertices, so any two islands that overlapped — which
+	// mirrored parts do deliberately — would drag each other around.
+	for (const v of picked) {
+		const spot = locationKey(uv, v)
+		for (const twin of layout.uvVertsOfMeshVert[layout.meshVertOfUvVert[v]]) {
+			if (locationKey(uv, twin) === spot) moving.add(twin)
+		}
 	}
 	return moving
 }

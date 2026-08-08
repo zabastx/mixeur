@@ -164,13 +164,29 @@ describe('movingVerts', () => {
 		expect(movingVerts(layout, packed, { ...selection, sticky: 'shared-vertex' }).size).toBe(3)
 	})
 
-	it('still joins UV vertices that genuinely coincide', () => {
+	it('joins the copies of a mesh vertex once they sit on the same spot', () => {
+		const { layout, uv } = cube()
+		const selection = select({ mode: 'vertex', ids: new Set([0]), sticky: 'shared-location' })
+		// Close the seam by hand: put the corner's other two UV copies on top of
+		// it, which is the state `weld` produces and the one this mode protects.
+		const welded = Float32Array.from(uv)
+		for (const twin of layout.uvVertsOfMeshVert[layout.meshVertOfUvVert[0]]) {
+			welded[twin * 2] = uv[0]
+			welded[twin * 2 + 1] = uv[1]
+		}
+
+		expect(movingVerts(layout, welded, selection).size).toBe(3)
+	})
+
+	it('ignores UV vertices that merely overlap', () => {
 		const { layout, uv } = cube()
 		const selection = select({ mode: 'vertex', ids: new Set([0]), sticky: 'shared-location' })
 
-		// Fresh cube UVs stack all six faces on the tile, so the corner really
-		// does share its spot with one vertex per face.
-		expect(movingVerts(layout, uv, selection).size).toBe(6)
+		// A fresh cube stacks all six faces on the tile, so this corner shares its
+		// spot with one vertex per face — but they belong to five *other* mesh
+		// corners, and dragging them would tear the cube apart. Sharing a location
+		// is only half the rule; sharing a mesh vertex is the other half.
+		expect(movingVerts(layout, uv, selection).size).toBe(1)
 	})
 
 	it('is empty when nothing is picked', () => {

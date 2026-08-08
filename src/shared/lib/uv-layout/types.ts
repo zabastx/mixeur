@@ -22,11 +22,14 @@ export type SelectMode = 'vertex' | 'edge' | 'face' | 'island'
  * feel possessed.
  *
  * - `off` — exactly what was picked. Tears seams freely.
- * - `shared-vertex` — every UV copy of the same mesh vertex. Blender's default.
+ * - `shared-vertex` — every UV copy of the same mesh vertex, wherever it sits.
  *   Right when a seam was accidental; on a mesh whose seams are deliberate it
  *   drags them shut.
- * - `shared-location` — only UV vertices already sitting on the same spot.
- *   Welded points stay welded, existing seams survive.
+ * - `shared-location` — Blender's default, and a narrowing of `shared-vertex`
+ *   rather than a separate rule: the copies of the same mesh vertex that also
+ *   sit on the same spot. Welded points stay welded, existing seams survive.
+ *   The mesh-vertex half matters — matching on location alone would join
+ *   unrelated vertices wherever two islands overlap.
  */
 export type StickyMode = 'off' | 'shared-vertex' | 'shared-location'
 
