@@ -1,6 +1,15 @@
 <template>
 	<header class="flex items-center bg-topbar-background p-1 px-2 gap-2">
 		<MenuBar :items="menuItems" />
+		<!--
+			The menus act on the whole app, the tabs swap the editor area. A rule
+			between them says they are two groups rather than one long row.
+		-->
+		<div
+			class="h-5 w-px shrink-0 bg-ui-box-outline"
+			role="separator"
+			aria-orientation="vertical"
+		></div>
 		<WorkspaceTabs />
 		<button
 			v-if="isUpdateAvailable"
