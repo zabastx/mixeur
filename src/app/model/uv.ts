@@ -15,11 +15,10 @@ import {
 	type UvSelection,
 	type UvTransform
 } from '@/shared/lib/uv-layout'
-import { createUvGridTexture } from '@/shared/three/modules/mesh/uv-grid'
 import { useSelectionStore } from './selection'
 import { useShadingStore } from './shading'
+import { useUvGridStore } from './uv-grid'
 import { useWorkspaceStore } from './workspace'
-import type { ShadingMode } from './types/shading'
 
 /**
  * Why the selected mesh has no editable UVs, when it doesn't.
@@ -63,12 +62,6 @@ export const useUvStore = defineStore('uv', () => {
 
 	/** The UVs each mesh was loaded with, so `reset` has something to restore. */
 	const originalUvs = new Map<string, Float32Array>()
-	/** Materials whose map we replaced with the grid, and what was there before. */
-	const replacedMaps = new Map<string, THREE.Texture | null>()
-
-	let gridTexture: THREE.Texture | null = null
-	/** The shading mode the grid displaced, so taking the grid off can put it back. */
-	let shadingBeforeGrid: ShadingMode | null = null
 
 	/**
 	 * Whether the pointer is over the UV view, and which modal transform it is
@@ -197,19 +190,6 @@ export const useUvStore = defineStore('uv', () => {
 	}
 
 	/**
-	 * The material the mesh is really shaded with.
-	 *
-	 * The shading store's cached original, not `mesh.material` — solid and
-	 * wireframe modes substitute a flat material, and reading or writing that
-	 * one would be undone the moment the shading mode changed.
-	 */
-	function shadedMaterial(target: THREE.Mesh) {
-		const cached = useShadingStore().getMaterialCache(target)?.original
-		const material = Array.isArray(cached) ? cached[0] : (cached ?? target.material)
-		return Array.isArray(material) ? material[0] : material
-	}
-
-	/**
 	 * The image the mesh is textured with, for the UV view to draw the layout
 	 * over. Editing against the real texture rather than a stand-in is the whole
 	 * point of a UV editor — a grid only helps when there is nothing else.
@@ -219,67 +199,20 @@ export const useUvStore = defineStore('uv', () => {
 	 */
 	const mapImage = computed<CanvasImageSource | null>(() => {
 		void revision.value
+		// Swapping the map is a plain Three.js mutation; which meshes wear the
+		// grid is the only reactive trace it leaves.
+		void useUvGridStore().appliedTo
 		const target = mesh.value
 		if (!target) return null
-		const image = (shadedMaterial(target) as THREE.MeshStandardMaterial | undefined)?.map?.image
-		return isDrawable(image) ? image : null
+		const material = useShadingStore().shadedMaterial(target) as
+			| THREE.MeshStandardMaterial
+			| undefined
+		return isDrawable(material?.map?.image) ? material.map.image : null
 	})
 
-	const hasGrid = computed(() => {
-		void revision.value
-		return mesh.value ? replacedMaps.has(mesh.value.uuid) : false
-	})
-
-	/**
-	 * Put a UV grid on the mesh so the layout is legible, or take it off again.
-	 *
-	 * The map goes onto the shading store's cached original material rather than
-	 * the live one — solid mode substitutes a flat material, and writing to that
-	 * would be undone the moment the shading mode changed.
-	 */
-	function toggleGrid() {
-		const target = mesh.value
-		if (!target || Array.isArray(target.material)) return
-
-		const shadingStore = useShadingStore()
-		const material = shadedMaterial(target) as THREE.MeshStandardMaterial | undefined
-		if (!material) return
-
-		if (replacedMaps.has(target.uuid)) {
-			material.map = replacedMaps.get(target.uuid) ?? null
-			replacedMaps.delete(target.uuid)
-			// Only if nothing has changed the mode since — the user switching
-			// shading deliberately outranks anything this borrowed.
-			if (shadingBeforeGrid && shadingStore.shadingMode === 'preview') {
-				shadingStore.setMode(shadingBeforeGrid)
-			}
-			shadingBeforeGrid = null
-			lastAction.value = 'Removed the UV grid'
-		} else {
-			gridTexture ??= createUvGridTexture()
-			replacedMaps.set(target.uuid, material.map)
-			material.map = gridTexture
-			// Flat shading modes ignore maps, so the grid would appear to do
-			// nothing at all. Borrowed, not taken: removing the grid hands the
-			// viewport back the mode it was in.
-			if (shadingStore.shadingMode === 'solid' || shadingStore.shadingMode === 'wireframe') {
-				shadingBeforeGrid = shadingStore.shadingMode
-				shadingStore.setMode('preview')
-			}
-			lastAction.value = 'Applied a UV grid'
-		}
-		material.needsUpdate = true
-		selectionStore.refresh()
-		revision.value++
-	}
-
-	/** Drop a removed mesh's remembered UVs so the maps don't grow forever. */
+	/** Drop a removed mesh's remembered UVs so the map doesn't grow forever. */
 	function forget(uuid: string) {
 		originalUvs.delete(uuid)
-		replacedMaps.delete(uuid)
-		// The mesh that borrowed the shading mode may have been the one deleted,
-		// and no grid is left to hand it back.
-		if (!replacedMaps.size) shadingBeforeGrid = null
 	}
 
 	return {
@@ -290,7 +223,6 @@ export const useUvStore = defineStore('uv', () => {
 		stats,
 		revision,
 		lastAction,
-		hasGrid,
 		mapImage,
 		pointerOnCanvas,
 		modalKind,
@@ -304,7 +236,6 @@ export const useUvStore = defineStore('uv', () => {
 		setMode,
 		selectAll,
 		clearSelection,
-		toggleGrid,
 		forget
 	}
 })

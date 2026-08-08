@@ -10,23 +10,21 @@ import THREE from '@/shared/three'
  */
 const holders = vi.hoisted(() => ({
 	selection: null as unknown as { selectedObject: THREE.Object3D | null; refresh: () => void },
-	shading: null as unknown as {
-		shadingMode: string
-		getMaterialCache: ReturnType<typeof vi.fn>
-		setMode: ReturnType<typeof vi.fn>
-	},
-	workspace: null as unknown as { current: string }
+	shading: null as unknown as { shadedMaterial: ReturnType<typeof vi.fn> },
+	workspace: null as unknown as { current: string },
+	grid: null as unknown as { appliedTo: ReadonlySet<string> }
 }))
 
 vi.mock('./selection', () => ({ useSelectionStore: () => holders.selection }))
 vi.mock('./shading', () => ({ useShadingStore: () => holders.shading }))
 vi.mock('./workspace', () => ({ useWorkspaceStore: () => holders.workspace }))
+vi.mock('./uv-grid', () => ({ useUvGridStore: () => holders.grid }))
 
 import { useUvStore } from './uv'
 
 function makeMesh() {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
-	holders.shading.getMaterialCache.mockReturnValue({ original: mesh.material })
+	holders.shading.shadedMaterial.mockReturnValue(mesh.material)
 	return mesh
 }
 
@@ -34,70 +32,34 @@ describe('useUvStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		holders.selection = shallowReactive({ selectedObject: null, refresh: vi.fn() })
-		holders.shading = shallowReactive({
-			shadingMode: 'solid',
-			getMaterialCache: vi.fn(),
-			setMode: vi.fn((mode: string) => {
-				holders.shading.shadingMode = mode
-			})
-		})
+		holders.shading = shallowReactive({ shadedMaterial: vi.fn() })
 		holders.workspace = shallowReactive({ current: 'uv' })
+		holders.grid = shallowReactive({ appliedTo: new Set<string>() })
 	})
 
-	describe('toggleGrid', () => {
-		it('borrows a shading mode that hides maps, and hands it back', async () => {
-			// Solid shading ignores maps, so the grid would appear to do nothing.
-			// Switching for it is fine; keeping the switch after the grid is gone
-			// leaves the viewport somewhere the user never put it.
-			const store = useUvStore()
-			holders.selection.selectedObject = makeMesh()
-			await nextTick()
-
-			store.toggleGrid()
-			expect(holders.shading.shadingMode).toBe('preview')
-
-			store.toggleGrid()
-			expect(holders.shading.shadingMode).toBe('solid')
-		})
-
-		it('leaves a mode the user chose while the grid was on', async () => {
-			const store = useUvStore()
-			holders.selection.selectedObject = makeMesh()
-			await nextTick()
-
-			store.toggleGrid()
-			holders.shading.shadingMode = 'rendered'
-			store.toggleGrid()
-
-			expect(holders.shading.shadingMode).toBe('rendered')
-		})
-
-		it('does not touch a mode that already shows maps', async () => {
-			const store = useUvStore()
-			holders.shading.shadingMode = 'rendered'
-			holders.selection.selectedObject = makeMesh()
-			await nextTick()
-
-			store.toggleGrid()
-			store.toggleGrid()
-
-			expect(holders.shading.setMode).not.toHaveBeenCalled()
-		})
-
-		it('puts the material back the way it was', async () => {
+	describe('mapImage', () => {
+		it('reads the image off the material the mesh is really shaded with', async () => {
 			const store = useUvStore()
 			const mesh = makeMesh()
-			const original = (mesh.material as THREE.MeshStandardMaterial).map
+			const canvas = document.createElement('canvas')
+			;(mesh.material as THREE.MeshStandardMaterial).map = new THREE.CanvasTexture(canvas)
 			holders.selection.selectedObject = mesh
 			await nextTick()
 
-			store.toggleGrid()
-			expect(store.hasGrid).toBe(true)
-			expect((mesh.material as THREE.MeshStandardMaterial).map).not.toBe(original)
+			expect(store.mapImage).toBe(canvas)
+		})
 
-			store.toggleGrid()
-			expect(store.hasGrid).toBe(false)
-			expect((mesh.material as THREE.MeshStandardMaterial).map).toBe(original)
+		it('is null for a map a canvas cannot draw', async () => {
+			// A compressed texture holds no decodable image.
+			const store = useUvStore()
+			const mesh = makeMesh()
+			const texture = new THREE.Texture()
+			texture.image = { width: 4, height: 4, data: new Uint8Array(16) }
+			;(mesh.material as THREE.MeshStandardMaterial).map = texture
+			holders.selection.selectedObject = mesh
+			await nextTick()
+
+			expect(store.mapImage).toBeNull()
 		})
 	})
 

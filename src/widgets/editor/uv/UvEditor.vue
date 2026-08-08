@@ -93,6 +93,7 @@ import type { MxTooltipContent } from '@/shared/lib/types'
 import type { IMenubarMenu } from '@/shared/ui/MenuBar.vue'
 import type { UvModeOption } from './UvModeSelect.vue'
 import { useUvStore } from '@/app/model/uv'
+import { useUvGridStore } from '@/app/model/uv-grid'
 
 interface ModeButton {
 	value: SelectMode
@@ -213,6 +214,7 @@ const PIVOT_MODES: UvModeOption<PivotMode>[] = [
 ]
 
 const uvStore = useUvStore()
+const uvGridStore = useUvGridStore()
 
 // Both are plain fields on the selection, so the store only has to be told
 // afterwards — `touch` is what gets the canvas to redraw with the new rule.
@@ -235,8 +237,8 @@ const canvasRef = useTemplateRef('canvasRef')
 const transform = (kind: TransformKind) => canvasRef.value?.beginTransform(kind)
 
 const gridEnabled = computed({
-	get: () => uvStore.hasGrid,
-	set: () => uvStore.toggleGrid()
+	get: () => (uvStore.mesh ? uvGridStore.isApplied(uvStore.mesh.uuid) : false),
+	set: () => uvGridStore.toggle(uvStore.mesh)
 })
 
 /**

@@ -22,7 +22,7 @@
  * is scaled down into a panel.
  */
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
-import { useResizeObserver } from '@vueuse/core'
+import { useEventListener, useResizeObserver } from '@vueuse/core'
 import {
 	faceAt,
 	idsInRect,
@@ -588,31 +588,24 @@ const onLeave = () => (uvStore.pointerOnCanvas = false)
 onMounted(() => {
 	readTheme()
 	fit()
-	const canvas = canvasRef.value
-	if (!canvas) return
-	canvas.addEventListener('pointerdown', onPointerDown)
-	canvas.addEventListener('pointermove', onPointerMove)
-	canvas.addEventListener('pointerup', onPointerUp)
-	canvas.addEventListener('pointerenter', onEnter)
-	canvas.addEventListener('pointerleave', onLeave)
-	canvas.addEventListener('contextmenu', onContextMenu)
-	canvas.addEventListener('wheel', onWheel, { passive: false })
 })
 
 onBeforeUnmount(() => {
 	cancelModal()
 	// `pointerleave` does not fire when the element goes away underneath it.
 	uvStore.pointerOnCanvas = false
-	const canvas = canvasRef.value
-	if (!canvas) return
-	canvas.removeEventListener('pointerdown', onPointerDown)
-	canvas.removeEventListener('pointermove', onPointerMove)
-	canvas.removeEventListener('pointerup', onPointerUp)
-	canvas.removeEventListener('pointerenter', onEnter)
-	canvas.removeEventListener('pointerleave', onLeave)
-	canvas.removeEventListener('contextmenu', onContextMenu)
-	canvas.removeEventListener('wheel', onWheel)
 })
+
+// Bound to the ref rather than inside `onMounted`, so the pairs cannot drift
+// apart and the scope releases them. `wheel` is not passive because zooming has
+// to stop the page scrolling.
+useEventListener(canvasRef, 'pointerdown', onPointerDown)
+useEventListener(canvasRef, 'pointermove', onPointerMove)
+useEventListener(canvasRef, 'pointerup', onPointerUp)
+useEventListener(canvasRef, 'pointerenter', onEnter)
+useEventListener(canvasRef, 'pointerleave', onLeave)
+useEventListener(canvasRef, 'contextmenu', onContextMenu)
+useEventListener(canvasRef, 'wheel', onWheel, { passive: false })
 
 // Released with the component's effect scope.
 onKeyDown('editor', onKey)
