@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.1] - 2026-08-08
+
+### Changed
+
+- Top bar: a rule now separates the menus from the workspace tabs. The menus act on the whole application and the tabs swap the editor area, and they now read as two groups rather than one long row of controls
+
+### Fixed
+
+- UV Editing: the handle between the UV editor and the 3D view can no longer be dragged past the edge of the window. Previously dragging it to the right kept widening the UV editor until the editor overflowed and the page grew a horizontal scrollbar; dragging left had always stopped. Both this handle and the one beside the sidebar now stop while the 3D view still has room to show something
+- UV Editing: the Sticky Selection Mode and Pivot menus are now sized like the menus beside them in the same header. Previously they used larger text and padding, so two kinds of menu sitting side by side did not match
+- UV Editing: the arrow between the picked and moving counts in the status line now sits on the line with the numbers rather than below it. The arrow character is missing from the font the application loads, so it was being drawn by whatever the system substituted
+
 ## [0.30.0] - 2026-08-08
 
 ### Added
@@ -265,6 +277,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Material Preview settings: fixed broken thumbnail url
 
+[0.30.1]: https://github.com/zabastx/mixeur/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/zabastx/mixeur/compare/v0.29.2...v0.30.0
 [0.29.2]: https://github.com/zabastx/mixeur/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/zabastx/mixeur/compare/v0.29.0...v0.29.1
