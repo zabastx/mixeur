@@ -1,4 +1,4 @@
-import { generateIconTypes } from './icon-types-generator.js'
+import { generateIconTypes } from './icon-types-generator.ts'
 import path from 'node:path'
 
 const args = process.argv.slice(2)

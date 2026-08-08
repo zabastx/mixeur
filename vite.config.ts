@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import Components from 'unplugin-vue-components/vite'
 import RekaResolver from 'reka-ui/resolver'
-import { iconTypesPlugin } from './plugins/vite-plugin-icon-types'
+import { iconTypesPlugin } from './plugins/vite-plugin-icon-types.ts'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/

@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite'
 import path from 'path'
-import { generateIconTypes } from './icon-types-generator.js'
+import { generateIconTypes } from './icon-types-generator.ts'
 
 export interface IconTypesPluginOptions {
 	iconsDir?: string
