@@ -9,6 +9,7 @@
 	<MxPopover
 		:root="{ open }"
 		:content="{ align: 'start', sideOffset: 4 }"
+		content-class="p-0.5 text-xs"
 		@update:open="open = $event"
 	>
 		<template #trigger>
@@ -24,8 +25,13 @@
 		</template>
 
 		<template #content>
-			<div class="flex min-w-52 flex-col gap-0.5" role="radiogroup">
-				<span class="px-2 pt-0.5 pb-1 text-ui-menu-bg-text">{{ heading }}</span>
+			<!--
+				`menubar-item` rather than a private set of paddings: this is a menu of
+				the same kind the top bar and the UV header's own `MenuBar` drop down,
+				and it should be sized by the same rule they are.
+			-->
+			<div class="flex min-w-[200px] flex-col gap-1" role="radiogroup">
+				<span class="pt-0.5 pr-1 pb-1 pl-2.5 text-ui-menu-bg-text">{{ heading }}</span>
 				<MxTooltip
 					v-for="option in options"
 					:key="option.value"
@@ -33,8 +39,7 @@
 					:tooltip="{ text: option.description }"
 				>
 					<button
-						class="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-left
-							text-ui-menu-item-text"
+						class="menubar-item w-full cursor-pointer text-left text-ui-menu-item-text"
 						:class="
 							model === option.value
 								? 'bg-ui-menu-item-inner-selected text-ui-menu-item-text-selected'

@@ -8,7 +8,8 @@
 				v-bind="content"
 				avoid-collisions
 				position-strategy="absolute"
-				class="bg-ui-menu-bg-inner rounded p-2 z-3000 text-ui-menu-bg-text text-sm"
+				class="bg-ui-menu-bg-inner rounded z-3000 text-ui-menu-bg-text"
+				:class="contentClass ?? 'p-2 text-sm'"
 				@open-auto-focus.prevent
 			>
 				<slot name="content"></slot>
@@ -36,6 +37,13 @@ defineProps<{
 	content?: PopoverContentProps
 	arrow?: PopoverArrowProps
 	showArrow?: boolean
+	/**
+	 * Replaces the content box's padding and text size — the rest of the chrome
+	 * stays. Set it when the popover holds a menu rather than a settings panel:
+	 * the two want different metrics, and appending to the defaults would leave
+	 * two paddings fighting over which one Tailwind emits last.
+	 */
+	contentClass?: string
 }>()
 
 defineEmits<PopoverRootEmits>()
