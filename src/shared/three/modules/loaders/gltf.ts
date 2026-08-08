@@ -1,5 +1,7 @@
 import type THREE from '@/shared/three'
-import { DRACOLoader, GLTFLoader, KTX2Loader } from 'three/examples/jsm/Addons.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { applyUrlModifier, type LoadRequest } from './request'
 import { activeRenderer } from './renderer-context'

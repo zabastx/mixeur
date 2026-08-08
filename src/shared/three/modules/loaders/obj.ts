@@ -1,5 +1,5 @@
-import type { MTLLoader } from 'three/examples/jsm/Addons.js'
-import { OBJLoader } from 'three/examples/jsm/Addons.js'
+import type { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { applyUrlModifier, type LoadRequest } from './request'
 
 /**

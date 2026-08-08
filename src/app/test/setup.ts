@@ -15,9 +15,8 @@ vi.mock('/favicon-96x96.png', () => ({
 	default: ''
 }))
 
-// Minimal 2D context stub. Some Three.js addons (e.g. the lottie helper re-exported
-// from `three/examples/jsm/Addons.js`) probe a 2D canvas at import time; happy-dom
-// returns null for it, which would crash module evaluation.
+// Minimal 2D context stub. Some Three.js addons probe a 2D canvas at import time;
+// happy-dom returns null for it, which would crash module evaluation.
 function createContext2DStub(): CanvasRenderingContext2D {
 	const noop = () => undefined
 	return {

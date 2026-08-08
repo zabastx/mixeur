@@ -9,14 +9,12 @@ import { disposeWorldMapCache } from '@/shared/three/modules/loaders/environment
 import { useResizeObserver } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { ViewportGizmo } from 'three-viewport-gizmo'
-import {
-	EffectComposer,
-	OutlinePass,
-	OutputPass,
-	Pass,
-	RenderPass,
-	SSAARenderPass
-} from 'three/examples/jsm/Addons.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { Pass } from 'three/examples/jsm/postprocessing/Pass.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { SSAARenderPass } from 'three/examples/jsm/postprocessing/SSAARenderPass.js'
 import { ref, shallowRef, watch, type Ref, type ShallowRef } from 'vue'
 
 interface ComposerParameters {

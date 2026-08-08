@@ -48,7 +48,7 @@
 
 <script lang="ts" setup>
 import THREE from '@/shared/three'
-import type { MaterialCreatorOptions } from 'three/examples/jsm/Addons.js'
+import type { MaterialCreatorOptions } from 'three/examples/jsm/loaders/MTLLoader.js'
 
 const settings = defineModel<MaterialCreatorOptions>({ required: true })
 

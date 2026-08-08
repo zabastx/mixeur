@@ -1,6 +1,6 @@
 import THREE from '@/shared/three'
 import { getUserData } from '@/shared/three/utils'
-import { RectAreaLightHelper } from 'three/examples/jsm/Addons.js'
+import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper.js'
 
 export function createLight<T extends CreateLightParams>({ type, parameters }: T) {
 	let light
@@ -100,10 +100,7 @@ export function getLightHelper(light: THREE.Light) {
 }
 
 export type CreateLightParams =
-	| PointLightOptions
-	| DirectionalLightOptions
-	| SpotLightOptions
-	| AreaLightOptions
+	PointLightOptions | DirectionalLightOptions | SpotLightOptions | AreaLightOptions
 
 export interface BaseLightParameters {
 	/** Numeric value of the light's strength/intensity. Expects a `Float`. Default `1` */

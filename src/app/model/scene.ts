@@ -25,7 +25,7 @@ import { useFileDialog } from '@vueuse/core'
 import { encodeProject, decodeProject } from '@/shared/lib/project-file'
 import { useToast } from '@/shared/lib/toast'
 import { MxObjectLoader } from '@/shared/three/modules/loaders/object-loader/MxObjectLoader'
-import { TextGeometry } from 'three/examples/jsm/Addons.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 export const useSceneStore = defineStore('scene', () => {
 	const scene = shallowRef(new THREE.Scene())

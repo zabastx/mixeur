@@ -33,7 +33,8 @@ import {
 } from '@/shared/lib/asset-source'
 import { textureToEnvMap } from '@/shared/three/utils'
 import type THREE from '@/shared/three'
-import type { Font, MaterialCreatorOptions, MTLLoader } from 'three/examples/jsm/Addons.js'
+import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import type { MaterialCreatorOptions, MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { defaultFontUrls, type StdFontName } from './font-presets'
 
 export interface LoadModelOptions {

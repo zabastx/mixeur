@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia'
 import { effectScope, ref } from 'vue'
 import THREE from '@/shared/three'
-import { RectAreaLightUniformsLib } from 'three/examples/jsm/Addons.js'
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 import { useStats } from '@/shared/three/modules/extras/stats'
 import { createTeardown } from '@/shared/lib/teardown'
 import { useShadingStore } from './shading'
