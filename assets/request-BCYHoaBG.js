@@ -1,1 +1,0 @@
-import{t as e}from"./three-DSHNGHjz.js";function t(t,n){if(!n)return;let r=new e.LoadingManager;r.setURLModifier(n),t.manager=r}export{t};

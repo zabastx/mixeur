@@ -1,0 +1,1 @@
+import{n as e}from"./FontLoader-B0w4pKnq.js";async function t({url:t,onProgress:n}){return await new e().loadAsync(t,n)}export{t as loadTypeface};

@@ -1,1 +1,0 @@
-import{t as e}from"./three-DSHNGHjz.js";async function t({url:t}){return await new e.TextureLoader().loadAsync(t)}export{t as loadImageTexture};
