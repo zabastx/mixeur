@@ -30,7 +30,7 @@
 				the same kind the top bar and the UV header's own `MenuBar` drop down,
 				and it should be sized by the same rule they are.
 			-->
-			<div class="flex min-w-[200px] flex-col gap-1" role="radiogroup">
+			<div class="flex min-w-50 flex-col gap-1" role="radiogroup">
 				<span class="pt-0.5 pr-1 pb-1 pl-2.5 text-ui-menu-bg-text">{{ heading }}</span>
 				<MxTooltip
 					v-for="option in options"

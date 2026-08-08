@@ -3,41 +3,41 @@
 		<MxAccordionItem label="Text" :item="{ value: 'text' }">
 			<div class="flex flex-col items-end gap-1 text-xs p-1 pr-2">
 				<InputField label="Text">
-					<input v-model="textData.text" type="text" class="input w-[150px]" />
+					<input v-model="textData.text" type="text" class="input w-37.5" />
 				</InputField>
 				<InputField label="Font">
 					<InputSelect
 						v-model="textData.font"
-						class="w-[150px]"
+						class="w-37.5"
 						:items="defaultFontsList"
 						placeholder="Select font"
 					/>
 				</InputField>
 				<InputField label="Size">
-					<InputNumber v-model="textData.size" :step="0.1" class="w-[150px]" />
+					<InputNumber v-model="textData.size" :step="0.1" class="w-37.5" />
 				</InputField>
 				<InputField label="Depth">
-					<InputNumber v-model="textData.depth" :step="0.1" class="w-[150px]" />
+					<InputNumber v-model="textData.depth" :step="0.1" class="w-37.5" />
 				</InputField>
 				<InputField label="Bevel enabled">
-					<div class="w-[150px]">
+					<div class="w-37.5">
 						<InputCheckbox v-model="textData.bevelEnabled" />
 					</div>
 				</InputField>
 				<template v-if="textData.bevelEnabled">
 					<InputField label="Bevel size">
-						<InputNumber v-model="textData.bevelSize" class="w-[150px]" :step="0.1" />
+						<InputNumber v-model="textData.bevelSize" class="w-37.5" :step="0.1" />
 					</InputField>
 					<InputField label="Bevel thickness">
-						<InputNumber v-model="textData.bevelThickness" class="w-[150px]" :step="0.1" />
+						<InputNumber v-model="textData.bevelThickness" class="w-37.5" :step="0.1" />
 					</InputField>
 					<InputField label="Bevel offset">
-						<InputNumber v-model="textData.bevelOffset" class="w-[150px]" :step="0.1" />
+						<InputNumber v-model="textData.bevelOffset" class="w-37.5" :step="0.1" />
 					</InputField>
 					<InputField label="Bevel segments">
 						<InputNumber
 							v-model="textData.bevelSegments"
-							class="w-[150px]"
+							class="w-37.5"
 							:format-options="{ maximumFractionDigits: 0 }"
 						/>
 					</InputField>
