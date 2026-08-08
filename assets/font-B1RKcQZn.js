@@ -1,0 +1,1 @@
+import{w as e}from"./index-C1K6qVlF.js";async function t({url:t,onProgress:n}){return await new e().loadAsync(t,n)}export{t as loadTypeface};
