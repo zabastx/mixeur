@@ -1,8 +1,8 @@
 # Mixeur
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Vue](https://img.shields.io/badge/Vue-3.5.34-4FC08D.svg)](https://vuejs.org/)
-[![Three.js](https://img.shields.io/badge/Three.js-0.184.0-049EF4.svg)](https://threejs.org/)
+[![Vue](https://img.shields.io/badge/Vue-3.5.41-4FC08D.svg)](https://vuejs.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.185.1-049EF4.svg)](https://threejs.org/)
 
 A Blender-like web-based 3D editor built with Vue.js and Three.js. Mixeur provides an interface for 3D modeling, object manipulation, and scene management directly in the browser.
 
@@ -64,7 +64,7 @@ Try the live demo at [mixeur.zabastx.ru](https://mixeur.zabastx.ru)
 - [Blender](https://www.blender.org/) - Inspiration for UI/UX patterns
 - [Poly Haven](https://polyhaven.com/) - Free CC0 3D models, HDRIs, and textures
 - [three-mesh-bvh](https://github.com/gkjohnson/three-mesh-bvh) - BVH acceleration
-- [three-viewport-gizmo](https://github.com/JamesLMilner/three-viewport-gizmo) - Camera gizmo
+- [three-viewport-gizmo](https://github.com/Fennec-hub/three-viewport-gizmo) - Camera gizmo
 - [ui.blender.org/icons](https://ui.blender.org/icons) - Blender Icons
 
 ## License
