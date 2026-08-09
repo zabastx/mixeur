@@ -11,7 +11,7 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 	[
 		'preset',
 		{
-			text: `One of the environment images bundled with the app.
+			text: `One of the images bundled with the app.
 			The same images are offered as studio lights, which preview materials
 			instead and never reach a render`
 		}
@@ -41,8 +41,8 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 	[
 		'strength',
 		{
-			text: `How brightly the world lights the scene.
-			1 leaves the surface colour as it is`
+			text: `How brightly the world both appears and lights the scene.
+			One value: what you see and what it lights with cannot disagree`
 		}
 	],
 	[

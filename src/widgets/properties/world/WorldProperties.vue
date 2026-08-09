@@ -25,11 +25,17 @@
 				</InputField>
 				<InputField
 					v-else
-					label="Environment"
+					label="Preset"
 					input-width="150px"
 					:tooltip="worldTooltipMap.get('preset')"
 				>
-					<WorldSurfacePreset :name="world.surface.source.name" @select="world.setPreset" />
+					<StudioImagePicker
+						:name="world.surface.source.name"
+						:alt="`${world.surface.source.name} world preset`"
+						tooltip-footer="World preset"
+						data-testid="world-preset"
+						@select="world.setPreset"
+					/>
 				</InputField>
 				<InputField label="Strength" input-width="150px" :tooltip="worldTooltipMap.get('strength')">
 					<InputNumber v-model="world.strength" :min="0" :step="0.01" />
@@ -103,9 +109,9 @@ import {
 	FOG_KINDS,
 	isWorldFogKind,
 	isWorldSurfaceKind,
+	MAX_BLURRINESS,
 	SURFACE_KINDS
 } from '@/app/model/types/world'
-import WorldSurfacePreset from './WorldSurfacePreset.vue'
 import { worldTooltipMap } from './tooltips'
 
 const world = useWorldStore()
@@ -119,16 +125,6 @@ function onFogKind(val: string | undefined) {
 	if (!val || !isWorldFogKind(val)) return
 	world.setFogKind(val)
 }
-
-/**
- * Three.js accepts blurriness up to 1, but the whole usable range is at the
- * bottom of it. Any value above zero makes the renderer swap the backdrop for a
- * PMREM version of itself (`WebGLBackground`), and that ladder is roughness
- * shaped: around 0.2 the sky is a flat wash indistinguishable from a colour
- * Surface, which is what a colour Surface is for. Capping here spends the
- * control's whole travel on values that still look like somewhere.
- */
-const MAX_BLURRINESS = 0.2
 
 const SURFACE_OPTIONS = Object.entries(SURFACE_KINDS).map(([value, { label }]) => ({
 	label,

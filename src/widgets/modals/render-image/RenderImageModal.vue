@@ -117,8 +117,7 @@ const renderSettings = ref<RenderSettings>({
 	height: 1080,
 	selectedFormat: 'webp',
 	quality: 100,
-	background: true,
-	backgroundColor: '#000000'
+	background: true
 })
 
 const renderedImageData = reactive({
@@ -176,8 +175,7 @@ async function renderImage() {
 	const originalMode = shadingStore.shadingMode
 	isRendering.value = true
 
-	const { width, height, background, quality, selectedFormat, backgroundColor } =
-		renderSettings.value
+	const { width, height, background, quality, selectedFormat } = renderSettings.value
 
 	actualWidth.value = width
 	actualHeight.value = height
@@ -189,11 +187,11 @@ async function renderImage() {
 			shadingStore.setMode('export')
 
 			const renderScene = createRenderScene(sceneStore.scene as THREE.Scene)
-			if (!background) {
-				renderScene.background = null
-			} else {
-				renderScene.background = new THREE.Color(backgroundColor)
-			}
+			// `createRenderScene` has already copied the World's backdrop across.
+			// The toggle only decides whether it is drawn at all — choosing a
+			// different colour for one render is the World tab's job, and having
+			// two places to set a background is how they drift apart.
+			if (!background) renderScene.background = null
 
 			displayCanvas.width = width
 			displayCanvas.height = height

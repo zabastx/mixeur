@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import THREE from '@/shared/three'
 import { useWorldStore } from './world'
-import { defaultWorld, VIEWPORT_BACKDROP, type WorldSnapshot } from './types/world'
+import { defaultWorld, MAX_BLURRINESS, VIEWPORT_BACKDROP, type WorldSnapshot } from './types/world'
 
 // PMREM filtering needs a renderer, which no unit test has. Standing in for it
 // keeps the environment's *lifecycle* testable — when it is built, when it is
@@ -30,7 +30,7 @@ vi.mock('@/shared/three/utils', async (importOriginal) => ({
 }))
 
 vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
-	DEFAULT_STUDIO_LIGHTS: ['forest', 'city'],
+	STUDIO_LIGHTS: ['forest', 'city'],
 	loadStudioLightTextures: vi.fn(async () => ({
 		ok: true,
 		value: { envMap: fakePreset, image: fakePresetImage }
@@ -182,6 +182,20 @@ describe('useWorldStore', () => {
 
 			expect(backgroundHex(world)).toBe('ff0000')
 		})
+
+		it('scales a colour backdrop by strength, so showing and lighting agree', () => {
+			const world = useWorldStore()
+			setColor(world, '#808080')
+
+			world.strength = 0.5
+
+			// Three.js clears a colour background straight to the framebuffer and
+			// ignores `backgroundIntensity`, so strength has to be baked in here or
+			// the Surface lights at strength while showing at 1.
+			const value = world.background()
+			if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
+			expect(value.r).toBeCloseTo(new THREE.Color('#808080').r * 0.5)
+		})
 	})
 
 	describe('fog', () => {
@@ -252,7 +266,7 @@ describe('useWorldStore', () => {
 		it('round-trips a preset World, blurriness and rotation', () => {
 			const world = useWorldStore()
 			world.setPreset('city')
-			world.blurriness = 0.4
+			world.blurriness = 0.15
 			world.rotation.y = 1.25
 
 			const saved = JSON.parse(JSON.stringify(world.snapshot())) as WorldSnapshot
@@ -260,7 +274,7 @@ describe('useWorldStore', () => {
 			world.restore(saved)
 
 			expect(world.surface).toEqual({ kind: 'texture', source: { kind: 'preset', name: 'city' } })
-			expect(world.blurriness).toBe(0.4)
+			expect(world.blurriness).toBe(0.15)
 			expect(world.rotation.y).toBeCloseTo(1.25)
 		})
 
@@ -274,6 +288,14 @@ describe('useWorldStore', () => {
 
 			expect(saved.surface).toEqual({ kind: 'texture', source: { kind: 'preset', name: 'forest' } })
 			expect(saved.rotation).toEqual([0, 0, 0])
+		})
+
+		it('clamps a blurriness the control could never reach', () => {
+			const world = useWorldStore()
+
+			world.restore({ ...defaultWorld(), blurriness: 0.9 })
+
+			expect(world.blurriness).toBe(MAX_BLURRINESS)
 		})
 
 		it('falls back to the default World for a project saved before it existed', () => {

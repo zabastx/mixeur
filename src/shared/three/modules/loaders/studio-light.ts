@@ -66,7 +66,7 @@ export async function loadStudioLight(name: StudioLightName): Promise<LoadResult
 	return result.ok ? loaded(result.value.envMap) : result
 }
 
-export const DEFAULT_STUDIO_LIGHTS = [
+export const STUDIO_LIGHTS = [
 	'city',
 	'courtyard',
 	'forest',
@@ -77,4 +77,4 @@ export const DEFAULT_STUDIO_LIGHTS = [
 	'sunset'
 ] as const
 
-export type StudioLightName = (typeof DEFAULT_STUDIO_LIGHTS)[number]
+export type StudioLightName = (typeof STUDIO_LIGHTS)[number]

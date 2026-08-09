@@ -180,6 +180,39 @@ export const useShadingStore = defineStore('shading', () => {
 		scene.backgroundBlurriness = showsWorld ? world.blurriness : 0
 	}
 
+	// Editing the World has to reach the viewport without a mode change, and so
+	// does dragging the preview popover's sliders. Registered in the store's own
+	// setup rather than in `init()`: a viewport can be mounted more than once
+	// over the life of the page, and `init()` runs outside the effect scope the
+	// viewport tears down, so watchers created there would accumulate one pair
+	// per mount and never stop.
+	//
+	// Split by what needs traversing. These four hold values edited in place —
+	// both rotations are `THREE.Euler`s whose components the panel writes
+	// directly, so identity never changes.
+	watch(
+		[
+			() => useWorldStore().surface,
+			() => useWorldStore().fog,
+			() => useWorldStore().rotation,
+			studioLightRotation
+		],
+		() => applyWorldAndStudioLight(currentMode.value),
+		{ deep: true }
+	)
+	// The rest are replaced wholesale, so identity is enough. `environment`
+	// especially: it is a `THREE.Texture`, and traversing one on every trigger
+	// walks its image data.
+	watch(
+		[
+			() => useWorldStore().strength,
+			() => useWorldStore().blurriness,
+			() => useWorldStore().environment,
+			studioLightIntensity
+		],
+		() => applyWorldAndStudioLight(currentMode.value)
+	)
+
 	/**
 	 * Applies the specified shading mode to a single mesh.
 	 *
@@ -273,28 +306,6 @@ export const useShadingStore = defineStore('shading', () => {
 		const { scene } = useSceneStore()
 		solidModeLights.forEach((item) => scene?.add(item))
 		cacheOriginalMaterials()
-
-		// Editing the World has to reach the viewport without a mode change, and
-		// so does dragging the preview popover's sliders. Watched here rather than
-		// in the World store because this is where the mode table lives.
-		const world = useWorldStore()
-		watch(
-			[
-				() => world.surface,
-				() => world.strength,
-				() => world.blurriness,
-				() => world.rotation,
-				() => world.fog,
-				// The World's environment map is built once the viewport has a
-				// renderer, which is after this store is initialised. Without this
-				// the first build would never reach the scene.
-				() => world.environment,
-				studioLightIntensity
-			],
-			() => applyWorldAndStudioLight(currentMode.value),
-			{ deep: true }
-		)
-		watch(studioLightRotation, () => applyWorldAndStudioLight(currentMode.value), { deep: true })
 
 		loadStudioLight('forest').then((result) => {
 			if (result.ok) setStudioLight(result.value)

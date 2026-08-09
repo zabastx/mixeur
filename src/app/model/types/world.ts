@@ -36,7 +36,7 @@ export const SURFACE_KINDS = {
 		create: (): WorldSurface => ({ kind: 'color', color: VIEWPORT_BACKDROP })
 	},
 	texture: {
-		label: 'Environment Texture',
+		label: 'Image',
 		create: (): WorldSurface => ({ kind: 'texture', source: { kind: 'preset', name: 'forest' } })
 	}
 } as const satisfies Record<WorldSurfaceKind, { label: string; create: () => WorldSurface }>
@@ -111,6 +111,21 @@ export interface WorldSnapshot {
 	/** Euler angles in radians, as a plain triple so it survives serialization. */
 	rotation: [number, number, number]
 	fog: WorldFog
+}
+
+/**
+ * The most a Surface may be blurred.
+ *
+ * Three.js accepts up to 1, but the whole usable range is at the bottom of it:
+ * any value above zero makes the renderer swap the backdrop for a PMREM version
+ * of itself (`WebGLBackground`), and that ladder is roughness shaped, so around
+ * 0.2 the sky is a flat wash indistinguishable from a colour Surface — which is
+ * what a colour Surface is for.
+ */
+export const MAX_BLURRINESS = 0.2
+
+export function clampBlurriness(value: number): number {
+	return Math.min(Math.max(value, 0), MAX_BLURRINESS)
 }
 
 /**

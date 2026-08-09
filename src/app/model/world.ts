@@ -4,6 +4,7 @@ import { loadStudioLightTextures } from '@/shared/three/modules/loaders/studio-l
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref, shallowRef, toRaw, watch } from 'vue'
 import {
+	clampBlurriness,
 	defaultWorld,
 	FOG_KINDS,
 	SURFACE_KINDS,
@@ -119,8 +120,14 @@ export const useWorldStore = defineStore('world', () => {
 	 */
 	function background(): THREE.Color | THREE.Texture | null {
 		const current = surface.value
-		if (current.kind === 'color') return new THREE.Color(current.color)
-		return surfaceImage.value
+		if (current.kind !== 'color') return surfaceImage.value
+
+		// Strength is applied here rather than left to `backgroundIntensity`,
+		// which Three.js honours for texture backgrounds only — a colour one is
+		// cleared straight to the framebuffer at full value. Without this the
+		// Surface would light the scene at Strength while showing at 1, the exact
+		// disagreement Strength exists to rule out.
+		return new THREE.Color(current.color).multiplyScalar(strength.value)
 	}
 
 	/** The `THREE.Fog` instance for `scene.fog`, or `null` when fog is off. */
@@ -170,7 +177,7 @@ export const useWorldStore = defineStore('world', () => {
 			strength: strength.value,
 			blurriness: blurriness.value,
 			rotation: rotation.value.toArray().slice(0, 3) as [number, number, number],
-			fog: { ...fog.value }
+			fog: structuredClone(toRaw(fog.value))
 		}
 	}
 
@@ -182,9 +189,12 @@ export const useWorldStore = defineStore('world', () => {
 		const fallback = defaultWorld()
 		surface.value = data?.surface ? structuredClone(data.surface) : fallback.surface
 		strength.value = data?.strength ?? fallback.strength
-		blurriness.value = data?.blurriness ?? fallback.blurriness
+		// Clamped, not trusted: the panel caps blurriness at the range that still
+		// looks like a sky, and a file carrying more would load a value the
+		// control could never return to.
+		blurriness.value = clampBlurriness(data?.blurriness ?? fallback.blurriness)
 		rotation.value = new THREE.Euler(...(data?.rotation ?? fallback.rotation))
-		fog.value = data?.fog ? { ...data.fog } : fallback.fog
+		fog.value = data?.fog ? structuredClone(data.fog) : fallback.fog
 	}
 
 	function dispose() {

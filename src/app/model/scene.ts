@@ -33,7 +33,7 @@ export const useSceneStore = defineStore('scene', () => {
 	const scene = shallowRef(new THREE.Scene())
 	const helperScene = shallowRef(new THREE.Scene())
 	// Editor chrome until a shading mode asks for the World's own backdrop; see
-	// `applyEnvironment` in `shading.ts`.
+	// `applyWorldAndStudioLight` in `shading.ts`.
 	scene.value.background = new THREE.Color(VIEWPORT_BACKDROP)
 
 	const grid = setGridHelper(scene.value)

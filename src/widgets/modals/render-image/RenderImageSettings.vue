@@ -35,11 +35,16 @@
 				:format-options="{ maximumFractionDigits: 0 }"
 			/>
 		</InputField>
-		<InputField v-if="model.selectedFormat !== 'jpeg'" label="Background" label-width="125px">
+		<InputField
+			v-if="model.selectedFormat !== 'jpeg'"
+			label="Background"
+			label-width="125px"
+			:tooltip="{
+				text: `Render the world behind the scene. Turn it off for a transparent image`,
+				footer: 'The world itself is set in World properties'
+			}"
+		>
 			<InputCheckbox v-model="model.background" />
-		</InputField>
-		<InputField v-if="model.background" label="Background Color" label-width="125px">
-			<InputColor v-model:hex="model.backgroundColor" />
 		</InputField>
 	</div>
 </template>
@@ -101,7 +106,10 @@ export interface RenderSettings {
 	height: number
 	selectedFormat: FormatPreset['value']
 	quality: number
+	/**
+	 * Whether the World is drawn behind the render. Off gives a transparent
+	 * image; what the background *is* belongs to the World, not to one render.
+	 */
 	background: boolean
-	backgroundColor: string
 }
 </script>
