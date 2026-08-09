@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.31.0] - 2026-08-09
 
 ### Added
 
@@ -37,4 +37,4 @@ Released versions are archived once the current file grows past a `0.x0` boundar
 - [0.21.0 – 0.30.2](changelogs/CHANGELOG-0.30.2.md)
 - [0.1.0 – 0.20.0](changelogs/CHANGELOG-0.20.0.md)
 
-[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.30.2...HEAD
+[0.31.0]: https://github.com/zabastx/mixeur/compare/v0.30.2...v0.31.0
