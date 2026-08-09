@@ -51,22 +51,30 @@
 							@select="onPreset"
 						/>
 					</InputField>
+					<!-- One row for both fetched Sources: each names an image and reopens
+						 wherever that image came from. -->
 					<InputField
 						v-else
 						label="Image"
 						input-width="150px"
-						:tooltip="worldTooltipMap.get('hdri')"
-						data-testid="world-hdri"
+						:tooltip="worldTooltipMap.get(`source-${world.surface.source.kind}`)"
+						data-testid="world-image"
 					>
 						<button
 							type="button"
 							class="btn w-full grid grid-cols-[1fr_auto] gap-1 text-left"
-							@click="browseHDRIs"
+							@click="chooseSource(world.surface.source.kind)"
 						>
 							<span class="truncate" :title="world.surface.source.name">
 								{{ world.surface.source.name }}
 							</span>
-							<span class="opacity-60">{{ world.surface.source.resolution }}</span>
+							<span
+								class="opacity-60"
+								:class="{ 'text-state-warning opacity-100': world.needsReimport }"
+								data-testid="world-image-detail"
+							>
+								{{ imageDetail }}
+							</span>
 						</button>
 					</InputField>
 				</template>
@@ -147,10 +155,13 @@ import {
 	MAX_BLURRINESS,
 	SOURCE_KINDS,
 	SURFACE_KINDS,
-	type StudioLightName
+	type StudioLightName,
+	type WorldSourceKind
 } from '@/app/model/types/world'
 import { isHDRISelection } from '@/widgets/modals/asset-browser/hdri'
 import { useModals } from '@/shared/lib/modals'
+import { useFileDialog } from '@vueuse/core'
+import { computed } from 'vue'
 import { worldTooltipMap } from './tooltips'
 
 const world = useWorldStore()
@@ -163,15 +174,14 @@ function onSurfaceKind(val: string | undefined) {
 /**
  * Switching Source.
  *
- * A preset has a default to fall back on; a Poly Haven World does not, so
- * choosing it opens the browser and the Surface changes only once something
- * comes back. The select reads from the Surface, so cancelling the browser
+ * A preset has a default to fall back on; the other two do not, so choosing one
+ * opens its browser or a file dialog and the Surface changes only once
+ * something comes back. The select reads from the Surface, so backing out
  * leaves it showing the Source that is really in effect — no state to unwind.
  */
 function onSourceKind(val: string | undefined) {
 	if (!val || !isWorldSourceKind(val)) return
-	if (val === 'preset') return onPreset(DEFAULT_PRESET)
-	browseHDRIs()
+	chooseSource(val)
 }
 
 function onPreset(name: StudioLightName) {
@@ -180,12 +190,52 @@ function onPreset(name: StudioLightName) {
 
 const { open: openModal } = useModals()
 
-function browseHDRIs() {
-	openModal('hdriLibrary', (selection) => {
-		if (!isHDRISelection(selection)) return
-		world.setSource({ kind: 'polyhaven', ...selection })
-	})
+const { open: openFileDialog, onChange: onFilePicked } = useFileDialog({
+	multiple: false,
+	// The three the texture loader can read as an equirectangular image. An
+	// ordinary photograph is allowed through on purpose: a low-dynamic-range
+	// backdrop is a legitimate thing to want, it just lights the scene flatly.
+	accept: 'image/*,.exr,.hdr',
+	// The dialog reuses one `<input>`, which keeps its selection between opens.
+	// Without clearing it, picking the same file twice — import it, try a preset,
+	// come back — fires no change event at all and the panel just sits there.
+	reset: true
+})
+
+onFilePicked((files) => {
+	const file = files?.[0]
+	if (file) world.setImport(file)
+})
+
+/**
+ * Picks an image from a given kind of Source: the default preset, or whatever
+ * the other two open. Serves both the Source select and the image row's button,
+ * which is the same act — "get me an image from over there" — differing only in
+ * whether the kind is changing.
+ */
+function chooseSource(kind: WorldSourceKind) {
+	switch (kind) {
+		case 'preset':
+			return onPreset(DEFAULT_PRESET)
+		case 'import':
+			return openFileDialog()
+		case 'polyhaven':
+			return openModal('hdriLibrary', (selection) => {
+				if (!isHDRISelection(selection)) return
+				world.setSource({ kind: 'polyhaven', ...selection })
+			})
+	}
 }
+
+/**
+ * What the image row says to the right of the name: which size was downloaded,
+ * or that a reopened project is still waiting for its file.
+ */
+const imageDetail = computed(() => {
+	if (world.needsReimport) return 'not loaded'
+	if (world.surface.kind !== 'texture' || world.surface.source.kind !== 'polyhaven') return ''
+	return world.surface.source.resolution
+})
 
 function onFogKind(val: string | undefined) {
 	if (!val || !isWorldFogKind(val)) return

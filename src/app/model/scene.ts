@@ -420,12 +420,25 @@ export const useSceneStore = defineStore('scene', () => {
 					// Undefined for files written before the World existed; `restore`
 					// falls back to the default rather than leaving the last project's
 					// World behind.
-					useWorldStore().restore(project.data.world)
+					const world = useWorldStore()
+					world.restore(project.data.world)
 
 					toast.add({
 						type: 'success',
 						message: 'Project loaded successfully'
 					})
+
+					// An imported World is saved as a filename and nothing else, so a
+					// reopened project has a World it cannot show. Said out loud here:
+					// otherwise the only sign is a backdrop that has quietly gone, and
+					// only in rendered mode, on a tab nobody has any reason to open.
+					if (world.needsReimport) {
+						toast.add({
+							type: 'warning',
+							title: 'World image not loaded',
+							message: `Re-import it from World properties`
+						})
+					}
 					resolve(true)
 				} catch (err) {
 					const error = err as Error

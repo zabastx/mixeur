@@ -1,12 +1,15 @@
 import THREE from '@/shared/three'
 import { loaded, type LoadResult } from '@/shared/lib/asset-source'
+import { disposeEnvMap } from '@/shared/three/utils'
 import { loadEnvironmentTextures, type EnvironmentTextures } from '.'
 
 const studioLightCache = new Map<string, EnvironmentTextures>()
 
 export function disposeStudioLightCache() {
 	studioLightCache.forEach(({ envMap, image }) => {
-		envMap.dispose()
+		// The filtered map is a PMREM render target's texture; disposing the
+		// texture alone would leave its framebuffer allocated.
+		disposeEnvMap(envMap)
 		image.dispose()
 	})
 	studioLightCache.clear()

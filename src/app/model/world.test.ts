@@ -299,6 +299,106 @@ describe('useWorldStore', () => {
 		})
 	})
 
+	describe('imported Surfaces', () => {
+		/** A file as the panel's file dialog hands one over. */
+		function pickedFile(name = 'sunset.hdr') {
+			return new File(['radiance'], name)
+		}
+
+		it('lights from the file the user picked', async () => {
+			const world = useWorldStore()
+			const file = pickedFile()
+
+			world.setImport(file)
+			await world.rebuildEnvironment()
+
+			expect(loadEnvironmentTextures).toHaveBeenCalledWith(file)
+			expect(world.environment).toBe(fakeHdriEnvMap)
+			expect(world.background()).toBe(fakeHdri)
+		})
+
+		it('records the filename and nothing else, which is all a project file can hold', () => {
+			const world = useWorldStore()
+
+			world.setImport(pickedFile('warehouse.exr'))
+
+			// No bytes anywhere in the snapshot: a 4k EXR is 30-80 MB and every save
+			// would carry it (ADR-0002).
+			const saved = world.snapshot()
+			expect(saved.surface).toEqual({
+				kind: 'texture',
+				source: { kind: 'import', name: 'warehouse.exr' }
+			})
+			expect(JSON.stringify(saved)).not.toContain('radiance')
+		})
+
+		it('disposes both textures the moment another Surface replaces it', async () => {
+			const world = useWorldStore()
+			world.setImport(pickedFile())
+			await world.rebuildEnvironment()
+
+			setPreset(world, 'forest')
+			await world.rebuildEnvironment()
+
+			expect(hdriDisposed).toBe(true)
+			expect(hdriEnvMapDisposed).toBe(true)
+		})
+
+		it('reopens a saved project asking to be re-imported', async () => {
+			const world = useWorldStore()
+			world.setImport(pickedFile())
+			const saved = JSON.parse(JSON.stringify(world.snapshot())) as WorldSnapshot
+
+			// A fresh session: the file the name refers to is on someone's disk, and
+			// a browser cannot go back for it.
+			world.restore(saved)
+			await world.rebuildEnvironment()
+
+			expect(world.needsReimport).toBe(true)
+			expect(world.environment).toBeNull()
+			expect(world.surface).toEqual({
+				kind: 'texture',
+				source: { kind: 'import', name: 'sunset.hdr' }
+			})
+		})
+
+		it('stops asking once the file is supplied again', async () => {
+			const world = useWorldStore()
+			world.restore({
+				...defaultWorld(),
+				surface: { kind: 'texture', source: { kind: 'import', name: 'sunset.hdr' } }
+			})
+			expect(world.needsReimport).toBe(true)
+
+			world.setImport(pickedFile())
+			await world.rebuildEnvironment()
+
+			expect(world.needsReimport).toBe(false)
+			expect(world.environment).toBe(fakeHdriEnvMap)
+		})
+
+		it('asks again when the picked file turns out to be unreadable', async () => {
+			loadEnvironmentTextures.mockResolvedValue({ ok: false, error: new Error('not an image') })
+			const world = useWorldStore()
+
+			world.setImport(pickedFile('broken.exr'))
+			await world.rebuildEnvironment()
+
+			// Otherwise the row names a file, shows no complaint and lights nothing —
+			// indistinguishable from a World that worked.
+			expect(world.needsReimport).toBe(true)
+			expect(world.environment).toBeNull()
+		})
+
+		it('never asks about a Surface that is not an import', () => {
+			const world = useWorldStore()
+
+			setPreset(world, 'forest')
+
+			expect(world.needsReimport).toBe(false)
+		})
+	})
+
 	describe('surface', () => {
 		it('defaults to the viewport backdrop, so a new project looks unchanged', () => {
 			const world = useWorldStore()

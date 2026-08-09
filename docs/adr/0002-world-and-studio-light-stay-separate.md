@@ -16,7 +16,7 @@ holds whichever one the current shading mode calls for.
 | Active in | `preview` | `rendered`, `export` |
 | Saved with the project | no | yes |
 | Appears in renders | no | yes |
-| Source | 8 bundled maps | colour, preset or Poly Haven today; import planned |
+| Source | 8 bundled maps | colour, preset, Poly Haven or an imported file |
 
 Neither is visible in `solid` or `wireframe`. `scene.environment` is a single
 slot, so the two can never both be mounted — `setMode` in `shading.ts` picks one
@@ -81,12 +81,11 @@ written in lockstep from one value. `backgroundBlurriness` is the deliberate
 exception — it has no lighting counterpart and exists purely to calm a busy
 backdrop.
 
-**Embedding imported HDRIs in the project file.** Rejected in advance, for when
-the import Source arrives. A 4k EXR is 30–80 MB and every save would carry it.
-Imported Worlds will persist as a filename and reopen asking to be re-imported;
-presets and Poly Haven Worlds persist by reference and restore themselves.
-Blender has the same problem and answers it with relative paths, which a browser
-cannot follow.
+**Embedding imported HDRIs in the project file.** Rejected. A 4k EXR is 30–80 MB
+and every save would carry it. An imported World persists as a filename and
+reopens saying so, with the panel offering the file dialog again; presets and
+Poly Haven Worlds persist by reference and restore themselves. Blender has the
+same problem and answers it with relative paths, which a browser cannot follow.
 
 ## Consequences
 
@@ -98,10 +97,30 @@ the Source shapes ever change.
 Texture lifetime differs by Source, and the World tracks which case it is in
 rather than assuming. Presets stay in the bundled cache shared with studio lights
 and are never disposed on swap; the map built for a colour Surface is the World's
-own and is released when it is replaced. A Poly Haven World is single-reference —
-its download and the map filtered from it are both disposed the moment they are
-replaced, or a session spent browsing HDRIs leaks GPU memory in proportion to
-curiosity. An imported one will be the same.
+own and is released when it is replaced. Poly Haven and imported Worlds are
+single-reference — the download or the file's textures and the map filtered from
+them are all disposed the moment they are replaced, or a session spent browsing
+HDRIs leaks GPU memory in proportion to curiosity.
+
+Disposal goes through `disposeEnvMap`, never `envMap.dispose()`. A filtered map
+is the texture of a `WebGLRenderTarget` that `PMREMGenerator` hands back, and
+disposing the texture alone leaves the target's framebuffer and depth
+attachment allocated — invisible in `renderer.info`, and freed only by losing
+the context. The targets are kept in a `WeakMap` beside the maps so that no
+caller has to carry a second reference to release one properly.
+
+The bytes of an imported World live in the store for the length of the session,
+beside the Surface rather than inside it. The Surface is what a project file
+records and has to stay serializable, and a `File` put in a reactive object comes
+back out as a proxy that `URL.createObjectURL` rejects. Dropping them the moment
+another Surface wins is deliberate too: there is no way back to a Surface the
+user has left except re-importing, so holding the megabytes buys nothing. A file
+that fails to load is dropped on the same rule, which is what makes the panel
+say "not loaded" rather than name a file and show nothing.
+
+Reopening a project with an imported World raises a warning toast as well as
+marking the row. The tab is not open by default and the loss only shows in
+rendered mode, so the panel alone would let a World go missing silently.
 
 A Poly Haven World is recorded by its direct file URL rather than by slug and
 resolution. Rebuilding the URL from those two would work today and makes this

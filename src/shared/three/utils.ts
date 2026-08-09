@@ -74,9 +74,44 @@ export function getUserData(obj: THREE.Object3D): MxObjectUserData {
  */
 export function textureToEnvMap(texture: THREE.Texture, { keepSource = false } = {}) {
 	texture.mapping = THREE.EquirectangularReflectionMapping
-	const envMap = pmremGenerator?.fromEquirectangular(texture).texture
+	const target = pmremGenerator?.fromEquirectangular(texture)
 	if (!keepSource) texture.dispose()
-	if (!envMap) return null
+	if (!target) return null
+
+	const envMap = target.texture
 	envMap.name = texture.name
+	envMapTargets.set(envMap, target)
 	return envMap
+}
+
+/**
+ * The render target each filtered map came out of.
+ *
+ * `PMREMGenerator` hands back a `WebGLRenderTarget` and callers only ever want
+ * the texture on it, but disposing that texture leaves the target's framebuffer
+ * and depth attachment allocated — invisible to `renderer.info`, and freed only
+ * by losing the context. Remembered here so {@link disposeEnvMap} can release
+ * the whole thing without every caller having to carry a second reference.
+ *
+ * Weak, so a map that is simply dropped still becomes collectable.
+ */
+const envMapTargets = new WeakMap<THREE.Texture, THREE.WebGLRenderTarget>()
+
+/**
+ * Releases a map built by {@link textureToEnvMap}, framebuffer included.
+ *
+ * Use this rather than `envMap.dispose()` anywhere an environment map is
+ * replaced — a World swapping Surfaces, a cache being emptied. Falls back to
+ * disposing the texture alone for anything that did not come from here.
+ */
+export function disposeEnvMap(envMap: THREE.Texture) {
+	const target = envMapTargets.get(envMap)
+	if (!target) {
+		envMap.dispose()
+		return
+	}
+
+	// Disposes the texture with it; the target owns it.
+	target.dispose()
+	envMapTargets.delete(envMap)
 }

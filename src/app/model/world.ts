@@ -1,9 +1,9 @@
 import THREE from '@/shared/three'
-import { textureToEnvMap } from '@/shared/three/utils'
+import { disposeEnvMap, textureToEnvMap } from '@/shared/three/utils'
 import { loadEnvironmentTextures } from '@/shared/three/modules/loaders'
 import { loadStudioLightTextures } from '@/shared/three/modules/loaders/studio-light'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { ref, shallowRef, toRaw, watch } from 'vue'
+import { computed, ref, shallowRef, toRaw, watch } from 'vue'
 import {
 	clampBlurriness,
 	defaultWorld,
@@ -67,6 +67,27 @@ export const useWorldStore = defineStore('world', () => {
 	let ownsEnvironment = false
 
 	/**
+	 * The file behind an imported Surface, for as long as this session lasts.
+	 *
+	 * Held beside the Surface rather than inside it: the Surface is what gets
+	 * written to a project file, and it has to stay serializable. `shallowRef`
+	 * because a reactive proxy around a `Blob` is not one `URL.createObjectURL`
+	 * will accept.
+	 *
+	 * Null whenever the World's image did not come from a file this session —
+	 * including a reopened project whose World was imported, which is exactly the
+	 * state {@link needsReimport} reports.
+	 */
+	const importedFile = shallowRef<File | null>(null)
+
+	/**
+	 * Whether the World names an imported image whose bytes this session does not
+	 * have. True after reopening a project saved with an imported World, until
+	 * the user supplies the file again.
+	 */
+	const needsReimport = computed(() => isImport(surface.value) && !importedFile.value)
+
+	/**
 	 * Which rebuild is the current one.
 	 *
 	 * Presets load asynchronously, so two quick changes can resolve out of
@@ -90,7 +111,9 @@ export const useWorldStore = defineStore('world', () => {
 		const current = surface.value
 
 		const built =
-			current.kind === 'color' ? buildColorEnvironment(current) : await loadSource(current.source)
+			current.kind === 'color'
+				? buildColorEnvironment(current)
+				: await loadSource(current.source, importedFile.value)
 
 		if (token !== rebuildToken) {
 			// A later Surface won. Drop what this build produced rather than the
@@ -98,6 +121,14 @@ export const useWorldStore = defineStore('world', () => {
 			if (built.owned) release(built)
 			return
 		}
+
+		// The imported bytes are only worth holding while an imported Surface is
+		// really showing them; past that they are megabytes the page cannot
+		// release. A file that failed to load counts as past that: dropping it
+		// leaves the row saying "not loaded" rather than looking like a success
+		// that happens to be invisible, and the click that re-opens the dialog is
+		// the way out either way.
+		if (!isImport(current) || !built.texture) importedFile.value = null
 
 		releaseEnvironment()
 		environment.value = built.texture
@@ -180,6 +211,19 @@ export const useWorldStore = defineStore('world', () => {
 		surface.value = { kind: 'texture', source }
 	}
 
+	/**
+	 * Points the Surface at a file the user picked.
+	 *
+	 * Separate from `setSource` because a file is the one Source that arrives as
+	 * two things — a name the project file can keep and bytes it cannot — and
+	 * both have to land together or the rebuild that follows would look for
+	 * bytes that are not there yet.
+	 */
+	function setImport(file: File) {
+		importedFile.value = file
+		setSource({ kind: 'import', name: file.name })
+	}
+
 	/** Everything a `.mixeur` file records about the World. */
 	function snapshot(): WorldSnapshot {
 		return {
@@ -197,6 +241,9 @@ export const useWorldStore = defineStore('world', () => {
 	 */
 	function restore(data: WorldSnapshot | undefined) {
 		const fallback = defaultWorld()
+		// Whatever file the last World was built from belongs to the project being
+		// closed, not the one opening.
+		importedFile.value = null
 		surface.value = data?.surface ? structuredClone(data.surface) : fallback.surface
 		strength.value = data?.strength ?? fallback.strength
 		// Clamped, not trusted: the panel caps blurriness at the range that still
@@ -209,6 +256,7 @@ export const useWorldStore = defineStore('world', () => {
 
 	function dispose() {
 		releaseEnvironment()
+		importedFile.value = null
 	}
 
 	return {
@@ -218,11 +266,13 @@ export const useWorldStore = defineStore('world', () => {
 		rotation,
 		fog,
 		environment,
+		needsReimport,
 		background,
 		sceneFog,
 		rebuildEnvironment,
 		setSurfaceKind,
 		setSource,
+		setImport,
 		setFogKind,
 		snapshot,
 		restore,
@@ -258,19 +308,36 @@ interface BuiltEnvironment {
 /** What a Source that could not be resolved leaves behind. */
 const NOTHING_BUILT: BuiltEnvironment = { texture: null, image: null, owned: false }
 
-/** Disposes both halves of a build. Only ever called on one we own. */
+/**
+ * Disposes both halves of a build. Only ever called on one we own.
+ *
+ * The filtered map goes through `disposeEnvMap`, not `dispose()`: it is the
+ * texture of a PMREM render target, and dropping the texture alone leaves the
+ * framebuffer behind — which is the leak this store's ownership rules exist to
+ * prevent.
+ */
 function release({ texture, image }: Pick<BuiltEnvironment, 'texture' | 'image'>) {
-	texture?.dispose()
+	if (texture) disposeEnvMap(texture)
 	image?.dispose()
+}
+
+/** Whether a Surface is an image taken from a file the user picked. */
+function isImport(surface: WorldSurface) {
+	return surface.kind === 'texture' && surface.source.kind === 'import'
 }
 
 /**
  * Resolves an image Surface's Source to a filtered map and the image itself.
  *
+ * `file` is the bytes behind an imported Source, which the Source itself cannot
+ * carry and cannot get back once a session ends. Absent for every other kind,
+ * and absent for an import whose project was reopened — which resolves to
+ * nothing, leaving the World visibly missing its image until it is re-imported.
+ *
  * A failed load leaves the World unlit rather than throwing: the loader has
  * already told the user, and a World that throws here takes the panel with it.
  */
-async function loadSource(source: WorldSource): Promise<BuiltEnvironment> {
+async function loadSource(source: WorldSource, file: File | null): Promise<BuiltEnvironment> {
 	// Presets come from the cache the Studio Light picker shares, so both halves
 	// are borrowed, never owned.
 	if (source.kind === 'preset') {
@@ -279,8 +346,11 @@ async function loadSource(source: WorldSource): Promise<BuiltEnvironment> {
 		return { texture: result.value.envMap, image: result.value.image, owned: false }
 	}
 
-	// Owned, unlike a preset: nothing else holds this download.
-	const result = await loadEnvironmentTextures({ url: source.url, size: source.size })
+	// Owned, unlike a preset: nothing else holds a download or an imported file.
+	const from = source.kind === 'import' ? file : { url: source.url, size: source.size }
+	if (!from) return NOTHING_BUILT
+
+	const result = await loadEnvironmentTextures(from)
 	if (!result.ok) return NOTHING_BUILT
 
 	return { texture: result.value.envMap, image: result.value.image, owned: true }

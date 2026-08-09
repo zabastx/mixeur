@@ -15,12 +15,23 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 			footer: 'A preset or Poly Haven world reloads with the project'
 		}
 	],
+	// `source-<kind>`: the image row shows one control for every Source, and what
+	// there is to say about it differs by where the image came from. Prefixed so
+	// Source kinds cannot collide with the field names above — `preset` would
+	// otherwise be a legal key in both namespaces.
 	[
-		'hdri',
+		'source-polyhaven',
 		{
 			text: `The image downloaded from Poly Haven.
 			Click to browse the library or pick a different size`,
 			footer: 'Stored as a link, not in the project file'
+		}
+	],
+	[
+		'source-import',
+		{
+			text: `An image from your own files. Click to pick another`,
+			footer: 'Saved by name only — reopening the project asks for it again'
 		}
 	],
 	[

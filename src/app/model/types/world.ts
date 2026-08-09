@@ -16,8 +16,7 @@ export type { StudioLightName }
  *
  * Kept apart from the image itself because it is what a project file can
  * record: a texture cannot be serialized, but the answer to "which one was it"
- * can, and that is what lets a World come back when a project is reopened. An
- * imported Source follows, and it is the one that cannot answer — see ADR-0002.
+ * can, and that is what lets a World come back when a project is reopened.
  */
 export type WorldSource =
 	| { kind: 'preset'; name: StudioLightName }
@@ -28,6 +27,18 @@ export type WorldSource =
 	 * and would drift the first time one of them gained a field.
 	 */
 	| ({ kind: 'polyhaven' } & HDRISelection)
+	/**
+	 * A file off the user's disk — the one Source that cannot answer "which one
+	 * was it" well enough to restore itself.
+	 *
+	 * A filename and no bytes, deliberately: a 4k EXR is 30–80 MB and embedding
+	 * it would put that in every save (ADR-0002). The browser cannot reopen a
+	 * path either, so a reopened project shows the name and asks for the file
+	 * again. The bytes live in the store for the length of the session, never in
+	 * here — putting a `File` in the Surface would make the Surface unserializable
+	 * and reactive-proxy a `Blob` on the way.
+	 */
+	| { kind: 'import'; name: string }
 
 export type WorldSourceKind = WorldSource['kind']
 
@@ -35,13 +46,14 @@ export type WorldSourceKind = WorldSource['kind']
  * Every Source and its label.
  *
  * No `create` alongside them, unlike the tables below: only a preset has a
- * default. Choosing Poly Haven opens the HDRI browser, and the Surface changes
- * when something comes back from it — which is also why the World is never in a
- * half-chosen state.
+ * default. Choosing either of the other two opens something — the HDRI browser
+ * or a file dialog — and the Surface changes when something comes back from it,
+ * which is why the World is never in a half-chosen state.
  */
 export const SOURCE_KINDS = {
 	preset: { label: 'Preset' },
-	polyhaven: { label: 'Poly Haven' }
+	polyhaven: { label: 'Poly Haven' },
+	import: { label: 'Import' }
 } as const satisfies Record<WorldSourceKind, { label: string }>
 
 export function isWorldSourceKind(value: string): value is WorldSourceKind {
