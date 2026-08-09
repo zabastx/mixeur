@@ -20,7 +20,8 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 		'blurriness',
 		{
 			text: `Softens the visible backdrop without dimming or softening the
-			light it casts`
+			light it casts`,
+			footer: 'Small values go a long way'
 		}
 	],
 	[

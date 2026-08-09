@@ -40,7 +40,7 @@
 						input-width="150px"
 						:tooltip="worldTooltipMap.get('blurriness')"
 					>
-						<InputNumber v-model="world.blurriness" :min="0" :max="1" :step="0.01" />
+						<InputNumber v-model="world.blurriness" :min="0" :max="MAX_BLURRINESS" :step="0.005" />
 					</InputField>
 					<InputField
 						label="Rotation"
@@ -119,6 +119,16 @@ function onFogKind(val: string | undefined) {
 	if (!val || !isWorldFogKind(val)) return
 	world.setFogKind(val)
 }
+
+/**
+ * Three.js accepts blurriness up to 1, but the whole usable range is at the
+ * bottom of it. Any value above zero makes the renderer swap the backdrop for a
+ * PMREM version of itself (`WebGLBackground`), and that ladder is roughness
+ * shaped: around 0.2 the sky is a flat wash indistinguishable from a colour
+ * Surface, which is what a colour Surface is for. Capping here spends the
+ * control's whole travel on values that still look like somewhere.
+ */
+const MAX_BLURRINESS = 0.2
 
 const SURFACE_OPTIONS = Object.entries(SURFACE_KINDS).map(([value, { label }]) => ({
 	label,

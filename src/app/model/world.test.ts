@@ -9,9 +9,12 @@ import { defaultWorld, VIEWPORT_BACKDROP, type WorldSnapshot } from './types/wor
 // keeps the environment's *lifecycle* testable — when it is built, when it is
 // rebuilt, when it is released, and whether it was ours to release — which is
 // where the bugs live.
-const { fakeEnvMap, fakePreset } = vi.hoisted(() => ({
+// Distinct objects on purpose: a preset's filtered map and its image are not
+// interchangeable, and the tests below say which belongs where.
+const { fakeEnvMap, fakePreset, fakePresetImage } = vi.hoisted(() => ({
 	fakeEnvMap: { dispose: () => {} } as THREE.Texture,
-	fakePreset: { dispose: () => {}, name: 'forest' } as THREE.Texture
+	fakePreset: { dispose: () => {}, name: 'forest-envmap' } as THREE.Texture,
+	fakePresetImage: { dispose: () => {}, name: 'forest-image' } as THREE.Texture
 }))
 
 let envMapCalls = 0
@@ -28,7 +31,10 @@ vi.mock('@/shared/three/utils', async (importOriginal) => ({
 
 vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 	DEFAULT_STUDIO_LIGHTS: ['forest', 'city'],
-	loadStudioLight: vi.fn(async () => ({ ok: true, value: fakePreset }))
+	loadStudioLightTextures: vi.fn(async () => ({
+		ok: true,
+		value: { envMap: fakePreset, image: fakePresetImage }
+	}))
 }))
 
 type World = ReturnType<typeof useWorldStore>
@@ -110,13 +116,17 @@ describe('useWorldStore', () => {
 			expect(world.surface).toEqual({ kind: 'texture', source: { kind: 'preset', name: 'forest' } })
 		})
 
-		it('shows the image itself behind the scene, not a colour', async () => {
+		it('shows the unfiltered image behind the scene, not the map it lights with', async () => {
 			const world = useWorldStore()
 
 			world.setPreset('forest')
 			await world.rebuildEnvironment()
 
-			expect(world.background()).toBe(fakePreset)
+			// The filtered map's mips are a roughness ladder. Drawn as a backdrop it
+			// is permanently soft, and `backgroundBlurriness` reaches a flat wash a
+			// third of the way along its range.
+			expect(world.background()).toBe(fakePresetImage)
+			expect(world.background()).not.toBe(world.environment)
 		})
 
 		it('never disposes a preset, which the studio light picker also shows', async () => {

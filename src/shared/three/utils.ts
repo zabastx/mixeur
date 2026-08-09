@@ -63,10 +63,19 @@ export function getUserData(obj: THREE.Object3D): MxObjectUserData {
 	return obj.userData.mixeur
 }
 
-export function textureToEnvMap(texture: THREE.Texture) {
+/**
+ * PMREM-filters an equirectangular image into a map suitable for
+ * `scene.environment`.
+ *
+ * Consumes `texture` unless `keepSource` is set. Keep it when the same image is
+ * also going to be *seen* — the filtered map is built for lighting, its mip
+ * chain is a roughness ladder, and anything that reads it as a picture gets a
+ * blurred one.
+ */
+export function textureToEnvMap(texture: THREE.Texture, { keepSource = false } = {}) {
 	texture.mapping = THREE.EquirectangularReflectionMapping
 	const envMap = pmremGenerator?.fromEquirectangular(texture).texture
-	texture.dispose()
+	if (!keepSource) texture.dispose()
 	if (!envMap) return null
 	envMap.name = texture.name
 	return envMap

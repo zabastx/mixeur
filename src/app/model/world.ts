@@ -1,6 +1,6 @@
 import THREE from '@/shared/three'
 import { textureToEnvMap } from '@/shared/three/utils'
-import { loadStudioLight } from '@/shared/three/modules/loaders/studio-light'
+import { loadStudioLightTextures } from '@/shared/three/modules/loaders/studio-light'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref, shallowRef, toRaw, watch } from 'vue'
 import {
@@ -43,6 +43,16 @@ export const useWorldStore = defineStore('world', () => {
 	 * pixel is the cheapest way to say it.
 	 */
 	const environment = shallowRef<THREE.Texture | null>(null)
+
+	/**
+	 * The unfiltered image behind the scene, for an image Surface.
+	 *
+	 * Kept apart from `environment` because they are not interchangeable: the
+	 * filtered map's mips are a roughness ladder, so using it as the backdrop
+	 * makes it permanently soft and leaves `backgroundBlurriness` with almost no
+	 * range — a third of the way along it is already a flat wash.
+	 */
+	const surfaceImage = shallowRef<THREE.Texture | null>(null)
 
 	/**
 	 * Whether the current environment map is ours to dispose.
@@ -88,12 +98,14 @@ export const useWorldStore = defineStore('world', () => {
 
 		releaseEnvironment()
 		environment.value = built.texture
+		surfaceImage.value = built.image
 		ownsEnvironment = built.owned
 	}
 
 	function releaseEnvironment() {
 		if (ownsEnvironment) environment.value?.dispose()
 		environment.value = null
+		surfaceImage.value = null
 		ownsEnvironment = false
 	}
 
@@ -108,7 +120,7 @@ export const useWorldStore = defineStore('world', () => {
 	function background(): THREE.Color | THREE.Texture | null {
 		const current = surface.value
 		if (current.kind === 'color') return new THREE.Color(current.color)
-		return environment.value
+		return surfaceImage.value
 	}
 
 	/** The `THREE.Fog` instance for `scene.fog`, or `null` when fog is off. */
@@ -210,22 +222,30 @@ export const useWorldStore = defineStore('world', () => {
 const COLOR_SURFACE_WIDTH = 64
 const COLOR_SURFACE_HEIGHT = COLOR_SURFACE_WIDTH / 2
 
-/** An environment map together with whether the caller may dispose it. */
+/**
+ * What a Surface resolves to: the map that lights the scene, the image seen
+ * behind it, and whether either is the World's to dispose.
+ *
+ * A colour Surface has no image — it is drawn as a flat `THREE.Color` — so
+ * `image` is null and the backdrop comes from the colour itself.
+ */
 interface BuiltEnvironment {
 	texture: THREE.Texture | null
+	image: THREE.Texture | null
 	owned: boolean
 }
 
 /**
- * Resolves an image Surface's Source to an environment map.
+ * Resolves an image Surface's Source to a filtered map and the image itself.
  *
- * Presets come from the cache the Studio Light picker shares, so the result is
+ * Presets come from the cache the Studio Light picker shares, so both are
  * borrowed, never owned. A failed load leaves the World unlit rather than
- * throwing: `loadStudioLight` has already told the user.
+ * throwing: the loader has already told the user.
  */
 async function loadSource(source: WorldSource): Promise<BuiltEnvironment> {
-	const result = await loadStudioLight(source.name)
-	return { texture: result.ok ? result.value : null, owned: false }
+	const result = await loadStudioLightTextures(source.name)
+	if (!result.ok) return { texture: null, image: null, owned: false }
+	return { texture: result.value.envMap, image: result.value.image, owned: false }
 }
 
 function buildColorEnvironment(surface: { color: string }): BuiltEnvironment {
@@ -249,7 +269,7 @@ function buildColorEnvironment(surface: { color: string }): BuiltEnvironment {
 	// Consumes and disposes `image`. Returns null before a renderer exists —
 	// there is no PMREM generator to filter with, and the World simply casts no
 	// light until one does.
-	return { texture: textureToEnvMap(image), owned: true }
+	return { texture: textureToEnvMap(image), image: null, owned: true }
 }
 
 if (import.meta.hot) {

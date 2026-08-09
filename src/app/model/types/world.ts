@@ -4,15 +4,11 @@
  * the editor's material-preview rig. See ADR-0002 and CONTEXT.md.
  */
 
-import type { DEFAULT_STUDIO_LIGHTS } from '@/shared/three/modules/loaders/studio-light'
+import type { StudioLightName } from '@/shared/three/modules/loaders/studio-light'
 
-/**
- * A bundled image, named by the file it comes from.
- *
- * The same eight files serve as Studio Lights. The pixels are shared; the roles
- * are not — see ADR-0002.
- */
-export type StudioLightName = (typeof DEFAULT_STUDIO_LIGHTS)[number]
+// A bundled image is named by the file it comes from. The same eight files serve
+// as Studio Lights: the pixels are shared, the roles are not — see ADR-0002.
+export type { StudioLightName }
 
 /**
  * Where an image Surface came from.
