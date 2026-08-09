@@ -1,134 +1,54 @@
-<template>
-	<MxDialog
-		v-model="isOpen"
-		title="Asset Browser"
-		class="w-7xl h-[75dvh] text-ui-text-text block-border bg-window-bg flex flex-col"
-		resize
-		icon="ui/asset-browser"
-	>
-		<div class="flex grow overflow-hidden gap-2 p-2" data-testid="modal-asset-browser-textures">
-			<div class="bg-header-background flex flex-col gap-2 basis-[20%] shrink-0">
-				<div
-					class="h-[300px] bg-ui-box-inner border border-ui-box-outline rounded-ui-box p-2 pr-0
-						text-sm flex flex-col gap-1"
-				>
-					<h2>Categories</h2>
-					<ScrollContainer>
-						<CheckboxGroupRoot v-model="categoriesFilter">
-							<div
-								v-for="item in categories"
-								:key="'category_' + item.title"
-								class="flex flex-col gap-1"
-							>
-								<InputField :label="item.title" reverse class="items-center">
-									<InputCheckbox :value="item.title" />
-								</InputField>
-							</div>
-						</CheckboxGroupRoot>
-					</ScrollContainer>
-				</div>
-				<InputText v-model="search" placeholder="Search textures" icon="ui/search" />
-				<PolyhavenLicense class="mt-auto" />
-			</div>
-			<div class="overflow-hidden bg-ui-box-inner rounded grow">
-				<ScrollContainer>
-					<div class="flex gap-1 flex-wrap p-1">
-						<div
-							v-for="item in filteredAssets"
-							:key="'asset_' + item.id"
-							class="w-32 rounded p-1 cursor-pointer hover:bg-gray-500"
-							:class="{ 'bg-browser-selected': selectedAsset?.name === item.name }"
-							@click="selectAsset<TextureAsset>(item, setFilesData)"
-						>
-							<div class="w-full h-28 p-1">
-								<img
-									:src="item.thumbnail_url"
-									:alt="item.name"
-									class="object-contain object-center size-full"
-									loading="lazy"
-								/>
-							</div>
-							<div
-								class="text-xs text-center h-10 flex items-center justify-center overflow-hidden
-									text-ellipsis"
-							>
-								{{ item.name }}
-							</div>
-						</div>
-					</div>
-				</ScrollContainer>
-			</div>
+<!--
+	Browses Poly Haven's textures and hands one file back to whoever opened the
+	dialog.
 
-			<div v-if="selectedAsset" class="bg-header-background flex flex-col basis-[25%] shrink-0">
-				<ScrollContainer>
-					<div class="flex flex-col gap-1 p-2 text-sm">
-						<LibraryAssetDescription :asset="selectedAsset" :authors="selectedAssetAuthors" />
-						<InputSelect
-							v-model="selectedMapType"
-							class="z-10 mt-2"
-							:items="textureTypes"
-							placeholder="Map type"
-						/>
-						<InputSelect
-							v-if="selectedMapType"
-							v-model="selectedResOption"
-							class="z-10"
-							:items="fileResOptions"
-							placeholder="Resolution"
-						/>
-						<InputSelect
-							v-if="selectedResOption"
-							v-model="selectedFormatOption"
-							class="z-10"
-							:items="formatOptions"
-							placeholder="Format"
-						/>
-						<div v-if="selectedTexture"><b>Size: </b>{{ bytesToSize(selectedTexture.size) }}</div>
-					</div>
-				</ScrollContainer>
-				<button type="button" class="btn mt-auto btn--highlight" @click="importTexture">
-					Import
-				</button>
-			</div>
-		</div>
-	</MxDialog>
+	The layout comes from AssetBrowserShell; what is here is the choosing, which
+	for a texture is three narrowing steps — map type, then the resolutions that
+	map type was published at, then the formats that resolution was published in.
+-->
+<template>
+	<AssetBrowserShell v-model="isOpen" type="textures" @select="reset" @files="setFilesData">
+		<template #controls>
+			<InputSelect
+				v-model="selectedMapType"
+				class="z-10 mt-2"
+				:items="textureTypes"
+				placeholder="Map type"
+			/>
+			<InputSelect
+				v-if="selectedMapType"
+				v-model="selectedResOption"
+				class="z-10"
+				:items="fileResOptions"
+				placeholder="Resolution"
+			/>
+			<InputSelect
+				v-if="selectedResOption"
+				v-model="selectedFormatOption"
+				class="z-10"
+				:items="formatOptions"
+				placeholder="Format"
+			/>
+			<div v-if="selectedTexture"><b>Size: </b>{{ bytesToSize(selectedTexture.size) }}</div>
+		</template>
+		<template #import>
+			<button type="button" class="btn mt-auto btn--highlight" @click="importTexture">
+				Import
+			</button>
+		</template>
+	</AssetBrowserShell>
 </template>
 
 <script lang="ts" setup>
-import type {
-	AssetFiles,
-	TextureAsset,
-	TextureFiles
-} from '@/widgets/modals/asset-browser/types/polyhaven'
+import type { AssetFiles, TextureFiles } from '@/widgets/modals/asset-browser/types/polyhaven'
 import { bytesToSize } from '@/shared/lib/format'
-import { CheckboxGroupRoot } from 'reka-ui'
-import { computed, ref, shallowRef, watch } from 'vue'
-import { usePolyHaven } from './polyhaven'
+import { computed, ref, shallowRef } from 'vue'
 
 const isOpen = defineModel<boolean>({ default: false })
 
 const props = defineProps<{
 	callback?: ((args: unknown) => unknown) | null
 }>()
-
-const {
-	assets,
-	search,
-	categories,
-	fetchAssets,
-	fetchCategories,
-	filteredAssets,
-	categoriesFilter,
-	selectedAsset,
-	selectAsset,
-	selectedAssetAuthors
-} = usePolyHaven()
-
-watch(isOpen, (val) => {
-	if (!val || assets.value.length > 0) return
-	fetchCategories('textures')
-	fetchAssets('textures')
-})
 
 function importTexture() {
 	if (!selectedTexture.value) return
@@ -198,6 +118,19 @@ const selectedTexture = computed(() => {
 
 	return textureFilesData.value[mapType]?.[res]?.[format]
 })
+
+/**
+ * Cleared, not left showing the last texture's maps: the three selects narrow
+ * each other, so a map type held over from another asset would offer
+ * resolutions this one has never been published at.
+ */
+function reset() {
+	textureFilesData.value = undefined
+	textureTypes.value = []
+	selectedMapType.value = undefined
+	selectedResOption.value = undefined
+	selectedFormatOption.value = undefined
+}
 
 function setFilesData(files: AssetFiles) {
 	textureFilesData.value = files as TextureFiles
