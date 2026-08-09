@@ -5,6 +5,7 @@
  */
 
 import type { StudioLightName } from '@/shared/three/modules/loaders/studio-light'
+import type { HDRISelection } from '@/widgets/modals/asset-browser/hdri'
 
 // A bundled image is named by the file it comes from. The same eight files serve
 // as Studio Lights: the pixels are shared, the roles are not — see ADR-0002.
@@ -15,10 +16,40 @@ export type { StudioLightName }
  *
  * Kept apart from the image itself because it is what a project file can
  * record: a texture cannot be serialized, but the answer to "which one was it"
- * can, and that is what lets a World come back when a project is reopened.
- * Poly Haven and imported Sources follow.
+ * can, and that is what lets a World come back when a project is reopened. An
+ * imported Source follows, and it is the one that cannot answer — see ADR-0002.
  */
-export type WorldSource = { kind: 'preset'; name: StudioLightName }
+export type WorldSource =
+	| { kind: 'preset'; name: StudioLightName }
+	/**
+	 * A Poly Haven HDRI, recorded exactly as its browser handed it over — the URL
+	 * included, so restoring one needs no API call. Spelling the fields out again
+	 * here would be a shape that only has to *look* like the browser's to compile,
+	 * and would drift the first time one of them gained a field.
+	 */
+	| ({ kind: 'polyhaven' } & HDRISelection)
+
+export type WorldSourceKind = WorldSource['kind']
+
+/**
+ * Every Source and its label.
+ *
+ * No `create` alongside them, unlike the tables below: only a preset has a
+ * default. Choosing Poly Haven opens the HDRI browser, and the Surface changes
+ * when something comes back from it — which is also why the World is never in a
+ * half-chosen state.
+ */
+export const SOURCE_KINDS = {
+	preset: { label: 'Preset' },
+	polyhaven: { label: 'Poly Haven' }
+} as const satisfies Record<WorldSourceKind, { label: string }>
+
+export function isWorldSourceKind(value: string): value is WorldSourceKind {
+	return value in SOURCE_KINDS
+}
+
+/** The preset an image Surface starts on. */
+export const DEFAULT_PRESET: StudioLightName = 'forest'
 
 /**
  * What the World is made of. A colour or an image, never both — the equivalent
@@ -37,7 +68,10 @@ export const SURFACE_KINDS = {
 	},
 	texture: {
 		label: 'Image',
-		create: (): WorldSurface => ({ kind: 'texture', source: { kind: 'preset', name: 'forest' } })
+		create: (): WorldSurface => ({
+			kind: 'texture',
+			source: { kind: 'preset', name: DEFAULT_PRESET }
+		})
 	}
 } as const satisfies Record<WorldSurfaceKind, { label: string; create: () => WorldSurface }>
 

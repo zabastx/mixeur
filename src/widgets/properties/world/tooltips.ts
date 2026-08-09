@@ -9,6 +9,21 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 		}
 	],
 	[
+		'source',
+		{
+			text: `Where the world image comes from`,
+			footer: 'A preset or Poly Haven world reloads with the project'
+		}
+	],
+	[
+		'hdri',
+		{
+			text: `The image downloaded from Poly Haven.
+			Click to browse the library or pick a different size`,
+			footer: 'Stored as a link, not in the project file'
+		}
+	],
+	[
 		'preset',
 		{
 			text: `One of the images bundled with the app.

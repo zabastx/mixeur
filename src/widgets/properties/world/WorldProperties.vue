@@ -7,6 +7,7 @@
 					input-width="150px"
 					class="mb-1"
 					:tooltip="worldTooltipMap.get('surface')"
+					data-testid="world-surface"
 				>
 					<InputSelect
 						:model-value="world.surface.kind"
@@ -23,20 +24,52 @@
 				>
 					<InputColor v-model:hex="world.surface.color" />
 				</InputField>
-				<InputField
-					v-else
-					label="Preset"
-					input-width="150px"
-					:tooltip="worldTooltipMap.get('preset')"
-				>
-					<StudioImagePicker
-						:name="world.surface.source.name"
-						:alt="`${world.surface.source.name} world preset`"
-						tooltip-footer="World preset"
+				<template v-else>
+					<InputField
+						label="Source"
+						input-width="150px"
+						:tooltip="worldTooltipMap.get('source')"
+						data-testid="world-source"
+					>
+						<InputSelect
+							:model-value="world.surface.source.kind"
+							:items="SOURCE_OPTIONS"
+							@update:model-value="onSourceKind"
+						/>
+					</InputField>
+					<InputField
+						v-if="world.surface.source.kind === 'preset'"
+						label="Preset"
+						input-width="150px"
+						:tooltip="worldTooltipMap.get('preset')"
 						data-testid="world-preset"
-						@select="world.setPreset"
-					/>
-				</InputField>
+					>
+						<StudioImagePicker
+							:name="world.surface.source.name"
+							:alt="`${world.surface.source.name} world preset`"
+							tooltip-footer="World preset"
+							@select="onPreset"
+						/>
+					</InputField>
+					<InputField
+						v-else
+						label="Image"
+						input-width="150px"
+						:tooltip="worldTooltipMap.get('hdri')"
+						data-testid="world-hdri"
+					>
+						<button
+							type="button"
+							class="btn w-full grid grid-cols-[1fr_auto] gap-1 text-left"
+							@click="browseHDRIs"
+						>
+							<span class="truncate" :title="world.surface.source.name">
+								{{ world.surface.source.name }}
+							</span>
+							<span class="opacity-60">{{ world.surface.source.resolution }}</span>
+						</button>
+					</InputField>
+				</template>
 				<InputField label="Strength" input-width="150px" :tooltip="worldTooltipMap.get('strength')">
 					<InputNumber v-model="world.strength" :min="0" :step="0.01" />
 				</InputField>
@@ -106,12 +139,18 @@
 <script lang="ts" setup>
 import { useWorldStore } from '@/app/model/world'
 import {
+	DEFAULT_PRESET,
 	FOG_KINDS,
 	isWorldFogKind,
+	isWorldSourceKind,
 	isWorldSurfaceKind,
 	MAX_BLURRINESS,
-	SURFACE_KINDS
+	SOURCE_KINDS,
+	SURFACE_KINDS,
+	type StudioLightName
 } from '@/app/model/types/world'
+import { isHDRISelection } from '@/widgets/modals/asset-browser/hdri'
+import { useModals } from '@/shared/lib/modals'
 import { worldTooltipMap } from './tooltips'
 
 const world = useWorldStore()
@@ -119,6 +158,33 @@ const world = useWorldStore()
 function onSurfaceKind(val: string | undefined) {
 	if (!val || !isWorldSurfaceKind(val)) return
 	world.setSurfaceKind(val)
+}
+
+/**
+ * Switching Source.
+ *
+ * A preset has a default to fall back on; a Poly Haven World does not, so
+ * choosing it opens the browser and the Surface changes only once something
+ * comes back. The select reads from the Surface, so cancelling the browser
+ * leaves it showing the Source that is really in effect — no state to unwind.
+ */
+function onSourceKind(val: string | undefined) {
+	if (!val || !isWorldSourceKind(val)) return
+	if (val === 'preset') return onPreset(DEFAULT_PRESET)
+	browseHDRIs()
+}
+
+function onPreset(name: StudioLightName) {
+	world.setSource({ kind: 'preset', name })
+}
+
+const { open: openModal } = useModals()
+
+function browseHDRIs() {
+	openModal('hdriLibrary', (selection) => {
+		if (!isHDRISelection(selection)) return
+		world.setSource({ kind: 'polyhaven', ...selection })
+	})
 }
 
 function onFogKind(val: string | undefined) {
@@ -130,6 +196,8 @@ const SURFACE_OPTIONS = Object.entries(SURFACE_KINDS).map(([value, { label }]) =
 	label,
 	value
 }))
+
+const SOURCE_OPTIONS = Object.entries(SOURCE_KINDS).map(([value, { label }]) => ({ label, value }))
 
 const FOG_OPTIONS = Object.entries(FOG_KINDS).map(([value, { label }]) => ({ label, value }))
 </script>

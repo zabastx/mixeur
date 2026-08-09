@@ -103,6 +103,42 @@ export async function loadTexture(
 	})
 }
 
+/**
+ * One equirectangular image in both the forms an environment needs it in.
+ *
+ * `envMap` is PMREM-filtered and lights a scene. `image` is the original and is
+ * what you show behind one: the filtered map's mip chain is a roughness ladder
+ * built for lighting, so drawing it as a picture yields a blurred picture and
+ * `backgroundBlurriness` has no usable range left on it.
+ */
+export interface EnvironmentTextures {
+	envMap: THREE.Texture
+	image: THREE.Texture
+}
+
+/**
+ * Loads an equirectangular image and filters it, from a single fetch.
+ *
+ * The caller owns both textures and must dispose both. Shared by the Studio
+ * Light cache and the World's Poly Haven Source, which want the same pair for
+ * unrelated reasons and had built it separately.
+ */
+export async function loadEnvironmentTextures(
+	source: AssetSource
+): Promise<LoadResult<EnvironmentTextures>> {
+	const result = await loadTexture(source)
+	if (!result.ok) return result
+
+	const image = result.value
+	const envMap = textureToEnvMap(image, { keepSource: true })
+	if (!envMap) {
+		image.dispose()
+		return failed(new Error('Environment maps are unavailable until the viewport starts'))
+	}
+
+	return loaded({ envMap, image })
+}
+
 /** Loads a typeface, either one of the bundled defaults or a URL to a typeface JSON. */
 export async function loadFont(font: StdFontName | (string & {})): Promise<LoadResult<Font>> {
 	return attempt('Error loading font', font, async () => {

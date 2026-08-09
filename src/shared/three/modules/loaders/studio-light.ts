@@ -1,22 +1,8 @@
 import THREE from '@/shared/three'
-import { failed, loaded, type LoadResult } from '@/shared/lib/asset-source'
-import { textureToEnvMap } from '@/shared/three/utils'
-import { loadTexture } from '.'
+import { loaded, type LoadResult } from '@/shared/lib/asset-source'
+import { loadEnvironmentTextures, type EnvironmentTextures } from '.'
 
-/**
- * One bundled image in both the forms the app needs it in.
- *
- * `envMap` is PMREM-filtered and lights a scene. `image` is the equirectangular
- * original and is what you show behind one: the filtered map's mip chain is a
- * roughness ladder built for lighting, so drawing it as a picture yields a
- * blurred picture and `backgroundBlurriness` has no usable range on it.
- */
-interface StudioLightTextures {
-	envMap: THREE.Texture
-	image: THREE.Texture
-}
-
-const studioLightCache = new Map<string, StudioLightTextures>()
+const studioLightCache = new Map<string, EnvironmentTextures>()
 
 export function disposeStudioLightCache() {
 	studioLightCache.forEach(({ envMap, image }) => {
@@ -37,24 +23,16 @@ export function disposeStudioLightCache() {
  */
 export async function loadStudioLightTextures(
 	name: StudioLightName
-): Promise<LoadResult<StudioLightTextures>> {
+): Promise<LoadResult<EnvironmentTextures>> {
 	const cached = studioLightCache.get(name)
 	if (cached) return loaded(cached)
 
-	const result = await loadTexture({ url: `/textures/studio/${name}.exr` })
+	const result = await loadEnvironmentTextures({ url: `/textures/studio/${name}.exr` })
 	if (!result.ok) return result
 
-	const image = result.value
-	image.name = name
-
-	const envMap = textureToEnvMap(image, { keepSource: true })
-	if (!envMap) {
-		image.dispose()
-		return failed(new Error('Environment maps are unavailable until the viewport starts'))
-	}
-	envMap.name = name
-
-	const textures = { envMap, image }
+	const textures = result.value
+	textures.image.name = name
+	textures.envMap.name = name
 	studioLightCache.set(name, textures)
 
 	return loaded(textures)

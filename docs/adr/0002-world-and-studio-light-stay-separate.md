@@ -16,7 +16,7 @@ holds whichever one the current shading mode calls for.
 | Active in | `preview` | `rendered`, `export` |
 | Saved with the project | no | yes |
 | Appears in renders | no | yes |
-| Source | 8 bundled maps | colour or preset today; Poly Haven and import planned |
+| Source | 8 bundled maps | colour, preset or Poly Haven today; import planned |
 
 Neither is visible in `solid` or `wireframe`. `scene.environment` is a single
 slot, so the two can never both be mounted — `setMode` in `shading.ts` picks one
@@ -98,9 +98,18 @@ the Source shapes ever change.
 Texture lifetime differs by Source, and the World tracks which case it is in
 rather than assuming. Presets stay in the bundled cache shared with studio lights
 and are never disposed on swap; the map built for a colour Surface is the World's
-own and is released when it is replaced. Poly Haven and imported Worlds will be
-single-reference and disposed the moment they are replaced, or a session spent
-browsing HDRIs leaks GPU memory in proportion to curiosity.
+own and is released when it is replaced. A Poly Haven World is single-reference —
+its download and the map filtered from it are both disposed the moment they are
+replaced, or a session spent browsing HDRIs leaks GPU memory in proportion to
+curiosity. An imported one will be the same.
+
+A Poly Haven World is recorded by its direct file URL rather than by slug and
+resolution. Rebuilding the URL from those two would work today and makes this
+codebase the keeper of someone else's naming scheme; the URL is what the API
+answered with, and following it needs no second call when a project reopens. The
+browser offers 1k, 2k and 4k in Radiance HDR and nothing else: the sizes above
+that run to hundreds of megabytes for a backdrop, and at these sizes EXR buys
+nothing an HDR at half the bytes does not already give.
 
 `RenderImageModal` builds a fresh `THREE.Scene` per render and copies the World
 onto it by hand. `background`, `environment` and `fog` were copied already;

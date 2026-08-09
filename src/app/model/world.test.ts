@@ -2,8 +2,15 @@ import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import THREE from '@/shared/three'
+import type { LoadResult } from '@/shared/lib/asset-source'
 import { useWorldStore } from './world'
-import { defaultWorld, MAX_BLURRINESS, VIEWPORT_BACKDROP, type WorldSnapshot } from './types/world'
+import {
+	defaultWorld,
+	MAX_BLURRINESS,
+	VIEWPORT_BACKDROP,
+	type WorldSnapshot,
+	type WorldSource
+} from './types/world'
 
 // PMREM filtering needs a renderer, which no unit test has. Standing in for it
 // keeps the environment's *lifecycle* testable — when it is built, when it is
@@ -11,15 +18,30 @@ import { defaultWorld, MAX_BLURRINESS, VIEWPORT_BACKDROP, type WorldSnapshot } f
 // where the bugs live.
 // Distinct objects on purpose: a preset's filtered map and its image are not
 // interchangeable, and the tests below say which belongs where.
-const { fakeEnvMap, fakePreset, fakePresetImage } = vi.hoisted(() => ({
+const {
+	fakeEnvMap,
+	fakePreset,
+	fakePresetImage,
+	fakeHdri,
+	fakeHdriEnvMap,
+	loadEnvironmentTextures
+} = vi.hoisted(() => ({
 	fakeEnvMap: { dispose: () => {} } as THREE.Texture,
 	fakePreset: { dispose: () => {}, name: 'forest-envmap' } as THREE.Texture,
-	fakePresetImage: { dispose: () => {}, name: 'forest-image' } as THREE.Texture
+	fakePresetImage: { dispose: () => {}, name: 'forest-image' } as THREE.Texture,
+	fakeHdri: { dispose: () => {}, name: 'downloaded-hdri' } as THREE.Texture,
+	fakeHdriEnvMap: { dispose: () => {}, name: 'downloaded-hdri-envmap' } as THREE.Texture,
+	loadEnvironmentTextures:
+		vi.fn<
+			(source: unknown) => Promise<LoadResult<{ envMap: THREE.Texture; image: THREE.Texture }>>
+		>()
 }))
 
 let envMapCalls = 0
 let colorDisposed = false
 let presetDisposed = false
+let hdriDisposed = false
+let hdriEnvMapDisposed = false
 
 vi.mock('@/shared/three/utils', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/shared/three/utils')>()),
@@ -37,7 +59,24 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 	}))
 }))
 
+vi.mock('@/shared/three/modules/loaders', () => ({ loadEnvironmentTextures }))
+
+/** A Poly Haven Source, as the HDRI browser hands one back. */
+const KLOOFENDAL: WorldSource = {
+	kind: 'polyhaven',
+	id: 'kloofendal_43d_clear',
+	name: 'Kloofendal 43d Clear',
+	resolution: '2k',
+	url: 'https://example.com/kloofendal_2k.hdr',
+	size: 2048
+}
+
 type World = ReturnType<typeof useWorldStore>
+
+/** Points the Surface at a bundled preset, the way the thumbnail picker does. */
+function setPreset(world: World, name: 'forest' | 'city') {
+	world.setSource({ kind: 'preset', name })
+}
 
 /** Sets a colour Surface, narrowing the union the way the panel's `v-if` does. */
 function setColor(world: World, color: string) {
@@ -58,12 +97,25 @@ describe('useWorldStore', () => {
 		envMapCalls = 0
 		colorDisposed = false
 		presetDisposed = false
+		hdriDisposed = false
+		hdriEnvMapDisposed = false
 		fakeEnvMap.dispose = () => {
 			colorDisposed = true
 		}
 		fakePreset.dispose = () => {
 			presetDisposed = true
 		}
+		fakeHdri.dispose = () => {
+			hdriDisposed = true
+		}
+		fakeHdriEnvMap.dispose = () => {
+			hdriEnvMapDisposed = true
+		}
+		loadEnvironmentTextures.mockClear()
+		loadEnvironmentTextures.mockResolvedValue({
+			ok: true,
+			value: { envMap: fakeHdriEnvMap, image: fakeHdri }
+		})
 	})
 
 	describe('environment', () => {
@@ -109,7 +161,7 @@ describe('useWorldStore', () => {
 		it('lights from the bundled preset the Source names', async () => {
 			const world = useWorldStore()
 
-			world.setPreset('forest')
+			setPreset(world, 'forest')
 			await world.rebuildEnvironment()
 
 			expect(world.environment).toBe(fakePreset)
@@ -119,7 +171,7 @@ describe('useWorldStore', () => {
 		it('shows the unfiltered image behind the scene, not the map it lights with', async () => {
 			const world = useWorldStore()
 
-			world.setPreset('forest')
+			setPreset(world, 'forest')
 			await world.rebuildEnvironment()
 
 			// The filtered map's mips are a roughness ladder. Drawn as a backdrop it
@@ -131,7 +183,7 @@ describe('useWorldStore', () => {
 
 		it('never disposes a preset, which the studio light picker also shows', async () => {
 			const world = useWorldStore()
-			world.setPreset('forest')
+			setPreset(world, 'forest')
 			await world.rebuildEnvironment()
 
 			setColor(world, '#ff0000')
@@ -145,7 +197,7 @@ describe('useWorldStore', () => {
 			const world = useWorldStore()
 			await world.rebuildEnvironment()
 
-			world.setPreset('forest')
+			setPreset(world, 'forest')
 			await world.rebuildEnvironment()
 
 			expect(colorDisposed).toBe(true)
@@ -155,7 +207,7 @@ describe('useWorldStore', () => {
 		it('keeps the last Surface asked for when two builds overlap', async () => {
 			const world = useWorldStore()
 
-			world.setPreset('forest')
+			setPreset(world, 'forest')
 			const slow = world.rebuildEnvironment()
 			setColor(world, '#ff0000')
 			const fast = world.rebuildEnvironment()
@@ -164,6 +216,86 @@ describe('useWorldStore', () => {
 			// The colour was chosen last, so the colour is what lights the scene —
 			// whichever load happened to resolve first.
 			expect(world.environment).toBe(fakeEnvMap)
+		})
+	})
+
+	describe('Poly Haven Surfaces', () => {
+		it('downloads the file the Source names', async () => {
+			const world = useWorldStore()
+
+			world.setSource(KLOOFENDAL)
+			await world.rebuildEnvironment()
+
+			// Size and all: the progress bar can be sized before the transfer starts.
+			expect(loadEnvironmentTextures).toHaveBeenCalledWith({
+				url: KLOOFENDAL.url,
+				size: KLOOFENDAL.size
+			})
+		})
+
+		it('lights from the downloaded image and shows it behind the scene', async () => {
+			const world = useWorldStore()
+
+			world.setSource(KLOOFENDAL)
+			await world.rebuildEnvironment()
+
+			expect(world.environment).toBe(fakeHdriEnvMap)
+			expect(world.background()).toBe(fakeHdri)
+		})
+
+		it('disposes both textures the moment another Surface replaces it', async () => {
+			const world = useWorldStore()
+			world.setSource(KLOOFENDAL)
+			await world.rebuildEnvironment()
+
+			setPreset(world, 'forest')
+			await world.rebuildEnvironment()
+
+			// Single-reference, unlike a preset: nothing else holds the download, and
+			// a session spent browsing HDRIs otherwise leaks in proportion to
+			// curiosity. Both halves go: the image behind the scene and the map
+			// filtered from it.
+			expect(hdriDisposed).toBe(true)
+			expect(hdriEnvMapDisposed).toBe(true)
+		})
+
+		it('drops a download that lost the race rather than the Surface that won', async () => {
+			const world = useWorldStore()
+
+			world.setSource(KLOOFENDAL)
+			const slow = world.rebuildEnvironment()
+			setColor(world, '#ff0000')
+			const fast = world.rebuildEnvironment()
+			await Promise.all([slow, fast])
+
+			expect(hdriDisposed).toBe(true)
+			expect(hdriEnvMapDisposed).toBe(true)
+			expect(world.environment).toBe(fakeEnvMap)
+			expect(world.background()).toBeInstanceOf(THREE.Color)
+		})
+
+		it('leaves the World unlit when the download fails', async () => {
+			loadEnvironmentTextures.mockResolvedValue({ ok: false, error: new Error('offline') })
+			const world = useWorldStore()
+
+			world.setSource(KLOOFENDAL)
+			await world.rebuildEnvironment()
+
+			// The loader has already told the user; a World that throws here would
+			// take the panel down with it.
+			expect(world.environment).toBeNull()
+			expect(world.background()).toBeNull()
+		})
+
+		it('round-trips through a project file, so it fetches itself again on reopen', () => {
+			const world = useWorldStore()
+			world.setSource(KLOOFENDAL)
+
+			const saved = JSON.parse(JSON.stringify(world.snapshot())) as WorldSnapshot
+			setColor(world, '#000000')
+			world.restore(saved)
+
+			expect(world.surface).toEqual({ kind: 'texture', source: KLOOFENDAL })
 		})
 	})
 
@@ -265,7 +397,7 @@ describe('useWorldStore', () => {
 
 		it('round-trips a preset World, blurriness and rotation', () => {
 			const world = useWorldStore()
-			world.setPreset('city')
+			setPreset(world, 'city')
 			world.blurriness = 0.15
 			world.rotation.y = 1.25
 
@@ -280,10 +412,10 @@ describe('useWorldStore', () => {
 
 		it('snapshots by value, so later edits do not reach a saved copy', () => {
 			const world = useWorldStore()
-			world.setPreset('forest')
+			setPreset(world, 'forest')
 
 			const saved = world.snapshot()
-			world.setPreset('city')
+			setPreset(world, 'city')
 			world.rotation.x = 2
 
 			expect(saved.surface).toEqual({ kind: 'texture', source: { kind: 'preset', name: 'forest' } })

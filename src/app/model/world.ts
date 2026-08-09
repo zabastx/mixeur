@@ -1,5 +1,6 @@
 import THREE from '@/shared/three'
 import { textureToEnvMap } from '@/shared/three/utils'
+import { loadEnvironmentTextures } from '@/shared/three/modules/loaders'
 import { loadStudioLightTextures } from '@/shared/three/modules/loaders/studio-light'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref, shallowRef, toRaw, watch } from 'vue'
@@ -8,7 +9,6 @@ import {
 	defaultWorld,
 	FOG_KINDS,
 	SURFACE_KINDS,
-	type StudioLightName,
 	type WorldFog,
 	type WorldFogKind,
 	type WorldSnapshot,
@@ -56,11 +56,13 @@ export const useWorldStore = defineStore('world', () => {
 	const surfaceImage = shallowRef<THREE.Texture | null>(null)
 
 	/**
-	 * Whether the current environment map is ours to dispose.
+	 * Whether the current textures are ours to dispose.
 	 *
-	 * A colour Surface builds its own and owns it. A preset borrows from the
-	 * cache the Studio Light picker reads: disposing that would blank the
-	 * popover and every other World that names the same preset.
+	 * A colour Surface builds its own and owns it, and so does a Poly Haven one:
+	 * nothing else holds that download, and a session spent browsing HDRIs would
+	 * otherwise leak in proportion to curiosity. A preset borrows from the cache
+	 * the Studio Light picker reads: disposing that would blank the popover and
+	 * every other World that names the same preset.
 	 */
 	let ownsEnvironment = false
 
@@ -93,7 +95,7 @@ export const useWorldStore = defineStore('world', () => {
 		if (token !== rebuildToken) {
 			// A later Surface won. Drop what this build produced rather than the
 			// live one, and only if it was ours to drop.
-			if (built.owned) built.texture?.dispose()
+			if (built.owned) release(built)
 			return
 		}
 
@@ -104,7 +106,9 @@ export const useWorldStore = defineStore('world', () => {
 	}
 
 	function releaseEnvironment() {
-		if (ownsEnvironment) environment.value?.dispose()
+		if (ownsEnvironment) {
+			release({ texture: environment.value, image: surfaceImage.value })
+		}
 		environment.value = null
 		surfaceImage.value = null
 		ownsEnvironment = false
@@ -165,9 +169,15 @@ export const useWorldStore = defineStore('world', () => {
 		surface.value = SURFACE_KINDS[kind].create()
 	}
 
-	/** Points an image Surface at a different bundled preset. */
-	function setPreset(name: StudioLightName) {
-		surface.value = { kind: 'texture', source: { kind: 'preset', name } }
+	/**
+	 * Points an image Surface at a different Source.
+	 *
+	 * One setter for every Source rather than one per kind: the panel's job is to
+	 * produce a Source, and a store method per kind would be the same assignment
+	 * written three times over.
+	 */
+	function setSource(source: WorldSource) {
+		surface.value = { kind: 'texture', source }
 	}
 
 	/** Everything a `.mixeur` file records about the World. */
@@ -212,7 +222,7 @@ export const useWorldStore = defineStore('world', () => {
 		sceneFog,
 		rebuildEnvironment,
 		setSurfaceKind,
-		setPreset,
+		setSource,
 		setFogKind,
 		snapshot,
 		restore,
@@ -245,17 +255,35 @@ interface BuiltEnvironment {
 	owned: boolean
 }
 
+/** What a Source that could not be resolved leaves behind. */
+const NOTHING_BUILT: BuiltEnvironment = { texture: null, image: null, owned: false }
+
+/** Disposes both halves of a build. Only ever called on one we own. */
+function release({ texture, image }: Pick<BuiltEnvironment, 'texture' | 'image'>) {
+	texture?.dispose()
+	image?.dispose()
+}
+
 /**
  * Resolves an image Surface's Source to a filtered map and the image itself.
  *
- * Presets come from the cache the Studio Light picker shares, so both are
- * borrowed, never owned. A failed load leaves the World unlit rather than
- * throwing: the loader has already told the user.
+ * A failed load leaves the World unlit rather than throwing: the loader has
+ * already told the user, and a World that throws here takes the panel with it.
  */
 async function loadSource(source: WorldSource): Promise<BuiltEnvironment> {
-	const result = await loadStudioLightTextures(source.name)
-	if (!result.ok) return { texture: null, image: null, owned: false }
-	return { texture: result.value.envMap, image: result.value.image, owned: false }
+	// Presets come from the cache the Studio Light picker shares, so both halves
+	// are borrowed, never owned.
+	if (source.kind === 'preset') {
+		const result = await loadStudioLightTextures(source.name)
+		if (!result.ok) return NOTHING_BUILT
+		return { texture: result.value.envMap, image: result.value.image, owned: false }
+	}
+
+	// Owned, unlike a preset: nothing else holds this download.
+	const result = await loadEnvironmentTextures({ url: source.url, size: source.size })
+	if (!result.ok) return NOTHING_BUILT
+
+	return { texture: result.value.envMap, image: result.value.image, owned: true }
 }
 
 function buildColorEnvironment(surface: { color: string }): BuiltEnvironment {
