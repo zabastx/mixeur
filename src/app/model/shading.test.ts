@@ -17,6 +17,14 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 }))
 
 import { useShadingStore } from './shading'
+import { useWorldStore } from './world'
+import { VIEWPORT_BACKDROP } from './types/world'
+
+function background(): string {
+	const value = sceneStoreMock.scene.background
+	if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
+	return value.getHexString()
+}
 
 function makeShadableMesh(name = 'Mesh', color = 0xff0000) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color }))
@@ -103,6 +111,55 @@ describe('useShadingStore', () => {
 			store.setMode('rendered')
 
 			expect(sceneStoreMock.scene.environment).toBeNull()
+		})
+	})
+
+	describe('the World / Studio Light mode table', () => {
+		it('paints the World behind the scene in rendered mode only', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			world.setSurfaceColor('#ff0000')
+
+			store.setMode('rendered')
+			expect(background()).toBe('ff0000')
+
+			store.setMode('solid')
+			expect(background()).toBe(new THREE.Color(VIEWPORT_BACKDROP).getHexString())
+		})
+
+		it('reaches renders through export mode as well', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			world.setSurfaceColor('#00ff00')
+
+			store.setMode('export')
+
+			expect(background()).toBe('00ff00')
+		})
+
+		it('applies the World fog in rendered mode and clears it elsewhere', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			world.setFogKind('linear')
+
+			store.setMode('rendered')
+			expect(sceneStoreMock.scene.fog).toBeInstanceOf(THREE.Fog)
+
+			store.setMode('preview')
+			expect(sceneStoreMock.scene.fog).toBeNull()
+		})
+
+		it('does not let the World strength survive into preview', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			world.strength = 4
+			store.studioLightIntensity = 0.5
+
+			store.setMode('rendered')
+			expect(sceneStoreMock.scene.environmentIntensity).toBe(4)
+
+			store.setMode('preview')
+			expect(sceneStoreMock.scene.environmentIntensity).toBe(0.5)
 		})
 	})
 

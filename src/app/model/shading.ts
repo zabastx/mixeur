@@ -3,14 +3,25 @@ import type { LightHelper } from '@/shared/three/modules/light'
 import { loadStudioLight } from '@/shared/three/modules/loaders/studio-light'
 import { getUserData } from '@/shared/three/utils'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import type { MaterialCache, ShadingMode } from './types/shading'
 import { useSceneStore } from './scene'
+import { useWorldStore } from './world'
+import { VIEWPORT_BACKDROP } from './types/world'
+
+const ZERO_ROTATION = new THREE.Euler()
 
 export const useShadingStore = defineStore('shading', () => {
 	const solidModeLights = getSolidShadingLights()
 	const currentMode = ref<ShadingMode>('solid')
 	const studioLight = shallowRef<THREE.Texture | null>(null)
+
+	// The Studio Light's own intensity and rotation, rather than the scene fields
+	// it used to write directly. Those fields are shared with the World, and a
+	// trip through rendered mode would otherwise overwrite whatever the preview
+	// popover had been set to.
+	const studioLightIntensity = ref(1)
+	const studioLightRotation = ref(new THREE.Euler())
 	const materialCache = new Map<string, MaterialCache>()
 	const shadingMode = computed(() => currentMode.value)
 
@@ -92,11 +103,7 @@ export const useShadingStore = defineStore('shading', () => {
 		currentMode.value = mode
 		const { scene, updateScene } = useSceneStore()
 
-		if (mode === 'preview') {
-			scene.environment = studioLight.value
-		} else {
-			scene.environment = null
-		}
+		applyEnvironment(mode)
 
 		if (mode === 'rendered') {
 			setSceneLightsVisibility(true)
@@ -135,11 +142,41 @@ export const useShadingStore = defineStore('shading', () => {
 	}
 
 	function setStudioLight(light: THREE.Texture) {
-		const { scene } = useSceneStore()
 		studioLight.value = light
-		if (shadingMode.value === 'preview') {
-			scene.environment = studioLight.value
-		}
+		applyEnvironment(currentMode.value)
+	}
+
+	/**
+	 * Writes `environment`, `background` and `fog` onto the scene for a shading
+	 * mode.
+	 *
+	 * `scene.environment` is a single slot, so the Studio Light and the World can
+	 * never both be mounted — preview shows you the material under known light,
+	 * rendered shows you the scene under its own (ADR-0002). Below rendered the
+	 * backdrop is editor chrome, not World data, which is why the World's colour
+	 * only reaches the viewport once the mode asks for it.
+	 */
+	function applyEnvironment(mode: ShadingMode) {
+		const { scene } = useSceneStore()
+		const world = useWorldStore()
+		const showsWorld = mode === 'rendered' || mode === 'export'
+
+		scene.environment =
+			mode === 'preview' ? studioLight.value : showsWorld ? world.environment : null
+		scene.background = showsWorld ? world.background() : new THREE.Color(VIEWPORT_BACKDROP)
+		scene.fog = showsWorld ? world.sceneFog() : null
+
+		// One value drives both: a sky brighter than the light it casts is a lie
+		// nobody reaches for deliberately. `backgroundIntensity` has no effect
+		// until a Surface is a texture, and is written now so it cannot be missed
+		// when one is.
+		const intensity = showsWorld ? world.strength : studioLightIntensity.value
+		scene.environmentIntensity = intensity
+		scene.backgroundIntensity = intensity
+
+		// The World has no orientation while its Surface is a flat colour.
+		scene.environmentRotation.copy(showsWorld ? ZERO_ROTATION : studioLightRotation.value)
+		scene.backgroundRotation.copy(scene.environmentRotation)
 	}
 
 	/**
@@ -236,10 +273,24 @@ export const useShadingStore = defineStore('shading', () => {
 		solidModeLights.forEach((item) => scene?.add(item))
 		cacheOriginalMaterials()
 
+		// Editing the World has to reach the viewport without a mode change, and
+		// so does dragging the preview popover's sliders. Watched here rather than
+		// in the World store because this is where the mode table lives.
+		const world = useWorldStore()
+		watch(
+			[() => world.surface, () => world.strength, () => world.fog, studioLightIntensity],
+			() => applyEnvironment(currentMode.value),
+			{ deep: true }
+		)
+		watch(studioLightRotation, () => applyEnvironment(currentMode.value), { deep: true })
+
 		loadStudioLight('forest').then((result) => {
 			if (result.ok) setStudioLight(result.value)
 		})
 		setMode(currentMode.value)
+		// `setMode` returns early when the mode is unchanged, so the first paint
+		// needs the environment written explicitly.
+		applyEnvironment(currentMode.value)
 	}
 
 	function setSceneLightsVisibility(val: boolean) {
@@ -340,6 +391,8 @@ export const useShadingStore = defineStore('shading', () => {
 		init,
 		cacheNewObjectMaterials,
 		studioLight,
+		studioLightIntensity,
+		studioLightRotation,
 		setStudioLight,
 		setMode,
 		shadingMode,

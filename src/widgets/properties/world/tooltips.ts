@@ -1,0 +1,56 @@
+import type { MxTooltipContent } from '@/shared/lib/types'
+
+export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
+	[
+		'surface',
+		{
+			text: `What the world is made of — the surface behind and around everything`,
+			footer: 'Visible in Rendered shading'
+		}
+	],
+	[
+		'color',
+		{
+			text: `Colour of the world surface.
+			Lights the scene evenly from every direction`
+		}
+	],
+	[
+		'strength',
+		{
+			text: `How brightly the world lights the scene.
+			1 leaves the surface colour as it is`
+		}
+	],
+	[
+		'fog',
+		{
+			text: `Fades distant objects into a colour.
+			Linear fades between two distances; exponential thickens with depth`
+		}
+	],
+	[
+		'fog-color',
+		{
+			text: `Colour distant objects fade into`
+		}
+	],
+	[
+		'fog-near',
+		{
+			text: `Distance at which the fog starts`
+		}
+	],
+	[
+		'fog-far',
+		{
+			text: `Distance at which objects are hidden by fog completely`
+		}
+	],
+	[
+		'fog-density',
+		{
+			text: `How quickly the fog thickens with distance`
+		}
+	]
+])

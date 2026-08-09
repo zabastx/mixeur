@@ -43,10 +43,10 @@
 		</MxPopover>
 		<div class="text-xs space-y-0.5">
 			<InputField label="Intensity" input-width="175px">
-				<InputNumber v-model="sceneStore.scene.environmentIntensity" :min="0" :step="0.01" />
+				<InputNumber v-model="shadingStore.studioLightIntensity" :min="0" :step="0.01" />
 			</InputField>
 			<InputField label="Rotation" input-width="175px">
-				<InputEuler v-model="rotation" :min="-180" :max="180" />
+				<InputEuler v-model="shadingStore.studioLightRotation" :min="-180" :max="180" />
 			</InputField>
 		</div>
 	</div>
@@ -56,8 +56,6 @@
 import { computed, ref } from 'vue'
 import { DEFAULT_STUDIO_LIGHTS, loadStudioLight } from '@/shared/three/modules/loaders/studio-light'
 import { useShadingStore } from '@/app/model/shading'
-import type THREE from '@/shared/three'
-import { useSceneStore } from '@/app/model/scene'
 
 const shadingStore = useShadingStore()
 
@@ -71,8 +69,4 @@ async function changeStudioLight(light: (typeof DEFAULT_STUDIO_LIGHTS)[number]) 
 	if (result.ok) shadingStore.setStudioLight(result.value)
 	isUpdating.value = false
 }
-
-const sceneStore = useSceneStore()
-
-const rotation = computed<THREE.Euler>(() => sceneStore.scene.environmentRotation)
 </script>
