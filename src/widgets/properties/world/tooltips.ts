@@ -4,7 +4,8 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 	[
 		'surface',
 		{
-			text: `What the world is made of — the surface behind and around everything`,
+			text: `What the world is made of — the surface behind and around everything.
+			Colour is the only kind so far; images follow`,
 			footer: 'Visible in Rendered shading'
 		}
 	],

@@ -7,8 +7,13 @@
 					input-width="150px"
 					class="mb-1"
 					:tooltip="worldTooltipMap.get('surface')"
+					disabled
 				>
-					<InputSelect :model-value="world.surface.kind" :items="SURFACE_OPTIONS" disabled />
+					<InputSelect
+						:model-value="world.surface.kind"
+						:items="SURFACE_OPTIONS"
+						:root="{ disabled: true }"
+					/>
 				</InputField>
 				<InputField
 					label="Color"
@@ -79,8 +84,10 @@ function onFogKind(val: string | undefined) {
 	world.setFogKind(val)
 }
 
-// Disabled until a Surface can be something other than a colour. Shown rather
-// than hidden because the choice is the shape of the panel, not a late addition.
+// Colour is the only Surface a World can have so far, so the control is shown
+// disabled rather than hidden: the choice is the shape of the panel, and an
+// empty dropdown that appears later reads as a different panel. The tooltip
+// says why it cannot be opened.
 const SURFACE_OPTIONS = [{ label: 'Color', value: 'color' }] as const
 
 const FOG_OPTIONS = Object.entries(FOG_KINDS).map(([value, { label }]) => ({ label, value }))
