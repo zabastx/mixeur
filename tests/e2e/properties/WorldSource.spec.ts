@@ -50,9 +50,23 @@ function radianceHDR(width = 16, height = 8): Buffer {
 	return Buffer.concat([header, pixels])
 }
 
+/** A 1×1 transparent PNG, to stand in for an asset's thumbnail. */
+const PIXEL_PNG = Buffer.from(
+	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+	'base64'
+)
+
 async function stubPolyHaven(page: Page) {
 	await page.route('https://example.com/*.hdr', (route) =>
 		route.fulfill({ status: 200, contentType: 'image/vnd.radiance', body: radianceHDR() })
+	)
+
+	// Served rather than left to 404, because the tests below assert that the
+	// console stays clean: WebKit reports a failed image request as a console
+	// error where Chromium says nothing, so an unstubbed thumbnail failed the
+	// shader-error tests in one browser only.
+	await page.route('https://example.com/thumb.png', (route) =>
+		route.fulfill({ status: 200, contentType: 'image/png', body: PIXEL_PNG })
 	)
 
 	await page.route('**/api.polyhaven.com/**', (route) => {
