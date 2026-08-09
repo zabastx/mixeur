@@ -97,7 +97,8 @@ import { useModals } from '@/shared/lib/modals'
 import { downloadFile } from '@/shared/lib/files'
 import type { RenderSettings } from './RenderImageSettings.vue'
 import { useToast } from '@/shared/lib/toast'
-import { getUserData } from '@/shared/three/utils'
+import { disposeEnvMap, getUserData } from '@/shared/three/utils'
+import { useWorldStore } from '@/app/model/world'
 import { useCameraStore } from '@/app/model/camera'
 import { useComposerStore } from '@/app/model/composer'
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -143,8 +144,9 @@ function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
 	const renderScene = new THREE.Scene()
 
 	renderScene.background = sourceScene.background?.clone() ?? null
-	renderScene.environment = sourceScene.environment ?? null
 	renderScene.fog = sourceScene.fog?.clone() ?? null
+	// `environment` is deliberately not copied here — see `renderImage`, which
+	// has the renderer this scene will be drawn with and rebuilds the map for it.
 
 	// The World's strength and orientation live in these fields, not in the
 	// textures above. Left at their defaults the render would come out lit at
@@ -183,6 +185,7 @@ async function renderImage() {
 	setTimeout(() => {
 		let composer: EffectComposer | undefined = undefined
 		let renderer: THREE.WebGLRenderer | undefined = undefined
+		let environment: THREE.Texture | null = null
 		try {
 			shadingStore.setMode('export')
 
@@ -209,6 +212,13 @@ async function renderImage() {
 
 			renderer = imageComposer.renderer
 			composer = imageComposer.composer
+
+			// The World's light has to be filtered again here. The map on the
+			// viewport's scene is a render target in the viewport renderer's GL
+			// context and samples black in this one, which left renders showing the
+			// right backdrop over objects lit by scene lights alone.
+			environment = useWorldStore().environmentFor(renderer)
+			renderScene.environment = environment
 
 			renderer.setSize(width, height, false)
 			composer.setSize(width, height)
@@ -245,6 +255,8 @@ async function renderImage() {
 			isRendering.value = false
 		} finally {
 			shadingStore.setMode(originalMode)
+			// Built for this render and this renderer, so it goes with them.
+			if (environment) disposeEnvMap(environment)
 			composer?.dispose()
 			renderer?.dispose()
 		}

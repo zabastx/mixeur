@@ -399,6 +399,44 @@ describe('useWorldStore', () => {
 		})
 	})
 
+	describe('environmentFor', () => {
+		// A render draws with its own renderer on its own canvas. PMREM output is a
+		// render target, which has no pixels outside the context that filtered it,
+		// so the map the viewport lights with cannot be handed over — a render came
+		// out with the right backdrop and everything in it lit by scene lights
+		// alone.
+		const renderer = {} as THREE.WebGLRenderer
+
+		it('filters a fresh map rather than lending the viewport its own', async () => {
+			const world = useWorldStore()
+			setPreset(world, 'forest')
+			await world.rebuildEnvironment()
+
+			const built = world.environmentFor(renderer)
+
+			expect(built).toBe(fakeEnvMap)
+			expect(built).not.toBe(world.environment)
+		})
+
+		it('filters the colour Surface too, which has no image to lend', () => {
+			const world = useWorldStore()
+			setColor(world, '#ff0000')
+
+			expect(world.environmentFor(renderer)).toBe(fakeEnvMap)
+		})
+
+		it('has nothing to give while an image Surface has no image', () => {
+			const world = useWorldStore()
+			world.restore({
+				...defaultWorld(),
+				surface: { kind: 'texture', source: { kind: 'import', name: 'sunset.exr' } }
+			})
+
+			// An import waiting to be supplied again, or a Surface still loading.
+			expect(world.environmentFor(renderer)).toBeNull()
+		})
+	})
+
 	describe('surface', () => {
 		it('defaults to the viewport backdrop, so a new project looks unchanged', () => {
 			const world = useWorldStore()

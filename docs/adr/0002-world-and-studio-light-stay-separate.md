@@ -137,6 +137,16 @@ rotations were not, so a render came out lit at strength 1 whatever the World
 said. Every field a World writes has to be copied there, and a new one is a new
 line in that function.
 
+`environment` is the exception that cannot be copied at all. The render draws
+with a second `WebGLRenderer` on its own canvas, and a filtered map is a render
+target — it has no pixels outside the GL context that produced it. Sharing it
+failed silently and asymmetrically: the backdrop is an ordinary image and
+uploaded into the render's context fine, while the map beside it sampled black,
+so renders came out correctly framed with every object lit by scene lights
+alone. `world.environmentFor(renderer)` filters the same Surface again for
+whichever renderer is about to draw it, and the caller disposes what it gets.
+Anything else that renders the scene outside the viewport inherits this rule.
+
 Its own background colour picker gave way to the World's, leaving only the
 transparent toggle, because alpha is a genuinely render-specific choice and a
 second place to set a background is how the two drift apart.

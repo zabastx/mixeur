@@ -71,10 +71,18 @@ export function getUserData(obj: THREE.Object3D): MxObjectUserData {
  * also going to be *seen* — the filtered map is built for lighting, its mip
  * chain is a roughness ladder, and anything that reads it as a picture gets a
  * blurred one.
+ *
+ * `generator` defaults to the viewport's, which makes the result usable by the
+ * viewport's renderer and no other: what comes back is a render target's
+ * texture, and it has no pixels outside the GL context that filtered it. Pass a
+ * generator built from another renderer to get a map that one can light with.
  */
-export function textureToEnvMap(texture: THREE.Texture, { keepSource = false } = {}) {
+export function textureToEnvMap(
+	texture: THREE.Texture,
+	{ keepSource = false, generator = pmremGenerator } = {}
+) {
 	texture.mapping = THREE.EquirectangularReflectionMapping
-	const target = pmremGenerator?.fromEquirectangular(texture)
+	const target = generator?.fromEquirectangular(texture)
 	if (!keepSource) texture.dispose()
 	if (!target) return null
 
