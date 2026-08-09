@@ -3,8 +3,10 @@ import { textureToEnvMap } from '@/shared/three/utils'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref, shallowRef, watch } from 'vue'
 import {
-	VIEWPORT_BACKDROP,
+	defaultWorld,
+	FOG_KINDS,
 	type WorldFog,
+	type WorldFogKind,
 	type WorldSnapshot,
 	type WorldSurface
 } from './types/world'
@@ -19,9 +21,10 @@ import {
  * `environment`, `strength` and `fog`.
  */
 export const useWorldStore = defineStore('world', () => {
-	const surface = ref<WorldSurface>({ kind: 'color', color: VIEWPORT_BACKDROP })
-	const strength = ref(1)
-	const fog = ref<WorldFog>({ kind: 'none' })
+	const initial = defaultWorld()
+	const surface = ref<WorldSurface>(initial.surface)
+	const strength = ref(initial.strength)
+	const fog = ref<WorldFog>(initial.fog)
 
 	/**
 	 * The environment map the current Surface lights with, rebuilt whenever the
@@ -74,13 +77,17 @@ export const useWorldStore = defineStore('world', () => {
 		}
 	}
 
-	function setSurfaceColor(color: string) {
-		surface.value = { kind: 'color', color }
-	}
-
-	function setFogKind(kind: WorldFog['kind']) {
+	/**
+	 * Switches the fog to a different kind, with fresh defaults.
+	 *
+	 * Actions here change a *kind*, because that replaces the whole value and
+	 * the panel cannot do it field by field. Editing fields within a kind is
+	 * plain `v-model` against the state, which is why there is no setter for
+	 * every number.
+	 */
+	function setFogKind(kind: WorldFogKind) {
 		if (kind === fog.value.kind) return
-		fog.value = defaultFog(kind)
+		fog.value = FOG_KINDS[kind].create()
 	}
 
 	/** Everything a `.mixeur` file records about the World. */
@@ -97,11 +104,10 @@ export const useWorldStore = defineStore('world', () => {
 	 * file predates the World and carries no block.
 	 */
 	function restore(data: WorldSnapshot | undefined) {
-		surface.value = data?.surface
-			? { ...data.surface }
-			: { kind: 'color', color: VIEWPORT_BACKDROP }
-		strength.value = data?.strength ?? 1
-		fog.value = data?.fog ? { ...data.fog } : { kind: 'none' }
+		const fallback = defaultWorld()
+		surface.value = data?.surface ? { ...data.surface } : fallback.surface
+		strength.value = data?.strength ?? fallback.strength
+		fog.value = data?.fog ? { ...data.fog } : fallback.fog
 	}
 
 	function dispose() {
@@ -117,7 +123,6 @@ export const useWorldStore = defineStore('world', () => {
 		background,
 		sceneFog,
 		rebuildEnvironment,
-		setSurfaceColor,
 		setFogKind,
 		snapshot,
 		restore,
@@ -159,17 +164,6 @@ function buildEnvironment(surface: WorldSurface): THREE.Texture | null {
 	// there is no PMREM generator to filter with, and the World simply casts no
 	// light until one does.
 	return textureToEnvMap(image)
-}
-
-function defaultFog(kind: WorldFog['kind']): WorldFog {
-	switch (kind) {
-		case 'none':
-			return { kind: 'none' }
-		case 'linear':
-			return { kind: 'linear', color: VIEWPORT_BACKDROP, near: 1, far: 100 }
-		case 'exp2':
-			return { kind: 'exp2', color: VIEWPORT_BACKDROP, density: 0.02 }
-	}
 }
 
 if (import.meta.hot) {

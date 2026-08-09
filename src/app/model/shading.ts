@@ -103,7 +103,7 @@ export const useShadingStore = defineStore('shading', () => {
 		currentMode.value = mode
 		const { scene, updateScene } = useSceneStore()
 
-		applyEnvironment(mode)
+		applyWorldAndStudioLight(mode)
 
 		if (mode === 'rendered') {
 			setSceneLightsVisibility(true)
@@ -143,12 +143,13 @@ export const useShadingStore = defineStore('shading', () => {
 
 	function setStudioLight(light: THREE.Texture) {
 		studioLight.value = light
-		applyEnvironment(currentMode.value)
+		applyWorldAndStudioLight(currentMode.value)
 	}
 
 	/**
-	 * Writes `environment`, `background` and `fog` onto the scene for a shading
-	 * mode.
+	 * Puts whichever of the two environments a shading mode calls for onto the
+	 * scene: `environment`, `background` and `fog`, and the intensities and
+	 * rotations that go with them.
 	 *
 	 * `scene.environment` is a single slot, so the Studio Light and the World can
 	 * never both be mounted — preview shows you the material under known light,
@@ -156,7 +157,7 @@ export const useShadingStore = defineStore('shading', () => {
 	 * backdrop is editor chrome, not World data, which is why the World's colour
 	 * only reaches the viewport once the mode asks for it.
 	 */
-	function applyEnvironment(mode: ShadingMode) {
+	function applyWorldAndStudioLight(mode: ShadingMode) {
 		const { scene } = useSceneStore()
 		const world = useWorldStore()
 		const showsWorld = mode === 'rendered' || mode === 'export'
@@ -288,10 +289,10 @@ export const useShadingStore = defineStore('shading', () => {
 				() => world.environment,
 				studioLightIntensity
 			],
-			() => applyEnvironment(currentMode.value),
+			() => applyWorldAndStudioLight(currentMode.value),
 			{ deep: true }
 		)
-		watch(studioLightRotation, () => applyEnvironment(currentMode.value), { deep: true })
+		watch(studioLightRotation, () => applyWorldAndStudioLight(currentMode.value), { deep: true })
 
 		loadStudioLight('forest').then((result) => {
 			if (result.ok) setStudioLight(result.value)
@@ -299,7 +300,7 @@ export const useShadingStore = defineStore('shading', () => {
 		setMode(currentMode.value)
 		// `setMode` returns early when the mode is unchanged, so the first paint
 		// needs the environment written explicitly.
-		applyEnvironment(currentMode.value)
+		applyWorldAndStudioLight(currentMode.value)
 	}
 
 	function setSceneLightsVisibility(val: boolean) {

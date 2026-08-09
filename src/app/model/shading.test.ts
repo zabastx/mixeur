@@ -118,7 +118,7 @@ describe('useShadingStore', () => {
 		it('paints the World behind the scene in rendered mode only', () => {
 			const store = useShadingStore()
 			const world = useWorldStore()
-			world.setSurfaceColor('#ff0000')
+			world.surface.color = '#ff0000'
 
 			store.setMode('rendered')
 			expect(background()).toBe('ff0000')
@@ -130,7 +130,7 @@ describe('useShadingStore', () => {
 		it('reaches renders through export mode as well', () => {
 			const store = useShadingStore()
 			const world = useWorldStore()
-			world.setSurfaceColor('#00ff00')
+			world.surface.color = '#00ff00'
 
 			store.setMode('export')
 

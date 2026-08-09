@@ -16,7 +16,7 @@
 					:tooltip="worldTooltipMap.get('color')"
 					data-testid="world-color"
 				>
-					<InputColor v-model:hex="surfaceColor" />
+					<InputColor v-model:hex="world.surface.color" />
 				</InputField>
 				<InputField label="Strength" input-width="150px" :tooltip="worldTooltipMap.get('strength')">
 					<InputNumber v-model="world.strength" :min="0" :step="0.01" />
@@ -69,29 +69,19 @@
 
 <script lang="ts" setup>
 import { useWorldStore } from '@/app/model/world'
-import type { WorldFogKind } from '@/app/model/types/world'
-import { computed } from 'vue'
+import { FOG_KINDS, isWorldFogKind } from '@/app/model/types/world'
 import { worldTooltipMap } from './tooltips'
 
 const world = useWorldStore()
 
-const surfaceColor = computed<string>({
-	get: () => world.surface.color,
-	set: (color) => world.setSurfaceColor(color)
-})
-
 function onFogKind(val: string | undefined) {
-	if (!val) return
-	world.setFogKind(val as WorldFogKind)
+	if (!val || !isWorldFogKind(val)) return
+	world.setFogKind(val)
 }
 
 // Disabled until a Surface can be something other than a colour. Shown rather
 // than hidden because the choice is the shape of the panel, not a late addition.
 const SURFACE_OPTIONS = [{ label: 'Color', value: 'color' }] as const
 
-const FOG_OPTIONS = [
-	{ label: 'None', value: 'none' },
-	{ label: 'Linear', value: 'linear' },
-	{ label: 'Exponential', value: 'exp2' }
-] as const
+const FOG_OPTIONS = Object.entries(FOG_KINDS).map(([value, { label }]) => ({ label, value }))
 </script>

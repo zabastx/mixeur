@@ -251,13 +251,16 @@ async function loadTextureFrom(
 	temp: TempUrls
 ): Promise<THREE.Texture> {
 	const isEXR = source instanceof File ? await isEXRFile(source) : isEXRUrl(source.url)
-	const isHDR = source instanceof File ? await isHDRFile(source) : isHDRUrl(source.url)
 	const url = source instanceof File ? temp.create(source) : source.url
 
 	if (isEXR) {
 		const { loadEXR } = await import('./exr')
 		return await reportProgress(filename, source.size, (onProgress) => loadEXR({ url, onProgress }))
 	}
+
+	// Sniffed only once EXR is ruled out, so an EXR does not pay for a second
+	// read of its own header.
+	const isHDR = source instanceof File ? await isHDRFile(source) : isHDRUrl(source.url)
 
 	if (isHDR) {
 		const { loadHDR } = await import('./hdr')

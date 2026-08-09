@@ -54,7 +54,7 @@ describe('useWorldStore', () => {
 			const world = useWorldStore()
 			world.rebuildEnvironment()
 
-			world.setSurfaceColor('#00ff00')
+			world.surface.color = '#00ff00'
 			await nextTick()
 
 			expect(envMapCalls).toBe(2)
@@ -82,7 +82,7 @@ describe('useWorldStore', () => {
 		it('reports the chosen colour as the scene background', () => {
 			const world = useWorldStore()
 
-			world.setSurfaceColor('#ff0000')
+			world.surface.color = '#ff0000'
 
 			expect(world.background().getHexString()).toBe('ff0000')
 		})
@@ -138,12 +138,12 @@ describe('useWorldStore', () => {
 	describe('snapshot / restore', () => {
 		it('round-trips through a plain object', () => {
 			const world = useWorldStore()
-			world.setSurfaceColor('#123456')
+			world.surface.color = '#123456'
 			world.strength = 2.5
 			world.setFogKind('exp2')
 
 			const saved = JSON.parse(JSON.stringify(world.snapshot())) as WorldSnapshot
-			world.setSurfaceColor('#000000')
+			world.surface.color = '#000000'
 			world.strength = 1
 			world.setFogKind('none')
 
@@ -159,7 +159,7 @@ describe('useWorldStore', () => {
 			world.setFogKind('linear')
 
 			const saved = world.snapshot()
-			world.setSurfaceColor('#abcdef')
+			world.surface.color = '#abcdef'
 			if (world.fog.kind !== 'linear') throw new Error('expected linear fog')
 			world.fog.near = 999
 
@@ -169,7 +169,7 @@ describe('useWorldStore', () => {
 
 		it('falls back to the default World for a project saved before it existed', () => {
 			const world = useWorldStore()
-			world.setSurfaceColor('#ff0000')
+			world.surface.color = '#ff0000'
 			world.strength = 9
 			world.setFogKind('linear')
 
