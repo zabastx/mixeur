@@ -147,6 +147,15 @@ function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
 	renderScene.environment = sourceScene.environment ?? null
 	renderScene.fog = sourceScene.fog?.clone() ?? null
 
+	// The World's strength and orientation live in these fields, not in the
+	// textures above. Left at their defaults the render would come out lit at
+	// strength 1 whatever the World says.
+	renderScene.environmentIntensity = sourceScene.environmentIntensity
+	renderScene.backgroundIntensity = sourceScene.backgroundIntensity
+	renderScene.backgroundBlurriness = sourceScene.backgroundBlurriness
+	renderScene.environmentRotation.copy(sourceScene.environmentRotation)
+	renderScene.backgroundRotation.copy(sourceScene.backgroundRotation)
+
 	// Clone non-helper objects
 	sourceScene.children.forEach((child) => {
 		if (!getUserData(child).isHelper) {

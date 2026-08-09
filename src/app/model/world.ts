@@ -34,8 +34,17 @@ export const useWorldStore = defineStore('world', () => {
 	 */
 	const environment = shallowRef<THREE.Texture | null>(null)
 
-	watch(surface, rebuildEnvironment, { immediate: true, deep: true })
+	watch(surface, rebuildEnvironment, { deep: true })
 
+	/**
+	 * Builds the environment map for the current Surface.
+	 *
+	 * Deliberately not called on store creation. PMREM filtering needs a
+	 * renderer, and the store is constructed before the viewport has one — a
+	 * build at that moment silently yields no environment, and nothing would
+	 * rebuild it until the user happened to edit the colour. The viewport calls
+	 * this once its renderer exists.
+	 */
 	function rebuildEnvironment() {
 		environment.value?.dispose()
 		environment.value = buildEnvironment(surface.value)
@@ -107,6 +116,7 @@ export const useWorldStore = defineStore('world', () => {
 		environment,
 		background,
 		sceneFog,
+		rebuildEnvironment,
 		setSurfaceColor,
 		setFogKind,
 		snapshot,

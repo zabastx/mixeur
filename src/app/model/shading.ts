@@ -278,7 +278,16 @@ export const useShadingStore = defineStore('shading', () => {
 		// in the World store because this is where the mode table lives.
 		const world = useWorldStore()
 		watch(
-			[() => world.surface, () => world.strength, () => world.fog, studioLightIntensity],
+			[
+				() => world.surface,
+				() => world.strength,
+				() => world.fog,
+				// The World's environment map is built once the viewport has a
+				// renderer, which is after this store is initialised. Without this
+				// the first build would never reach the scene.
+				() => world.environment,
+				studioLightIntensity
+			],
 			() => applyEnvironment(currentMode.value),
 			{ deep: true }
 		)

@@ -149,6 +149,19 @@ describe('useShadingStore', () => {
 			expect(sceneStoreMock.scene.fog).toBeNull()
 		})
 
+		it('lights the scene with the World in rendered mode', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			const envMap = new THREE.Texture()
+			world.environment = envMap
+
+			store.setMode('rendered')
+			expect(sceneStoreMock.scene.environment).toBe(envMap)
+
+			store.setMode('solid')
+			expect(sceneStoreMock.scene.environment).toBeNull()
+		})
+
 		it('does not let the World strength survive into preview', () => {
 			const store = useShadingStore()
 			const world = useWorldStore()

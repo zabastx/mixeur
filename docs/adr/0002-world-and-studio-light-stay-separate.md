@@ -94,10 +94,16 @@ studio lights and are never disposed on swap; Poly Haven and imported Worlds are
 single-reference and disposed the moment they are replaced, or a session spent
 browsing HDRIs leaks GPU memory in proportion to curiosity.
 
-`RenderImageModal` copies `background`, `environment` and `fog` into its render
-scene already, so the World reaches renders without further work. Its own
-background colour picker is removed in favour of the World's; only the
-transparent toggle remains, because alpha is a genuinely render-specific choice.
+`RenderImageModal` builds a fresh `THREE.Scene` per render and copies the World
+onto it by hand. `background`, `environment` and `fog` were copied already;
+`environmentIntensity`, `backgroundIntensity`, `backgroundBlurriness` and both
+rotations were not, so a render came out lit at strength 1 whatever the World
+said. Every field a World writes has to be copied there, and a new one is a new
+line in that function.
+
+Its own background colour picker gives way to the World's, leaving only the
+transparent toggle, because alpha is a genuinely render-specific choice. That
+removal lands with the import Source, not with the World itself.
 
 ## When to revisit
 

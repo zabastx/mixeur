@@ -1,12 +1,74 @@
 import { setActivePinia, createPinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import THREE from '@/shared/three'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP, type WorldSnapshot } from './types/world'
 
+// PMREM filtering needs a renderer, which no unit test has. Standing in for it
+// keeps the environment's *lifecycle* testable — when it is built, when it is
+// rebuilt, when it is released — which is where the bugs live.
+const { fakeEnvMap } = vi.hoisted(() => ({
+	fakeEnvMap: { dispose: () => {} } as THREE.Texture
+}))
+
+let envMapCalls = 0
+let disposed = false
+
+vi.mock('@/shared/three/utils', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/shared/three/utils')>()),
+	textureToEnvMap: () => {
+		envMapCalls++
+		return fakeEnvMap
+	}
+}))
+
 describe('useWorldStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
+		envMapCalls = 0
+		disposed = false
+		fakeEnvMap.dispose = () => {
+			disposed = true
+		}
+	})
+
+	describe('environment', () => {
+		it('is not built on construction, when no renderer exists yet', () => {
+			const world = useWorldStore()
+
+			expect(envMapCalls).toBe(0)
+			expect(world.environment).toBeNull()
+		})
+
+		it('is built when the viewport asks, once it has a renderer', () => {
+			const world = useWorldStore()
+
+			world.rebuildEnvironment()
+
+			expect(envMapCalls).toBe(1)
+			expect(world.environment).toBe(fakeEnvMap)
+		})
+
+		it('rebuilds when the Surface changes, so the light follows the colour', async () => {
+			const world = useWorldStore()
+			world.rebuildEnvironment()
+
+			world.setSurfaceColor('#00ff00')
+			await nextTick()
+
+			expect(envMapCalls).toBe(2)
+		})
+
+		it('releases the map on dispose, so it cannot outlive its renderer', () => {
+			const world = useWorldStore()
+			world.rebuildEnvironment()
+
+			world.dispose()
+
+			expect(disposed).toBe(true)
+			expect(world.environment).toBeNull()
+		})
 	})
 
 	describe('surface', () => {
