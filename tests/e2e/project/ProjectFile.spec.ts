@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { importGlb } from '../helpers'
+import { chooseOption, equirectFixture, importGlb, saveAndReopenProject } from '../helpers'
 
 test.describe('Project file', () => {
 	test('saves a .mixeur file and reopens it', async ({ page }) => {
@@ -7,26 +7,32 @@ test.describe('Project file', () => {
 		const items = page.locator('[data-testid="outliner-item"]')
 		expect(await items.count()).toBeGreaterThan(0)
 
-		// Save the project — triggers a binary .mixeur download.
-		await page.click('text=File')
-		const [download] = await Promise.all([
-			page.waitForEvent('download'),
-			page.getByRole('menuitem', { name: 'Save' }).click()
-		])
-		expect(download.suggestedFilename()).toContain('.mixeur')
-		const downloadPath = await download.path()
-		expect(downloadPath).toBeTruthy()
+		await saveAndReopenProject(page)
 
-		// Reopen the saved project — clears the scene and reloads from the file.
-		await page.click('text=File')
-		const [fileChooser] = await Promise.all([
-			page.waitForEvent('filechooser'),
-			page.getByRole('menuitem', { name: 'Open' }).click()
-		])
-		await fileChooser.setFiles(downloadPath!)
-
-		// Exact match avoids the duplicate aria-live announcer node.
-		await expect(page.getByText('Project loaded successfully', { exact: true })).toBeVisible()
 		await expect(items.first()).toBeVisible()
+	})
+
+	test('an imported World reopens asking for its file again', async ({ page }) => {
+		await page.goto('/')
+		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await page.locator('[data-testid="properties-tab-world"]').click()
+
+		// Give the World an imported image.
+		await chooseOption(page, 'world-surface', 'Image')
+		const chooser = page.waitForEvent('filechooser')
+		await chooseOption(page, 'world-source', 'Import')
+		await (await chooser).setFiles(equirectFixture)
+		await expect(page.locator('[data-testid="world-image"]')).toContainText('sunset.exr')
+		await expect(page.locator('[data-testid="world-image-detail"]')).toHaveText('')
+
+		await saveAndReopenProject(page)
+
+		// The name survives; the bytes cannot. A browser has no path to go back
+		// for, so the World says so rather than silently showing nothing (ADR-0002).
+		// Exact, like the load toast above: the aria-live announcer duplicates the text.
+		await expect(page.getByText('World image not loaded', { exact: true })).toBeVisible()
+		await page.locator('[data-testid="properties-tab-world"]').click()
+		await expect(page.locator('[data-testid="world-image"]')).toContainText('sunset.exr')
+		await expect(page.locator('[data-testid="world-image-detail"]')).toHaveText('not loaded')
 	})
 })

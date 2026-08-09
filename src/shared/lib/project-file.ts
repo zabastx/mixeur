@@ -6,6 +6,7 @@
 
 import { encode, decode } from '@msgpack/msgpack'
 import { version } from '@/../package.json'
+import type { WorldSnapshot } from '@/app/model/types/world'
 
 /**
  * Magic bytes identifying a valid .mixeur project file.
@@ -43,6 +44,14 @@ interface ProjectData {
 	scene: object
 	/** UUID of the currently active render camera, or null if none */
 	renderCameraUUID: string | null
+	/**
+	 * The scene's World. Carried separately because `Scene.toJSON()` serializes
+	 * neither `background` nor `environment`.
+	 *
+	 * Optional: files written before the World existed have no block, and load
+	 * with the default World rather than failing.
+	 */
+	world?: WorldSnapshot
 }
 
 /**

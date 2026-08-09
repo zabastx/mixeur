@@ -12,13 +12,26 @@ vi.mock('./scene', () => ({
 	useSceneStore: () => sceneStoreMock
 }))
 
-vi.mock('@/shared/three/modules/loaders/environment', () => ({
-	loadWorldTexture: vi
-		.fn()
-		.mockResolvedValue({ ok: false, error: new Error('not loaded in tests') })
+vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
+	loadStudioLight: vi.fn().mockResolvedValue({ ok: false, error: new Error('not loaded in tests') })
 }))
 
 import { useShadingStore } from './shading'
+import { useWorldStore } from './world'
+import { VIEWPORT_BACKDROP } from './types/world'
+
+/** Sets a colour Surface, narrowing the union the way the panel's `v-if` does. */
+function setWorldColor(world: ReturnType<typeof useWorldStore>, color: string) {
+	world.setSurfaceKind('color')
+	if (world.surface.kind !== 'color') throw new Error('expected a colour Surface')
+	world.surface.color = color
+}
+
+function background(): string {
+	const value = sceneStoreMock.scene.background
+	if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
+	return value.getHexString()
+}
 
 function makeShadableMesh(name = 'Mesh', color = 0xff0000) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color }))
@@ -108,13 +121,75 @@ describe('useShadingStore', () => {
 		})
 	})
 
-	describe('setEnvironmentMap', () => {
-		it('applies the env map to the scene once preview mode is active', () => {
+	describe('the World / Studio Light mode table', () => {
+		it('paints the World behind the scene in rendered mode only', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			setWorldColor(world, '#ff0000')
+
+			store.setMode('rendered')
+			expect(background()).toBe('ff0000')
+
+			store.setMode('solid')
+			expect(background()).toBe(new THREE.Color(VIEWPORT_BACKDROP).getHexString())
+		})
+
+		it('reaches renders through export mode as well', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			setWorldColor(world, '#00ff00')
+
+			store.setMode('export')
+
+			expect(background()).toBe('00ff00')
+		})
+
+		it('applies the World fog in rendered mode and clears it elsewhere', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			world.setFogKind('linear')
+
+			store.setMode('rendered')
+			expect(sceneStoreMock.scene.fog).toBeInstanceOf(THREE.Fog)
+
+			store.setMode('preview')
+			expect(sceneStoreMock.scene.fog).toBeNull()
+		})
+
+		it('lights the scene with the World in rendered mode', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			const envMap = new THREE.Texture()
+			world.environment = envMap
+
+			store.setMode('rendered')
+			expect(sceneStoreMock.scene.environment).toBe(envMap)
+
+			store.setMode('solid')
+			expect(sceneStoreMock.scene.environment).toBeNull()
+		})
+
+		it('does not let the World strength survive into preview', () => {
+			const store = useShadingStore()
+			const world = useWorldStore()
+			world.strength = 4
+			store.studioLightIntensity = 0.5
+
+			store.setMode('rendered')
+			expect(sceneStoreMock.scene.environmentIntensity).toBe(4)
+
+			store.setMode('preview')
+			expect(sceneStoreMock.scene.environmentIntensity).toBe(0.5)
+		})
+	})
+
+	describe('setStudioLight', () => {
+		it('applies the studio light to the scene once preview mode is active', () => {
 			const store = useShadingStore()
 			const texture = new THREE.Texture()
 
-			store.setEnvironmentMap(texture)
-			expect(store.environmentMap).toBe(texture)
+			store.setStudioLight(texture)
+			expect(store.studioLight).toBe(texture)
 			// not applied yet because current mode is 'solid'
 			expect(sceneStoreMock.scene.environment).toBeNull()
 

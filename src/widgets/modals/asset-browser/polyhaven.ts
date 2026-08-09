@@ -36,6 +36,51 @@ const usePolyHavenFetch = createFetch({
 	}
 })
 
+/**
+ * Where one model's download lives, and where the textures it names live.
+ *
+ * Outside the composable because it reads nothing but its arguments: the models
+ * browser gets its listing from the shell and needs this and nothing else.
+ */
+export function getModelData({
+	files,
+	format,
+	resolution
+}: {
+	files: ModelFiles[keyof ModelFiles]
+	format: 'gltf' | 'blend' | 'fbx' | 'usd'
+	resolution: string
+}) {
+	if (!files || typeof files !== 'object') return null
+
+	// Access the resolution
+	const resolutionFiles = files[resolution]
+	if (!resolutionFiles || typeof resolutionFiles !== 'object') return null
+
+	// Get the file info
+	const fileInfo = resolutionFiles[format] as FileWithIncludes
+	if (!fileInfo || typeof fileInfo !== 'object') return null
+
+	// Build texture URL map from the include property
+	const textureUrlMap: Record<string, string> = {}
+	if (fileInfo.include) {
+		for (const [texturePath, textureInfo] of Object.entries<FileInfo>(fileInfo.include)) {
+			// Extract just the filename from the path (e.g., "textures/Camera_01_body_diff_1k.jpg" -> "Camera_01_body_diff_1k.jpg")
+			const filename = texturePath.split('/').pop()
+			if (filename && textureInfo.url) {
+				textureUrlMap[filename] = textureInfo.url
+				// Also map the full path
+				textureUrlMap[texturePath] = textureInfo.url
+			}
+		}
+	}
+
+	return {
+		url: fileInfo.url,
+		textureUrlMap
+	}
+}
+
 export function usePolyHaven() {
 	const assets = ref<AssetWithId[]>([])
 	const categories = shallowRef<AssetCategory[]>([])
@@ -211,45 +256,6 @@ export function usePolyHaven() {
 			.catch(() => {})
 	}
 
-	function getModelData({
-		files,
-		format,
-		resolution
-	}: {
-		files: ModelFiles[keyof ModelFiles]
-		format: 'gltf' | 'blend' | 'fbx' | 'usd'
-		resolution: string
-	}) {
-		if (!files || typeof files !== 'object') return null
-
-		// Access the resolution
-		const resolutionFiles = files[resolution]
-		if (!resolutionFiles || typeof resolutionFiles !== 'object') return null
-
-		// Get the file info
-		const fileInfo = resolutionFiles[format] as FileWithIncludes
-		if (!fileInfo || typeof fileInfo !== 'object') return null
-
-		// Build texture URL map from the include property
-		const textureUrlMap: Record<string, string> = {}
-		if (fileInfo.include) {
-			for (const [texturePath, textureInfo] of Object.entries<FileInfo>(fileInfo.include)) {
-				// Extract just the filename from the path (e.g., "textures/Camera_01_body_diff_1k.jpg" -> "Camera_01_body_diff_1k.jpg")
-				const filename = texturePath.split('/').pop()
-				if (filename && textureInfo.url) {
-					textureUrlMap[filename] = textureInfo.url
-					// Also map the full path
-					textureUrlMap[texturePath] = textureInfo.url
-				}
-			}
-		}
-
-		return {
-			url: fileInfo.url,
-			textureUrlMap
-		}
-	}
-
 	/**
 	 * Get asset type name from type number
 	 */
@@ -284,7 +290,6 @@ export function usePolyHaven() {
 		fetchAssetInfo,
 		fetchAssetAuthor,
 		fetchAssetFiles,
-		getModelData,
 		filteredAssets,
 		categoriesFilter,
 		isLoadingAssets,

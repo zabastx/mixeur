@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeModelFile, detectMTL, isEXRFile, isEXRUrl, modelFormatFromUrl } from './format'
+import {
+	analyzeModelFile,
+	detectMTL,
+	isEXRFile,
+	isEXRUrl,
+	isHDRFile,
+	isHDRUrl,
+	modelFormatFromUrl
+} from './format'
 
 function textFile(name: string, text: string) {
 	return new File([text], name)
@@ -302,5 +310,42 @@ describe('EXR detection', () => {
 		expect(isEXRUrl('https://example.com/sky_1k.exr')).toBe(true)
 		expect(isEXRUrl('https://example.com/sky_1k.EXR?token=1')).toBe(true)
 		expect(isEXRUrl('https://example.com/sky_1k.png')).toBe(false)
+	})
+})
+
+describe('HDR detection', () => {
+	it('recognises the magic token regardless of filename', async () => {
+		const file = binaryFile('sunset.bin', ascii('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n'))
+
+		await expect(isHDRFile(file)).resolves.toBe(true)
+	})
+
+	it('accepts any program type after the token, as HDRLoader does', async () => {
+		const file = binaryFile('sky.hdr', ascii('#?RGBE\nFORMAT=32-bit_rle_rgbe\n'))
+
+		await expect(isHDRFile(file)).resolves.toBe(true)
+	})
+
+	it('rejects a file whose bytes are not HDR even when named .hdr', async () => {
+		const file = binaryFile('fake.hdr', [0x89, 0x50, 0x4e, 0x47, 0x00, 0x00])
+
+		await expect(isHDRFile(file)).resolves.toBe(false)
+	})
+
+	it('does not mistake an EXR for an HDR', async () => {
+		const file = binaryFile('sky.exr', [0x76, 0x2f, 0x31, 0x01, 0x02, 0x00, 0x00, 0x00])
+
+		await expect(isHDRFile(file)).resolves.toBe(false)
+	})
+
+	it('falls back to the name for a file too short to hold the magic token', async () => {
+		await expect(isHDRFile(binaryFile('tiny.hdr', ascii('#')))).resolves.toBe(true)
+		await expect(isHDRFile(binaryFile('tiny.png', ascii('#')))).resolves.toBe(false)
+	})
+
+	it('reads a URL by extension', () => {
+		expect(isHDRUrl('https://example.com/sky_1k.hdr')).toBe(true)
+		expect(isHDRUrl('https://example.com/sky_1k.HDR?token=1')).toBe(true)
+		expect(isHDRUrl('https://example.com/sky_1k.exr')).toBe(false)
 	})
 })

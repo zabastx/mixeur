@@ -44,3 +44,5 @@ src/components.d.ts
 src/icons.d.ts
 
 .plans
+# playwright-cli session artifacts (snapshots, console logs, screenshots)
+.playwright-cli

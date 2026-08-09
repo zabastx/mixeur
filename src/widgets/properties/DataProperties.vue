@@ -40,6 +40,7 @@ import { isThreeGeometry } from '@/shared/three/modules/mesh'
 import PropertiesGeometry from './geometry/PropertiesGeometry.vue'
 import TextDataProperties from './text/TextDataProperties.vue'
 import PropertiesLight from './light/PropertiesLight.vue'
+import WorldProperties from './world/WorldProperties.vue'
 
 const store = useSelectionStore()
 
@@ -54,12 +55,20 @@ watch(
 	}
 )
 
+// Scene-level tabs: present whether or not anything is selected, and grouped
+// ahead of the object's own tabs the way Blender orders them.
 const DEFAULT_TABS: DataTabItem[] = [
 	{
 		icon: 'properties/camera-properties',
 		value: 'viewport-camera',
 		content: CameraProperties,
 		title: 'Viewport Camera Properties'
+	},
+	{
+		icon: 'properties/world',
+		value: 'world',
+		content: WorldProperties,
+		title: 'World Properties'
 	}
 ]
 

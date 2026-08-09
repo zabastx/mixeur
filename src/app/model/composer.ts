@@ -5,7 +5,8 @@ import {
 	initPMREMGenerator
 } from '@/shared/three/modules/extras/pmremGenerator'
 import { attachRenderer, detachRenderer } from '@/shared/three/modules/loaders/renderer-context'
-import { disposeWorldMapCache } from '@/shared/three/modules/loaders/environment'
+import { disposeStudioLightCache } from '@/shared/three/modules/loaders/studio-light'
+import { useWorldStore } from './world'
 import { useResizeObserver } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { ViewportGizmo } from 'three-viewport-gizmo'
@@ -166,10 +167,17 @@ export const useComposerStore = defineStore('composer', () => {
 		initPMREMGenerator(renderer)
 		teardown.add(disposePMREMGenerator)
 
-		// The cached world maps are PMREM output, so they belong to this renderer
-		// too — kept past its death they are handles into a GL context that is
-		// gone. Clearing the cache makes the next viewport rebuild them.
-		teardown.add(disposeWorldMapCache)
+		// The cached studio lights are PMREM output, so they belong to this
+		// renderer too — kept past its death they are handles into a GL context
+		// that is gone. Clearing the cache makes the next viewport rebuild them.
+		teardown.add(disposeStudioLightCache)
+
+		// The World's environment map is PMREM output for the same reason, and it
+		// cannot be built before this point: the store is constructed during
+		// `shadingStore.init()`, which runs before any renderer exists.
+		const world = useWorldStore()
+		world.rebuildEnvironment()
+		teardown.add(world.dispose)
 
 		attachRenderer(renderer)
 		teardown.add(detachRenderer)

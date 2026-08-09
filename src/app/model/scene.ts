@@ -14,6 +14,8 @@ import { createCamera } from '@/shared/three/modules/camera/create'
 import { exportModel } from '@/shared/three/modules/addons/exporter'
 import { getUserData, enableBVH, isWithin } from '@/shared/three/utils'
 import { useShadingStore } from './shading'
+import { useWorldStore } from './world'
+import { VIEWPORT_BACKDROP } from './types/world'
 import { useRaycastStore } from './raycast'
 import { useSelectionStore } from './selection'
 import { useComposerStore } from './composer'
@@ -30,7 +32,9 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 export const useSceneStore = defineStore('scene', () => {
 	const scene = shallowRef(new THREE.Scene())
 	const helperScene = shallowRef(new THREE.Scene())
-	scene.value.background = new THREE.Color('#3D3D3D')
+	// Editor chrome until a shading mode asks for the World's own backdrop; see
+	// `applyWorldAndStudioLight` in `shading.ts`.
+	scene.value.background = new THREE.Color(VIEWPORT_BACKDROP)
 
 	const grid = setGridHelper(scene.value)
 
@@ -348,7 +352,8 @@ export const useSceneStore = defineStore('scene', () => {
 
 			const data = {
 				scene: exportScene.toJSON(),
-				renderCameraUUID
+				renderCameraUUID,
+				world: useWorldStore().snapshot()
 			}
 
 			const binaryData = encodeProject(data)
@@ -412,10 +417,28 @@ export const useSceneStore = defineStore('scene', () => {
 						setRenderCamera(project.data.renderCameraUUID)
 					}
 
+					// Undefined for files written before the World existed; `restore`
+					// falls back to the default rather than leaving the last project's
+					// World behind.
+					const world = useWorldStore()
+					world.restore(project.data.world)
+
 					toast.add({
 						type: 'success',
 						message: 'Project loaded successfully'
 					})
+
+					// An imported World is saved as a filename and nothing else, so a
+					// reopened project has a World it cannot show. Said out loud here:
+					// otherwise the only sign is a backdrop that has quietly gone, and
+					// only in rendered mode, on a tab nobody has any reason to open.
+					if (world.needsReimport) {
+						toast.add({
+							type: 'warning',
+							title: 'World image not loaded',
+							message: `Re-import it from World properties`
+						})
+					}
 					resolve(true)
 				} catch (err) {
 					const error = err as Error

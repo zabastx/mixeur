@@ -21,6 +21,8 @@ import {
 	failed,
 	isEXRFile,
 	isEXRUrl,
+	isHDRFile,
+	isHDRUrl,
 	loaded,
 	modelFormatFromUrl,
 	sourceName,
@@ -78,7 +80,7 @@ export interface LoadTextureOptions {
 	isEnvMap?: boolean
 }
 
-/** Loads an EXR or a regular image as a texture, whichever the source turns out to be. */
+/** Loads an EXR, a Radiance HDR or a regular image as a texture, whichever the source turns out to be. */
 export async function loadTexture(
 	source: AssetSource,
 	options: LoadTextureOptions = {}
@@ -99,6 +101,42 @@ export async function loadTexture(
 			temp.revokeAll()
 		}
 	})
+}
+
+/**
+ * One equirectangular image in both the forms an environment needs it in.
+ *
+ * `envMap` is PMREM-filtered and lights a scene. `image` is the original and is
+ * what you show behind one: the filtered map's mip chain is a roughness ladder
+ * built for lighting, so drawing it as a picture yields a blurred picture and
+ * `backgroundBlurriness` has no usable range left on it.
+ */
+export interface EnvironmentTextures {
+	envMap: THREE.Texture
+	image: THREE.Texture
+}
+
+/**
+ * Loads an equirectangular image and filters it, from a single fetch.
+ *
+ * The caller owns both textures and must dispose both. Shared by the Studio
+ * Light cache and the World's Poly Haven Source, which want the same pair for
+ * unrelated reasons and had built it separately.
+ */
+export async function loadEnvironmentTextures(
+	source: AssetSource
+): Promise<LoadResult<EnvironmentTextures>> {
+	const result = await loadTexture(source)
+	if (!result.ok) return result
+
+	const image = result.value
+	const envMap = textureToEnvMap(image, { keepSource: true })
+	if (!envMap) {
+		image.dispose()
+		return failed(new Error('Environment maps are unavailable until the viewport starts'))
+	}
+
+	return loaded({ envMap, image })
 }
 
 /** Loads a typeface, either one of the bundled defaults or a URL to a typeface JSON. */
@@ -254,6 +292,15 @@ async function loadTextureFrom(
 	if (isEXR) {
 		const { loadEXR } = await import('./exr')
 		return await reportProgress(filename, source.size, (onProgress) => loadEXR({ url, onProgress }))
+	}
+
+	// Sniffed only once EXR is ruled out, so an EXR does not pay for a second
+	// read of its own header.
+	const isHDR = source instanceof File ? await isHDRFile(source) : isHDRUrl(source.url)
+
+	if (isHDR) {
+		const { loadHDR } = await import('./hdr')
+		return await reportProgress(filename, source.size, (onProgress) => loadHDR({ url, onProgress }))
 	}
 
 	const { loadImageTexture } = await import('./texture')
