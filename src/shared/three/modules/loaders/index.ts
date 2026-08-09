@@ -21,6 +21,8 @@ import {
 	failed,
 	isEXRFile,
 	isEXRUrl,
+	isHDRFile,
+	isHDRUrl,
 	loaded,
 	modelFormatFromUrl,
 	sourceName,
@@ -78,7 +80,7 @@ export interface LoadTextureOptions {
 	isEnvMap?: boolean
 }
 
-/** Loads an EXR or a regular image as a texture, whichever the source turns out to be. */
+/** Loads an EXR, a Radiance HDR or a regular image as a texture, whichever the source turns out to be. */
 export async function loadTexture(
 	source: AssetSource,
 	options: LoadTextureOptions = {}
@@ -249,11 +251,17 @@ async function loadTextureFrom(
 	temp: TempUrls
 ): Promise<THREE.Texture> {
 	const isEXR = source instanceof File ? await isEXRFile(source) : isEXRUrl(source.url)
+	const isHDR = source instanceof File ? await isHDRFile(source) : isHDRUrl(source.url)
 	const url = source instanceof File ? temp.create(source) : source.url
 
 	if (isEXR) {
 		const { loadEXR } = await import('./exr')
 		return await reportProgress(filename, source.size, (onProgress) => loadEXR({ url, onProgress }))
+	}
+
+	if (isHDR) {
+		const { loadHDR } = await import('./hdr')
+		return await reportProgress(filename, source.size, (onProgress) => loadHDR({ url, onProgress }))
 	}
 
 	const { loadImageTexture } = await import('./texture')

@@ -298,3 +298,23 @@ export async function isEXRFile(file: File): Promise<boolean> {
 }
 
 const EXR_MAGIC = [0x76, 0x2f, 0x31, 0x01]
+
+export function isHDRUrl(url: string): boolean {
+	return uriExtension(url) === 'hdr'
+}
+
+/**
+ * Whether `file` is a Radiance HDR image, by its magic token.
+ *
+ * Only `#?` is checked, not the `#?RADIANCE` the format is named after: what
+ * follows the token is a program type, and `HDRLoader` itself accepts any
+ * non-space run there. Requiring `RADIANCE` would reject files the loader
+ * would happily read.
+ */
+export async function isHDRFile(file: File): Promise<boolean> {
+	if (file.size < HDR_MAGIC.length) return isHDRUrl(file.name)
+	const { bytes } = await readFile(file, HDR_MAGIC.length)
+	return HDR_MAGIC.every((byte, i) => bytes[i] === byte)
+}
+
+const HDR_MAGIC = [0x23, 0x3f] // '#?'
