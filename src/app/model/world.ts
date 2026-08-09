@@ -125,20 +125,40 @@ export const useWorldStore = defineStore('world', () => {
 	}
 })
 
+/**
+ * Width of the equirectangular image a flat colour is painted onto.
+ *
+ * One pixel would say the same thing and cost less, but `PMREMGenerator` sizes
+ * its cube target as `width / 4` and bakes that into `CUBEUV_TEXEL_WIDTH` and
+ * friends. Below 4 those come out as integers, and the fragment shader fails to
+ * compile for every physical material in the scene. 64 gives the generator the
+ * power-of-two 16 it wants.
+ */
+const COLOR_SURFACE_WIDTH = 64
+const COLOR_SURFACE_HEIGHT = COLOR_SURFACE_WIDTH / 2
+
 function buildEnvironment(surface: WorldSurface): THREE.Texture | null {
 	const color = new THREE.Color(surface.color)
-	const pixel = new THREE.DataTexture(
-		new Float32Array([color.r, color.g, color.b, 1]),
-		1,
-		1,
+	const pixels = new Float32Array(COLOR_SURFACE_WIDTH * COLOR_SURFACE_HEIGHT * 4)
+	for (let i = 0; i < pixels.length; i += 4) {
+		pixels[i] = color.r
+		pixels[i + 1] = color.g
+		pixels[i + 2] = color.b
+		pixels[i + 3] = 1
+	}
+
+	const image = new THREE.DataTexture(
+		pixels,
+		COLOR_SURFACE_WIDTH,
+		COLOR_SURFACE_HEIGHT,
 		THREE.RGBAFormat,
 		THREE.FloatType
 	)
-	pixel.needsUpdate = true
-	// Consumes and disposes `pixel`. Returns null before a renderer exists —
+	image.needsUpdate = true
+	// Consumes and disposes `image`. Returns null before a renderer exists —
 	// there is no PMREM generator to filter with, and the World simply casts no
 	// light until one does.
-	return textureToEnvMap(pixel)
+	return textureToEnvMap(image)
 }
 
 function defaultFog(kind: WorldFog['kind']): WorldFog {
