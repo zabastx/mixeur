@@ -12,10 +12,8 @@ vi.mock('./scene', () => ({
 	useSceneStore: () => sceneStoreMock
 }))
 
-vi.mock('@/shared/three/modules/loaders/environment', () => ({
-	loadWorldTexture: vi
-		.fn()
-		.mockResolvedValue({ ok: false, error: new Error('not loaded in tests') })
+vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
+	loadStudioLight: vi.fn().mockResolvedValue({ ok: false, error: new Error('not loaded in tests') })
 }))
 
 import { useShadingStore } from './shading'
@@ -108,13 +106,13 @@ describe('useShadingStore', () => {
 		})
 	})
 
-	describe('setEnvironmentMap', () => {
-		it('applies the env map to the scene once preview mode is active', () => {
+	describe('setStudioLight', () => {
+		it('applies the studio light to the scene once preview mode is active', () => {
 			const store = useShadingStore()
 			const texture = new THREE.Texture()
 
-			store.setEnvironmentMap(texture)
-			expect(store.environmentMap).toBe(texture)
+			store.setStudioLight(texture)
+			expect(store.studioLight).toBe(texture)
 			// not applied yet because current mode is 'solid'
 			expect(sceneStoreMock.scene.environment).toBeNull()
 

@@ -5,7 +5,7 @@ import {
 	initPMREMGenerator
 } from '@/shared/three/modules/extras/pmremGenerator'
 import { attachRenderer, detachRenderer } from '@/shared/three/modules/loaders/renderer-context'
-import { disposeWorldMapCache } from '@/shared/three/modules/loaders/environment'
+import { disposeStudioLightCache } from '@/shared/three/modules/loaders/studio-light'
 import { useResizeObserver } from '@vueuse/core'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { ViewportGizmo } from 'three-viewport-gizmo'
@@ -169,7 +169,7 @@ export const useComposerStore = defineStore('composer', () => {
 		// The cached world maps are PMREM output, so they belong to this renderer
 		// too — kept past its death they are handles into a GL context that is
 		// gone. Clearing the cache makes the next viewport rebuild them.
-		teardown.add(disposeWorldMapCache)
+		teardown.add(disposeStudioLightCache)
 
 		attachRenderer(renderer)
 		teardown.add(detachRenderer)

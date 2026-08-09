@@ -1,6 +1,6 @@
 import THREE from '@/shared/three'
 import type { LightHelper } from '@/shared/three/modules/light'
-import { loadWorldTexture } from '@/shared/three/modules/loaders/environment'
+import { loadStudioLight } from '@/shared/three/modules/loaders/studio-light'
 import { getUserData } from '@/shared/three/utils'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
@@ -10,7 +10,7 @@ import { useSceneStore } from './scene'
 export const useShadingStore = defineStore('shading', () => {
 	const solidModeLights = getSolidShadingLights()
 	const currentMode = ref<ShadingMode>('solid')
-	const environmentMap = shallowRef<THREE.Texture | null>(null)
+	const studioLight = shallowRef<THREE.Texture | null>(null)
 	const materialCache = new Map<string, MaterialCache>()
 	const shadingMode = computed(() => currentMode.value)
 
@@ -93,7 +93,7 @@ export const useShadingStore = defineStore('shading', () => {
 		const { scene, updateScene } = useSceneStore()
 
 		if (mode === 'preview') {
-			scene.environment = environmentMap.value
+			scene.environment = studioLight.value
 		} else {
 			scene.environment = null
 		}
@@ -134,11 +134,11 @@ export const useShadingStore = defineStore('shading', () => {
 		updateScene()
 	}
 
-	function setEnvironmentMap(map: THREE.Texture) {
+	function setStudioLight(light: THREE.Texture) {
 		const { scene } = useSceneStore()
-		environmentMap.value = map
+		studioLight.value = light
 		if (shadingMode.value === 'preview') {
-			scene.environment = environmentMap.value
+			scene.environment = studioLight.value
 		}
 	}
 
@@ -236,8 +236,8 @@ export const useShadingStore = defineStore('shading', () => {
 		solidModeLights.forEach((item) => scene?.add(item))
 		cacheOriginalMaterials()
 
-		loadWorldTexture('forest').then((result) => {
-			if (result.ok) setEnvironmentMap(result.value)
+		loadStudioLight('forest').then((result) => {
+			if (result.ok) setStudioLight(result.value)
 		})
 		setMode(currentMode.value)
 	}
@@ -339,8 +339,8 @@ export const useShadingStore = defineStore('shading', () => {
 	return {
 		init,
 		cacheNewObjectMaterials,
-		environmentMap,
-		setEnvironmentMap,
+		studioLight,
+		setStudioLight,
 		setMode,
 		shadingMode,
 		materialCache,

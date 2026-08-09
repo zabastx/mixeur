@@ -10,8 +10,8 @@
 						hover:brightness-125 cursor-pointer w-full p-1"
 				>
 					<img
-						:src="`/textures/world/${currentMapName}.png`"
-						alt="current environment map"
+						:src="`/textures/studio/${currentLightName}.png`"
+						alt="current studio light"
 						width="64"
 						height="64"
 					/>
@@ -20,10 +20,10 @@
 			<template #content>
 				<div class="flex gap-0.5">
 					<MxTooltip
-						v-for="map in DEFAULT_WORLD_MAPS"
-						:key="map"
+						v-for="light in DEFAULT_STUDIO_LIGHTS"
+						:key="light"
 						:tooltip="{
-							text: map.slice(0, 1).toUpperCase() + map.slice(1),
+							text: light.slice(0, 1).toUpperCase() + light.slice(1),
 							footer: 'Studio lighting setup'
 						}"
 					>
@@ -31,11 +31,11 @@
 							type="button"
 							class="btn bg-ui-menu-inner border-ui-menu-outline"
 							:class="{
-								'bg-ui-menu-item-inner-selected': currentMapName === map
+								'bg-ui-menu-item-inner-selected': currentLightName === light
 							}"
-							@click="changeEnvMap(map)"
+							@click="changeStudioLight(light)"
 						>
-							<img width="64" height="64" :src="`/textures/world/${map}.png`" :alt="map" />
+							<img width="64" height="64" :src="`/textures/studio/${light}.png`" :alt="light" />
 						</button>
 					</MxTooltip>
 				</div>
@@ -54,21 +54,21 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
-import { DEFAULT_WORLD_MAPS, loadWorldTexture } from '@/shared/three/modules/loaders/environment'
+import { DEFAULT_STUDIO_LIGHTS, loadStudioLight } from '@/shared/three/modules/loaders/studio-light'
 import { useShadingStore } from '@/app/model/shading'
 import type THREE from '@/shared/three'
 import { useSceneStore } from '@/app/model/scene'
 
 const shadingStore = useShadingStore()
 
-const currentMapName = computed(() => shadingStore.environmentMap?.name)
+const currentLightName = computed(() => shadingStore.studioLight?.name)
 const isUpdating = ref(false)
 
-async function changeEnvMap(map: (typeof DEFAULT_WORLD_MAPS)[number]) {
-	if (isUpdating.value || currentMapName.value === map) return
+async function changeStudioLight(light: (typeof DEFAULT_STUDIO_LIGHTS)[number]) {
+	if (isUpdating.value || currentLightName.value === light) return
 	isUpdating.value = true
-	const result = await loadWorldTexture(map)
-	if (result.ok) shadingStore.setEnvironmentMap(result.value)
+	const result = await loadStudioLight(light)
+	if (result.ok) shadingStore.setStudioLight(result.value)
 	isUpdating.value = false
 }
 

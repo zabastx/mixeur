@@ -6,8 +6,8 @@ vi.mock('@/app/model/scene', () => ({
 	useSceneStore: () => ({ scene: new THREE.Scene(), updateScene: vi.fn() })
 }))
 
-vi.mock('@/shared/three/modules/loaders/environment', () => ({
-	loadWorldTexture: vi.fn().mockResolvedValue(null)
+vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
+	loadStudioLight: vi.fn().mockResolvedValue(null)
 }))
 
 import { useShadingStore } from '@/app/model/shading'
