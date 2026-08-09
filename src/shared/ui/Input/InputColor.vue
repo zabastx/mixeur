@@ -1,9 +1,17 @@
+<!--
+	The swatch's edge is drawn in the surrounding text colour rather than a theme
+	outline token, because the swatch shows an arbitrary colour on an arbitrary
+	background and any fixed token eventually matches one of them. `ui-menu-outline`
+	is `#3d3d3d`, which is exactly the properties panel and exactly the World's
+	default colour — a colour input holding either looked like an empty row.
+	`currentColor` contrasts with whatever the panel is, in any theme.
+-->
 <template>
 	<MxPopover>
 		<template #trigger>
 			<div
 				class="inline-grid rounded grid-cols-2 grid-rows-1 w-full checkerboard h-full
-					overflow-hidden border border-ui-menu-outline"
+					overflow-hidden border border-current/30"
 				:style="{ '--color-value': displayColor, '--alpha': modelAlpha }"
 			>
 				<div class="bg-(--color-value)"></div>
