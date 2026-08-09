@@ -4,9 +4,30 @@ export const worldTooltipMap: ReadonlyMap<string, MxTooltipContent> = new Map([
 	[
 		'surface',
 		{
-			text: `What the world is made of — the surface behind and around everything.
-			Colour is the only kind so far; images follow`,
+			text: `What the world is made of — the surface behind and around everything`,
 			footer: 'Visible in Rendered shading'
+		}
+	],
+	[
+		'preset',
+		{
+			text: `One of the environment images bundled with the app.
+			The same images are offered as studio lights, which preview materials
+			instead and never reach a render`
+		}
+	],
+	[
+		'blurriness',
+		{
+			text: `Softens the visible backdrop without dimming or softening the
+			light it casts`
+		}
+	],
+	[
+		'rotation',
+		{
+			text: `Turns the world around the scene. Moves the backdrop and the light
+			together`
 		}
 	],
 	[

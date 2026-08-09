@@ -4,14 +4,50 @@
  * the editor's material-preview rig. See ADR-0002 and CONTEXT.md.
  */
 
+import type { DEFAULT_STUDIO_LIGHTS } from '@/shared/three/modules/loaders/studio-light'
+
+/**
+ * A bundled image, named by the file it comes from.
+ *
+ * The same eight files serve as Studio Lights. The pixels are shared; the roles
+ * are not — see ADR-0002.
+ */
+export type StudioLightName = (typeof DEFAULT_STUDIO_LIGHTS)[number]
+
+/**
+ * Where an image Surface came from.
+ *
+ * Kept apart from the image itself because it is what a project file can
+ * record: a texture cannot be serialized, but the answer to "which one was it"
+ * can, and that is what lets a World come back when a project is reopened.
+ * Poly Haven and imported Sources follow.
+ */
+export type WorldSource = { kind: 'preset'; name: StudioLightName }
+
 /**
  * What the World is made of. A colour or an image, never both — the equivalent
  * of Blender's Background shader node minus the node graph.
- *
- * Image-backed Surfaces arrive with the Sources that produce them (presets,
- * Poly Haven, import).
  */
-export type WorldSurface = { kind: 'color'; color: string }
+export type WorldSurface =
+	{ kind: 'color'; color: string } | { kind: 'texture'; source: WorldSource }
+
+export type WorldSurfaceKind = WorldSurface['kind']
+
+/** Every Surface kind, its label and how to start one. */
+export const SURFACE_KINDS = {
+	color: {
+		label: 'Color',
+		create: (): WorldSurface => ({ kind: 'color', color: VIEWPORT_BACKDROP })
+	},
+	texture: {
+		label: 'Environment Texture',
+		create: (): WorldSurface => ({ kind: 'texture', source: { kind: 'preset', name: 'forest' } })
+	}
+} as const satisfies Record<WorldSurfaceKind, { label: string; create: () => WorldSurface }>
+
+export function isWorldSurfaceKind(value: string): value is WorldSurfaceKind {
+	return value in SURFACE_KINDS
+}
 
 /**
  * Distance haze. `none` is a member rather than a nullable Surface because the
@@ -69,6 +105,15 @@ export function isWorldFogKind(value: string): value is WorldFogKind {
 export interface WorldSnapshot {
 	surface: WorldSurface
 	strength: number
+	/**
+	 * How much the visible Surface is blurred. Affects the backdrop only, never
+	 * the light it casts — the one place where showing and lighting are allowed
+	 * to disagree, because a soft backdrop is a framing choice with no physical
+	 * counterpart.
+	 */
+	blurriness: number
+	/** Euler angles in radians, as a plain triple so it survives serialization. */
+	rotation: [number, number, number]
 	fog: WorldFog
 }
 
@@ -78,8 +123,10 @@ export interface WorldSnapshot {
  */
 export function defaultWorld(): WorldSnapshot {
 	return {
-		surface: { kind: 'color', color: VIEWPORT_BACKDROP },
+		surface: SURFACE_KINDS.color.create(),
 		strength: 1,
+		blurriness: 0,
+		rotation: [0, 0, 0],
 		fog: { kind: 'none' }
 	}
 }

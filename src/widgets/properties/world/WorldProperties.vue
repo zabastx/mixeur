@@ -7,15 +7,15 @@
 					input-width="150px"
 					class="mb-1"
 					:tooltip="worldTooltipMap.get('surface')"
-					disabled
 				>
 					<InputSelect
 						:model-value="world.surface.kind"
 						:items="SURFACE_OPTIONS"
-						:root="{ disabled: true }"
+						@update:model-value="onSurfaceKind"
 					/>
 				</InputField>
 				<InputField
+					v-if="world.surface.kind === 'color'"
 					label="Color"
 					input-width="150px"
 					:tooltip="worldTooltipMap.get('color')"
@@ -23,9 +23,34 @@
 				>
 					<InputColor v-model:hex="world.surface.color" />
 				</InputField>
+				<InputField
+					v-else
+					label="Environment"
+					input-width="150px"
+					:tooltip="worldTooltipMap.get('preset')"
+				>
+					<WorldSurfacePreset :name="world.surface.source.name" @select="world.setPreset" />
+				</InputField>
 				<InputField label="Strength" input-width="150px" :tooltip="worldTooltipMap.get('strength')">
 					<InputNumber v-model="world.strength" :min="0" :step="0.01" />
 				</InputField>
+				<template v-if="world.surface.kind === 'texture'">
+					<InputField
+						label="Blurriness"
+						input-width="150px"
+						:tooltip="worldTooltipMap.get('blurriness')"
+					>
+						<InputNumber v-model="world.blurriness" :min="0" :max="1" :step="0.01" />
+					</InputField>
+					<InputField
+						label="Rotation"
+						input-width="150px"
+						class="mt-1"
+						:tooltip="worldTooltipMap.get('rotation')"
+					>
+						<InputEuler v-model="world.rotation" :min="-180" :max="180" />
+					</InputField>
+				</template>
 			</div>
 		</MxAccordionItem>
 		<MxAccordionItem label="Fog" :item="{ value: 'fog' }">
@@ -74,21 +99,31 @@
 
 <script lang="ts" setup>
 import { useWorldStore } from '@/app/model/world'
-import { FOG_KINDS, isWorldFogKind } from '@/app/model/types/world'
+import {
+	FOG_KINDS,
+	isWorldFogKind,
+	isWorldSurfaceKind,
+	SURFACE_KINDS
+} from '@/app/model/types/world'
+import WorldSurfacePreset from './WorldSurfacePreset.vue'
 import { worldTooltipMap } from './tooltips'
 
 const world = useWorldStore()
+
+function onSurfaceKind(val: string | undefined) {
+	if (!val || !isWorldSurfaceKind(val)) return
+	world.setSurfaceKind(val)
+}
 
 function onFogKind(val: string | undefined) {
 	if (!val || !isWorldFogKind(val)) return
 	world.setFogKind(val)
 }
 
-// Colour is the only Surface a World can have so far, so the control is shown
-// disabled rather than hidden: the choice is the shape of the panel, and an
-// empty dropdown that appears later reads as a different panel. The tooltip
-// says why it cannot be opened.
-const SURFACE_OPTIONS = [{ label: 'Color', value: 'color' }] as const
+const SURFACE_OPTIONS = Object.entries(SURFACE_KINDS).map(([value, { label }]) => ({
+	label,
+	value
+}))
 
 const FOG_OPTIONS = Object.entries(FOG_KINDS).map(([value, { label }]) => ({ label, value }))
 </script>

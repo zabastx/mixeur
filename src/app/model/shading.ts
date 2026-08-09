@@ -9,8 +9,6 @@ import { useSceneStore } from './scene'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP } from './types/world'
 
-const ZERO_ROTATION = new THREE.Euler()
-
 export const useShadingStore = defineStore('shading', () => {
 	const solidModeLights = getSolidShadingLights()
 	const currentMode = ref<ShadingMode>('solid')
@@ -168,16 +166,18 @@ export const useShadingStore = defineStore('shading', () => {
 		scene.fog = showsWorld ? world.sceneFog() : null
 
 		// One value drives both: a sky brighter than the light it casts is a lie
-		// nobody reaches for deliberately. `backgroundIntensity` has no effect
-		// until a Surface is a texture, and is written now so it cannot be missed
-		// when one is.
+		// nobody reaches for deliberately.
 		const intensity = showsWorld ? world.strength : studioLightIntensity.value
 		scene.environmentIntensity = intensity
 		scene.backgroundIntensity = intensity
 
-		// The World has no orientation while its Surface is a flat colour.
-		scene.environmentRotation.copy(showsWorld ? ZERO_ROTATION : studioLightRotation.value)
+		scene.environmentRotation.copy(showsWorld ? world.rotation : studioLightRotation.value)
 		scene.backgroundRotation.copy(scene.environmentRotation)
+
+		// The one field that is allowed to differ between the two: blurring the
+		// backdrop is a framing choice, and there is nothing it could mean for the
+		// light. The Studio Light has no equivalent, hence no blur below rendered.
+		scene.backgroundBlurriness = showsWorld ? world.blurriness : 0
 	}
 
 	/**
@@ -282,6 +282,8 @@ export const useShadingStore = defineStore('shading', () => {
 			[
 				() => world.surface,
 				() => world.strength,
+				() => world.blurriness,
+				() => world.rotation,
 				() => world.fog,
 				// The World's environment map is built once the viewport has a
 				// renderer, which is after this store is initialised. Without this

@@ -1,14 +1,19 @@
 import THREE from '@/shared/three'
 import { textureToEnvMap } from '@/shared/three/utils'
+import { loadStudioLight } from '@/shared/three/modules/loaders/studio-light'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { ref, shallowRef, watch } from 'vue'
+import { ref, shallowRef, toRaw, watch } from 'vue'
 import {
 	defaultWorld,
 	FOG_KINDS,
+	SURFACE_KINDS,
+	type StudioLightName,
 	type WorldFog,
 	type WorldFogKind,
 	type WorldSnapshot,
-	type WorldSurface
+	type WorldSource,
+	type WorldSurface,
+	type WorldSurfaceKind
 } from './types/world'
 
 /**
@@ -24,6 +29,8 @@ export const useWorldStore = defineStore('world', () => {
 	const initial = defaultWorld()
 	const surface = ref<WorldSurface>(initial.surface)
 	const strength = ref(initial.strength)
+	const blurriness = ref(initial.blurriness)
+	const rotation = ref(new THREE.Euler(...initial.rotation))
 	const fog = ref<WorldFog>(initial.fog)
 
 	/**
@@ -37,6 +44,23 @@ export const useWorldStore = defineStore('world', () => {
 	 */
 	const environment = shallowRef<THREE.Texture | null>(null)
 
+	/**
+	 * Whether the current environment map is ours to dispose.
+	 *
+	 * A colour Surface builds its own and owns it. A preset borrows from the
+	 * cache the Studio Light picker reads: disposing that would blank the
+	 * popover and every other World that names the same preset.
+	 */
+	let ownsEnvironment = false
+
+	/**
+	 * Which rebuild is the current one.
+	 *
+	 * Presets load asynchronously, so two quick changes can resolve out of
+	 * order and leave the scene lit by the Surface the user moved away from.
+	 */
+	let rebuildToken = 0
+
 	watch(surface, rebuildEnvironment, { deep: true })
 
 	/**
@@ -48,20 +72,43 @@ export const useWorldStore = defineStore('world', () => {
 	 * rebuild it until the user happened to edit the colour. The viewport calls
 	 * this once its renderer exists.
 	 */
-	function rebuildEnvironment() {
-		environment.value?.dispose()
-		environment.value = buildEnvironment(surface.value)
+	async function rebuildEnvironment() {
+		const token = ++rebuildToken
+		const current = surface.value
+
+		const built =
+			current.kind === 'color' ? buildColorEnvironment(current) : await loadSource(current.source)
+
+		if (token !== rebuildToken) {
+			// A later Surface won. Drop what this build produced rather than the
+			// live one, and only if it was ours to drop.
+			if (built.owned) built.texture?.dispose()
+			return
+		}
+
+		releaseEnvironment()
+		environment.value = built.texture
+		ownsEnvironment = built.owned
+	}
+
+	function releaseEnvironment() {
+		if (ownsEnvironment) environment.value?.dispose()
+		environment.value = null
+		ownsEnvironment = false
 	}
 
 	/**
-	 * The `THREE.Color` for `scene.background`.
+	 * What goes behind the scene: the image itself, or the Surface colour.
 	 *
-	 * Deliberately not the environment texture: a plain colour renders through a
-	 * different path than a PMREM-filtered one, and the World's default has to
-	 * look precisely like the hardcoded backdrop it replaced.
+	 * A colour Surface deliberately hands back a `THREE.Color` rather than the
+	 * flat environment map it lights with. The two render through different
+	 * paths, and the World's default has to look precisely like the hardcoded
+	 * backdrop it replaced.
 	 */
-	function background(): THREE.Color {
-		return new THREE.Color(surface.value.color)
+	function background(): THREE.Color | THREE.Texture | null {
+		const current = surface.value
+		if (current.kind === 'color') return new THREE.Color(current.color)
+		return environment.value
 	}
 
 	/** The `THREE.Fog` instance for `scene.fog`, or `null` when fog is off. */
@@ -90,11 +137,27 @@ export const useWorldStore = defineStore('world', () => {
 		fog.value = FOG_KINDS[kind].create()
 	}
 
+	/**
+	 * Switches the Surface to a different kind, with fresh defaults. Same rule as
+	 * `setFogKind`: actions change a kind, `v-model` edits within one.
+	 */
+	function setSurfaceKind(kind: WorldSurfaceKind) {
+		if (kind === surface.value.kind) return
+		surface.value = SURFACE_KINDS[kind].create()
+	}
+
+	/** Points an image Surface at a different bundled preset. */
+	function setPreset(name: StudioLightName) {
+		surface.value = { kind: 'texture', source: { kind: 'preset', name } }
+	}
+
 	/** Everything a `.mixeur` file records about the World. */
 	function snapshot(): WorldSnapshot {
 		return {
-			surface: { ...surface.value },
+			surface: structuredClone(toRaw(surface.value)),
 			strength: strength.value,
+			blurriness: blurriness.value,
+			rotation: rotation.value.toArray().slice(0, 3) as [number, number, number],
 			fog: { ...fog.value }
 		}
 	}
@@ -105,24 +168,29 @@ export const useWorldStore = defineStore('world', () => {
 	 */
 	function restore(data: WorldSnapshot | undefined) {
 		const fallback = defaultWorld()
-		surface.value = data?.surface ? { ...data.surface } : fallback.surface
+		surface.value = data?.surface ? structuredClone(data.surface) : fallback.surface
 		strength.value = data?.strength ?? fallback.strength
+		blurriness.value = data?.blurriness ?? fallback.blurriness
+		rotation.value = new THREE.Euler(...(data?.rotation ?? fallback.rotation))
 		fog.value = data?.fog ? { ...data.fog } : fallback.fog
 	}
 
 	function dispose() {
-		environment.value?.dispose()
-		environment.value = null
+		releaseEnvironment()
 	}
 
 	return {
 		surface,
 		strength,
+		blurriness,
+		rotation,
 		fog,
 		environment,
 		background,
 		sceneFog,
 		rebuildEnvironment,
+		setSurfaceKind,
+		setPreset,
 		setFogKind,
 		snapshot,
 		restore,
@@ -142,7 +210,25 @@ export const useWorldStore = defineStore('world', () => {
 const COLOR_SURFACE_WIDTH = 64
 const COLOR_SURFACE_HEIGHT = COLOR_SURFACE_WIDTH / 2
 
-function buildEnvironment(surface: WorldSurface): THREE.Texture | null {
+/** An environment map together with whether the caller may dispose it. */
+interface BuiltEnvironment {
+	texture: THREE.Texture | null
+	owned: boolean
+}
+
+/**
+ * Resolves an image Surface's Source to an environment map.
+ *
+ * Presets come from the cache the Studio Light picker shares, so the result is
+ * borrowed, never owned. A failed load leaves the World unlit rather than
+ * throwing: `loadStudioLight` has already told the user.
+ */
+async function loadSource(source: WorldSource): Promise<BuiltEnvironment> {
+	const result = await loadStudioLight(source.name)
+	return { texture: result.ok ? result.value : null, owned: false }
+}
+
+function buildColorEnvironment(surface: { color: string }): BuiltEnvironment {
 	const color = new THREE.Color(surface.color)
 	const pixels = new Float32Array(COLOR_SURFACE_WIDTH * COLOR_SURFACE_HEIGHT * 4)
 	for (let i = 0; i < pixels.length; i += 4) {
@@ -163,7 +249,7 @@ function buildEnvironment(surface: WorldSurface): THREE.Texture | null {
 	// Consumes and disposes `image`. Returns null before a renderer exists —
 	// there is no PMREM generator to filter with, and the World simply casts no
 	// light until one does.
-	return textureToEnvMap(image)
+	return { texture: textureToEnvMap(image), owned: true }
 }
 
 if (import.meta.hot) {

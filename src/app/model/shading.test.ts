@@ -20,6 +20,13 @@ import { useShadingStore } from './shading'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP } from './types/world'
 
+/** Sets a colour Surface, narrowing the union the way the panel's `v-if` does. */
+function setWorldColor(world: ReturnType<typeof useWorldStore>, color: string) {
+	world.setSurfaceKind('color')
+	if (world.surface.kind !== 'color') throw new Error('expected a colour Surface')
+	world.surface.color = color
+}
+
 function background(): string {
 	const value = sceneStoreMock.scene.background
 	if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
@@ -118,7 +125,7 @@ describe('useShadingStore', () => {
 		it('paints the World behind the scene in rendered mode only', () => {
 			const store = useShadingStore()
 			const world = useWorldStore()
-			world.surface.color = '#ff0000'
+			setWorldColor(world, '#ff0000')
 
 			store.setMode('rendered')
 			expect(background()).toBe('ff0000')
@@ -130,7 +137,7 @@ describe('useShadingStore', () => {
 		it('reaches renders through export mode as well', () => {
 			const store = useShadingStore()
 			const world = useWorldStore()
-			world.surface.color = '#00ff00'
+			setWorldColor(world, '#00ff00')
 
 			store.setMode('export')
 
