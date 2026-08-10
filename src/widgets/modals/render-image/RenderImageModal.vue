@@ -221,8 +221,15 @@ async function renderImage() {
 			const context = displayCanvas.getContext('2d')
 			if (!context) throw new Error('2D context unavailable')
 
+			// Half float, matching what `EffectComposer` builds for itself when it is
+			// left to size its own buffers. The chain carries linear HDR: SSAA adds
+			// 16 jittered samples at ~1/16 weight each, and a point light drives
+			// radiance well past 1. An 8-bit buffer here rounds every one of those
+			// small additions up to the nearest 1/255 and clips anything over 1
+			// before `OutputPass` tone maps it — darks lift, highlights flatten, and
+			// the same scene came out 26% brighter than the viewport shows it.
 			target = new THREE.WebGLRenderTarget(width, height, {
-				type: THREE.UnsignedByteType,
+				type: THREE.HalfFloatType,
 				format: THREE.RGBAFormat
 			})
 
@@ -252,7 +259,10 @@ async function renderImage() {
 			// Read the render back into the 2D display canvas, which `saveImage` and
 			// the preview both encode from. The final result lands in the composer's
 			// read buffer; GL rows run bottom-up, so the copy flips vertically.
-			const buffer = new Uint8Array(width * height * 4)
+			// `Uint16Array` because the buffer is half float — `OutputPass` has
+			// already tone mapped and sRGB-encoded, so the values it holds are the
+			// display-ready [0,1] the canvas wants, just not yet in 8 bits.
+			const buffer = new Uint16Array(width * height * 4)
 			renderer.readRenderTargetPixels(composer.readBuffer, 0, 0, width, height, buffer)
 
 			if (gl.getError() !== gl.NO_ERROR) {
@@ -297,38 +307,46 @@ async function renderImage() {
 }
 
 /**
- * Turns a GL pixel read into `ImageData` for the 2D canvas: rows flipped
- * top-down, and colour un-premultiplied.
+ * Turns a half-float GL pixel read into `ImageData` for the 2D canvas: half
+ * floats decoded to 8 bits, rows flipped top-down, and colour un-premultiplied.
  *
- * The render target holds colour already multiplied by coverage — SSAA
- * accumulates premultiplied samples, and a partly covered edge comes out as
- * `rgb = colour × alpha`. `ImageData` is straight alpha, and canvas premultiplies
- * again on `putImageData`, so handing the premultiplied bytes over untouched
- * darkens every antialiased edge into a fringe. Dividing the colour back out is
- * what keeps a transparent render's edges clean.
+ * The read comes back bottom-up, as GL rows always do, and holds colour already
+ * multiplied by coverage — SSAA accumulates premultiplied samples, so a partly
+ * covered edge is `rgb = colour × alpha`. `ImageData` is straight alpha, and the
+ * canvas premultiplies again on `putImageData`, so handing those values over
+ * untouched darkens every antialiased edge into a fringe. Dividing the colour
+ * back out is what keeps a transparent render's edges clean.
  */
-function toImageData(buffer: Uint8Array, width: number, height: number): ImageData {
+function toImageData(buffer: Uint16Array, width: number, height: number): ImageData {
 	const image = new ImageData(width, height)
 	const out = image.data
 	const rowBytes = width * 4
+	// `OutputPass` leaves display-ready [0,1] values, so the only conversion left
+	// is the 8 bits the canvas stores.
+	const toByte = (value: number) => Math.max(0, Math.min(255, Math.round(value * 255)))
+
 	for (let y = 0; y < height; y++) {
 		const srcRow = (height - 1 - y) * rowBytes
 		const dstRow = y * rowBytes
 		for (let x = 0; x < rowBytes; x += 4) {
 			const s = srcRow + x
 			const d = dstRow + x
-			const alpha = buffer[s + 3]!
-			out[d + 3] = alpha
-			if (alpha === 0) continue
-			if (alpha === 255) {
-				out[d] = buffer[s]!
-				out[d + 1] = buffer[s + 1]!
-				out[d + 2] = buffer[s + 2]!
+			const alpha = THREE.DataUtils.fromHalfFloat(buffer[s + 3]!)
+			out[d + 3] = toByte(alpha)
+			if (alpha <= 0) continue
+
+			const red = THREE.DataUtils.fromHalfFloat(buffer[s]!)
+			const green = THREE.DataUtils.fromHalfFloat(buffer[s + 1]!)
+			const blue = THREE.DataUtils.fromHalfFloat(buffer[s + 2]!)
+			if (alpha >= 1) {
+				out[d] = toByte(red)
+				out[d + 1] = toByte(green)
+				out[d + 2] = toByte(blue)
 				continue
 			}
-			out[d] = Math.min(255, Math.round((buffer[s]! * 255) / alpha))
-			out[d + 1] = Math.min(255, Math.round((buffer[s + 1]! * 255) / alpha))
-			out[d + 2] = Math.min(255, Math.round((buffer[s + 2]! * 255) / alpha))
+			out[d] = toByte(red / alpha)
+			out[d + 1] = toByte(green / alpha)
+			out[d + 2] = toByte(blue / alpha)
 		}
 	}
 	return image

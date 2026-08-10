@@ -79,6 +79,26 @@ async function alphaSample(page: Page): Promise<{ corner: number; centre: number
 	})
 }
 
+/** Mean brightness of the whole render, 0-255. */
+async function meanBrightness(page: Page): Promise<number> {
+	return await page.evaluate(() => {
+		const img = document.querySelector<HTMLImageElement>('[data-testid="modal-render-image"] img')
+		if (!img?.naturalWidth) return -1
+
+		const canvas = document.createElement('canvas')
+		canvas.width = img.naturalWidth
+		canvas.height = img.naturalHeight
+		const context = canvas.getContext('2d')
+		if (!context) return -1
+		context.drawImage(img, 0, 0)
+
+		const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+		let sum = 0
+		for (let i = 0; i < data.length; i += 4) sum += (data[i]! + data[i + 1]! + data[i + 2]!) / 3
+		return sum / (data.length / 4)
+	})
+}
+
 /** Whether the viewport's WebGL context has been lost. */
 async function viewportContextLost(page: Page): Promise<boolean> {
 	return await page.evaluate(() => {
@@ -112,6 +132,32 @@ test.describe('Render Image', () => {
 		// Polls: the render runs behind a timeout and the preview arrives as a
 		// blob the <img> then has to decode.
 		await expect.poll(() => darkestCentrePixel(page), { timeout: 20_000 }).toBeGreaterThan(25)
+	})
+
+	test('carries HDR through the chain, so a point-lit scene is exposed correctly', async ({
+		page
+	}) => {
+		await page.goto('/')
+		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+
+		// A point light on the default (dark) World is the case that exposes the
+		// composer's buffer precision. SSAA accumulates 16 jittered samples at
+		// ~1/16 weight each and the light drives radiance past 1: in an 8-bit
+		// buffer every small addition rounds up to the nearest 1/255 and anything
+		// over 1 clips before `OutputPass` tone maps it. That read 61.3 against the
+		// 48.6 three.js's own half-float default produces — a 26% overexposure with
+		// nothing in the DOM to show for it.
+		await page.click('text=Add')
+		await page.getByRole('menuitem', { name: 'Light' }).click()
+		await page.getByRole('menuitem', { name: 'Point', exact: true }).click()
+
+		await openRenderModal(page)
+		await page.getByRole('button', { name: 'Render Image' }).click()
+
+		await expect.poll(() => meanBrightness(page), { timeout: 20_000 }).toBeGreaterThan(0)
+		// Bracketed rather than pinned: the exact figure moves with the default
+		// scene, but an 8-bit chain lands far outside this.
+		expect(await meanBrightness(page)).toBeLessThan(55)
 	})
 
 	test('keeps real transparency when the Background toggle is off', async ({ page }) => {
