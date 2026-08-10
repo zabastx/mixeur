@@ -97,11 +97,9 @@ import { useModals } from '@/shared/lib/modals'
 import { downloadFile } from '@/shared/lib/files'
 import type { RenderSettings } from './RenderImageSettings.vue'
 import { useToast } from '@/shared/lib/toast'
-import { disposeEnvMap, getUserData } from '@/shared/three/utils'
-import { useWorldStore } from '@/app/model/world'
+import { getUserData } from '@/shared/three/utils'
 import { useCameraStore } from '@/app/model/camera'
 import { useComposerStore } from '@/app/model/composer'
-import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 
 const isOpen = defineModel<boolean>({ default: false })
 
@@ -145,8 +143,10 @@ function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
 
 	renderScene.background = sourceScene.background?.clone() ?? null
 	renderScene.fog = sourceScene.fog?.clone() ?? null
-	// `environment` is deliberately not copied here — see `renderImage`, which
-	// has the renderer this scene will be drawn with and rebuilds the map for it.
+	// The World's map can be shared straight across now that the render draws with
+	// the viewport's own renderer: `scene.environment` in export mode already holds
+	// `world.environment`, and it is that renderer's PMREM output (ADR-0002).
+	renderScene.environment = sourceScene.environment
 
 	// The World's strength and orientation live in these fields, not in the
 	// textures above. Left at their defaults the render would come out lit at
@@ -177,16 +177,36 @@ async function renderImage() {
 	const originalMode = shadingStore.shadingMode
 	isRendering.value = true
 
-	const { width, height, background, quality, selectedFormat } = renderSettings.value
-
-	actualWidth.value = width
-	actualHeight.value = height
+	const { background, quality, selectedFormat } = renderSettings.value
 
 	setTimeout(() => {
-		let composer: EffectComposer | undefined = undefined
-		let renderer: THREE.WebGLRenderer | undefined = undefined
-		let environment: THREE.Texture | null = null
+		const composerStore = useComposerStore()
+		const renderer = composerStore.rendererRef
+
+		let disposeComposer: (() => void) | undefined = undefined
+		let target: THREE.WebGLRenderTarget | undefined = undefined
 		try {
+			if (!renderer) throw new Error('Viewport renderer is not ready')
+
+			// A target larger than the GPU can allocate reads back blank, so clamp to
+			// the driver's limit and keep the aspect ratio rather than hand back an
+			// empty image. The toast says what happened; the metadata below reports
+			// the size actually rendered.
+			let { width, height } = renderSettings.value
+			const maxSize = renderer.capabilities.maxTextureSize
+			if (width > maxSize || height > maxSize) {
+				const scale = maxSize / Math.max(width, height)
+				width = Math.floor(width * scale)
+				height = Math.floor(height * scale)
+				toast.add({
+					type: 'warning',
+					title: 'Render size reduced',
+					message: `Requested size exceeds this GPU's ${maxSize}px limit; rendered at ${width}x${height}.`
+				})
+			}
+			actualWidth.value = width
+			actualHeight.value = height
+
 			shadingStore.setMode('export')
 
 			const renderScene = createRenderScene(sceneStore.scene as THREE.Scene)
@@ -198,35 +218,47 @@ async function renderImage() {
 
 			displayCanvas.width = width
 			displayCanvas.height = height
+			const context = displayCanvas.getContext('2d')
+			if (!context) throw new Error('2D context unavailable')
 
-			// Create render composer and render directly to display canvas
-			const composerStore = useComposerStore()
+			target = new THREE.WebGLRenderTarget(width, height, {
+				type: THREE.UnsignedByteType,
+				format: THREE.RGBAFormat
+			})
 
 			const imageComposer = composerStore.setupRenderImageComposer({
 				scene: renderScene,
 				camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
-				canvas: displayCanvas
+				renderer,
+				target
 			})
+			disposeComposer = imageComposer.dispose
+			const { composer } = imageComposer
 
-			if (!imageComposer) throw new Error('Renderer initiation error')
-
-			renderer = imageComposer.renderer
-			composer = imageComposer.composer
-
-			// The World's light has to be filtered again here. The map on the
-			// viewport's scene is a render target in the viewport renderer's GL
-			// context and samples black in this one, which left renders showing the
-			// right backdrop over objects lit by scene lights alone.
-			environment = useWorldStore().environmentFor(renderer)
-			renderScene.environment = environment
-
-			renderer.setSize(width, height, false)
-			composer.setSize(width, height)
+			// A target that fits `maxTextureSize` can still fail to allocate — the
+			// GPU can be out of memory. That surfaces as a GL error rather than a
+			// throw, and the read below would otherwise hand back a blank image.
+			// Clear stale errors first so the check is about this render alone.
+			const gl = renderer.getContext()
+			while (gl.getError() !== gl.NO_ERROR) {
+				/* drain */
+			}
 
 			// Measure render time
 			const startTime = performance.now()
 			composer.render()
 			const endTime = performance.now()
+
+			// Read the render back into the 2D display canvas, which `saveImage` and
+			// the preview both encode from. The final result lands in the composer's
+			// read buffer; GL rows run bottom-up, so the copy flips vertically.
+			const buffer = new Uint8Array(width * height * 4)
+			renderer.readRenderTargetPixels(composer.readBuffer, 0, 0, width, height, buffer)
+
+			if (gl.getError() !== gl.NO_ERROR) {
+				throw new Error('The GPU could not render an image this large.')
+			}
+			context.putImageData(toImageData(buffer, width, height), 0, 0)
 
 			renderedImageData.resolution = `${width}x${height}`
 			renderedImageData.format = selectedFormat
@@ -254,13 +286,52 @@ async function renderImage() {
 			})
 			isRendering.value = false
 		} finally {
+			// `dispose` restores the viewport renderer and releases the target with
+			// it (composer.ts). Only free the target here if setup never took it —
+			// a throw before `setupRenderImageComposer` returned.
+			if (disposeComposer) disposeComposer()
+			else target?.dispose()
 			shadingStore.setMode(originalMode)
-			// Built for this render and this renderer, so it goes with them.
-			if (environment) disposeEnvMap(environment)
-			composer?.dispose()
-			renderer?.dispose()
 		}
 	}, 10)
+}
+
+/**
+ * Turns a GL pixel read into `ImageData` for the 2D canvas: rows flipped
+ * top-down, and colour un-premultiplied.
+ *
+ * The render target holds colour already multiplied by coverage — SSAA
+ * accumulates premultiplied samples, and a partly covered edge comes out as
+ * `rgb = colour × alpha`. `ImageData` is straight alpha, and canvas premultiplies
+ * again on `putImageData`, so handing the premultiplied bytes over untouched
+ * darkens every antialiased edge into a fringe. Dividing the colour back out is
+ * what keeps a transparent render's edges clean.
+ */
+function toImageData(buffer: Uint8Array, width: number, height: number): ImageData {
+	const image = new ImageData(width, height)
+	const out = image.data
+	const rowBytes = width * 4
+	for (let y = 0; y < height; y++) {
+		const srcRow = (height - 1 - y) * rowBytes
+		const dstRow = y * rowBytes
+		for (let x = 0; x < rowBytes; x += 4) {
+			const s = srcRow + x
+			const d = dstRow + x
+			const alpha = buffer[s + 3]!
+			out[d + 3] = alpha
+			if (alpha === 0) continue
+			if (alpha === 255) {
+				out[d] = buffer[s]!
+				out[d + 1] = buffer[s + 1]!
+				out[d + 2] = buffer[s + 2]!
+				continue
+			}
+			out[d] = Math.min(255, Math.round((buffer[s]! * 255) / alpha))
+			out[d + 1] = Math.min(255, Math.round((buffer[s + 1]! * 255) / alpha))
+			out[d + 2] = Math.min(255, Math.round((buffer[s + 2]! * 255) / alpha))
+		}
+	}
+	return image
 }
 
 /**

@@ -165,36 +165,6 @@ export const useWorldStore = defineStore('world', () => {
 		return new THREE.Color(current.color).multiplyScalar(strength.value)
 	}
 
-	/**
-	 * The same World's light, filtered for a renderer that is not the viewport's.
-	 *
-	 * `environment` cannot be shared: PMREM output is a render target, and a
-	 * render target has no pixels outside the GL context that produced it.
-	 * Handing the viewport's map to the render image's own renderer lit nothing
-	 * at all — a render came out with the right backdrop and every object lit by
-	 * scene lights alone, because the backdrop is an ordinary image and uploads
-	 * anywhere while the map does not.
-	 *
-	 * The caller owns what it gets back and releases it with `disposeEnvMap`.
-	 * Null when the World has no image to filter — a Surface still loading, or an
-	 * import waiting to be supplied again.
-	 */
-	function environmentFor(renderer: THREE.WebGLRenderer): THREE.Texture | null {
-		const current = surface.value
-		// A colour's image is built for this one call and consumed by it; an
-		// image Surface lends the backdrop it is already showing.
-		const image = current.kind === 'color' ? colorImage(current.color) : surfaceImage.value
-		if (!image) return null
-
-		const generator = new THREE.PMREMGenerator(renderer)
-		try {
-			return textureToEnvMap(image, { keepSource: current.kind !== 'color', generator })
-		} finally {
-			// Frees the generator's scratch targets, not the map it just returned.
-			generator.dispose()
-		}
-	}
-
 	/** The `THREE.Fog` instance for `scene.fog`, or `null` when fog is off. */
 	function sceneFog(): THREE.Fog | THREE.FogExp2 | null {
 		const value = fog.value
@@ -296,7 +266,6 @@ export const useWorldStore = defineStore('world', () => {
 		rotation,
 		fog,
 		environment,
-		environmentFor,
 		needsReimport,
 		background,
 		sceneFog,

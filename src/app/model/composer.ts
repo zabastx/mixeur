@@ -122,18 +122,47 @@ export const useComposerStore = defineStore('composer', () => {
 		return { composer, outlinePass, handleResize }
 	}
 
+	/**
+	 * A post-processing chain that draws one still image with the viewport's own
+	 * renderer, into the caller's `target` rather than to the screen.
+	 *
+	 * Sharing the viewport renderer is the whole point: GPU resources — the
+	 * World's environment map above all — cannot cross GL contexts, and a second
+	 * renderer made them silently sample black (ADR-0002). One renderer draws
+	 * everything, so `world.environment` is usable here directly.
+	 *
+	 * Because that renderer is the live viewport's, this owns putting it back the
+	 * way it found it: `dispose` restores the state a render mutates (issue #29's
+	 * size, pixel ratio, active target, `autoClear`) and releases the passes' own
+	 * GPU resources, which `EffectComposer.dispose` does not touch. `target` is
+	 * handed off here — it becomes the composer's read/write buffer, so
+	 * `composer.dispose()` releases it too; the caller only reads its pixels back.
+	 *
+	 * `setPixelRatio(1)` pins the buffers to the target's exact size — the
+	 * viewport renderer reports a device pixel ratio the composer would otherwise
+	 * multiply the passes by, leaving them larger than the target.
+	 */
 	function setupRenderImageComposer({
 		camera,
-		canvas,
-		scene
+		renderer,
+		scene,
+		target
 	}: {
-		canvas: HTMLCanvasElement
 		camera: THREE.Camera
+		renderer: THREE.WebGLRenderer
 		scene: THREE.Scene
+		target: THREE.WebGLRenderTarget
 	}) {
-		const renderer = setupRenderer({ canvas })
-		const composer = new EffectComposer(renderer)
-		composer.setPixelRatio(window.devicePixelRatio)
+		const savedPixelRatio = renderer.getPixelRatio()
+		const savedSize = renderer.getSize(new THREE.Vector2())
+		const savedTarget = renderer.getRenderTarget()
+		const savedAutoClear = renderer.autoClear
+
+		const composer = new EffectComposer(renderer, target)
+		composer.setPixelRatio(1)
+		// The last pass writes into the composer's buffer, not the framebuffer:
+		// this render never reaches the screen.
+		composer.renderToScreen = false
 
 		const ssaaPass = new SSAARenderPass(scene, camera)
 		composer.addPass(ssaaPass)
@@ -141,7 +170,20 @@ export const useComposerStore = defineStore('composer', () => {
 		const outputPass = new OutputPass()
 		composer.addPass(outputPass)
 
-		return { composer, renderer }
+		return {
+			composer,
+			dispose() {
+				ssaaPass.dispose()
+				outputPass.dispose()
+				// Disposes the handed-in `target` (its `renderTarget1`) with it.
+				composer.dispose()
+
+				renderer.setPixelRatio(savedPixelRatio)
+				renderer.setSize(savedSize.x, savedSize.y, false)
+				renderer.setRenderTarget(savedTarget)
+				renderer.autoClear = savedAutoClear
+			}
+		}
 	}
 
 	/**
