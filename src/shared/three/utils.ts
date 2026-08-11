@@ -119,3 +119,75 @@ export function disposeEnvMap(envMap: THREE.Texture) {
 	target.dispose()
 	envMapTargets.delete(envMap)
 }
+
+/** sRGB transfer function, and its inverse. */
+function srgbToLinear(value: number) {
+	return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)
+}
+
+function linearToSrgb(value: number) {
+	return value <= 0.0031308 ? value * 12.92 : 1.055 * Math.pow(value, 1 / 2.4) - 0.055
+}
+
+/**
+ * Decodes a half-float RGBA read of a render target into `ImageData`.
+ *
+ * Three things have to happen on the way, and the order of the last two is the
+ * whole difficulty:
+ *
+ * 1. **Flip.** GL numbers rows from the bottom, `ImageData` from the top.
+ * 2. **Un-premultiply.** `SSAARenderPass` accumulates premultiplied samples, so a
+ *    partly covered edge holds `colour × alpha` while `ImageData` wants straight
+ *    (unassociated) alpha.
+ * 3. **Decode to 8 bits.** `OutputPass` has already tone mapped and sRGB-encoded,
+ *    so the values are display-ready `[0,1]`.
+ *
+ * The division belongs in *linear* light, not where the buffer leaves it.
+ * `sRGBTransferOETF` encodes RGB and passes alpha through untouched, so the
+ * buffer holds `srgb(colour × alpha)` beside a straight alpha — dividing the
+ * encoded value overshoots badly (colour 0.5 at alpha 0.5 gives
+ * `srgb(0.25) / 0.5 ≈ 1.07`, clipped to white) and rims every transparent
+ * render in bright fringes. Hence decode, divide, re-encode.
+ *
+ * Fully opaque pixels skip all of it, which is almost every pixel of a typical
+ * render and keeps the two `pow` calls to the edges that need them.
+ */
+export function imageDataFromHalfFloat(
+	buffer: Uint16Array,
+	width: number,
+	height: number
+): ImageData {
+	const image = new ImageData(width, height)
+	const out = image.data
+	const rowBytes = width * 4
+	const toByte = (value: number) => Math.max(0, Math.min(255, Math.round(value * 255)))
+
+	for (let y = 0; y < height; y++) {
+		const srcRow = (height - 1 - y) * rowBytes
+		const dstRow = y * rowBytes
+		for (let x = 0; x < rowBytes; x += 4) {
+			const s = srcRow + x
+			const d = dstRow + x
+
+			const alpha = THREE.DataUtils.fromHalfFloat(buffer[s + 3]!)
+			out[d + 3] = toByte(alpha)
+			if (alpha <= 0) continue
+
+			const red = THREE.DataUtils.fromHalfFloat(buffer[s]!)
+			const green = THREE.DataUtils.fromHalfFloat(buffer[s + 1]!)
+			const blue = THREE.DataUtils.fromHalfFloat(buffer[s + 2]!)
+
+			if (alpha >= 1) {
+				out[d] = toByte(red)
+				out[d + 1] = toByte(green)
+				out[d + 2] = toByte(blue)
+				continue
+			}
+
+			out[d] = toByte(linearToSrgb(srgbToLinear(red) / alpha))
+			out[d + 1] = toByte(linearToSrgb(srgbToLinear(green) / alpha))
+			out[d + 2] = toByte(linearToSrgb(srgbToLinear(blue) / alpha))
+		}
+	}
+	return image
+}

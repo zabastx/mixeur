@@ -177,36 +177,16 @@ async function renderImage() {
 	const originalMode = shadingStore.shadingMode
 	isRendering.value = true
 
-	const { background, quality, selectedFormat } = renderSettings.value
+	const {
+		background,
+		quality,
+		selectedFormat,
+		width: requestedWidth,
+		height: requestedHeight
+	} = renderSettings.value
 
 	setTimeout(() => {
-		const composerStore = useComposerStore()
-		const renderer = composerStore.rendererRef
-
-		let disposeComposer: (() => void) | undefined = undefined
-		let target: THREE.WebGLRenderTarget | undefined = undefined
 		try {
-			if (!renderer) throw new Error('Viewport renderer is not ready')
-
-			// A target larger than the GPU can allocate reads back blank, so clamp to
-			// the driver's limit and keep the aspect ratio rather than hand back an
-			// empty image. The toast says what happened; the metadata below reports
-			// the size actually rendered.
-			let { width, height } = renderSettings.value
-			const maxSize = renderer.capabilities.maxTextureSize
-			if (width > maxSize || height > maxSize) {
-				const scale = maxSize / Math.max(width, height)
-				width = Math.floor(width * scale)
-				height = Math.floor(height * scale)
-				toast.add({
-					type: 'warning',
-					title: 'Render size reduced',
-					message: `Requested size exceeds this GPU's ${maxSize}px limit; rendered at ${width}x${height}.`
-				})
-			}
-			actualWidth.value = width
-			actualHeight.value = height
-
 			shadingStore.setMode('export')
 
 			const renderScene = createRenderScene(sceneStore.scene as THREE.Scene)
@@ -216,59 +196,34 @@ async function renderImage() {
 			// two places to set a background is how they drift apart.
 			if (!background) renderScene.background = null
 
+			const startTime = performance.now()
+			const { image, width, height } = useComposerStore().renderImage({
+				scene: renderScene,
+				camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
+				width: requestedWidth,
+				height: requestedHeight
+			})
+			const endTime = performance.now()
+
+			// What came back may be smaller than what was asked for: the GPU caps how
+			// large a target can be. Everything downstream — the metadata, the saved
+			// filename — follows these, not the request.
+			if (width !== requestedWidth || height !== requestedHeight) {
+				toast.add({
+					type: 'warning',
+					title: 'Render size reduced',
+					message: `This GPU could not render ${requestedWidth}x${requestedHeight}; rendered at ${width}x${height}.`
+				})
+			}
+			actualWidth.value = width
+			actualHeight.value = height
+
+			// The 2D canvas is what `saveImage` and the preview both encode from.
 			displayCanvas.width = width
 			displayCanvas.height = height
 			const context = displayCanvas.getContext('2d')
 			if (!context) throw new Error('2D context unavailable')
-
-			// Half float, matching what `EffectComposer` builds for itself when it is
-			// left to size its own buffers. The chain carries linear HDR: SSAA adds
-			// 16 jittered samples at ~1/16 weight each, and a point light drives
-			// radiance well past 1. An 8-bit buffer here rounds every one of those
-			// small additions up to the nearest 1/255 and clips anything over 1
-			// before `OutputPass` tone maps it — darks lift, highlights flatten, and
-			// the same scene came out 26% brighter than the viewport shows it.
-			target = new THREE.WebGLRenderTarget(width, height, {
-				type: THREE.HalfFloatType,
-				format: THREE.RGBAFormat
-			})
-
-			const imageComposer = composerStore.setupRenderImageComposer({
-				scene: renderScene,
-				camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
-				renderer,
-				target
-			})
-			disposeComposer = imageComposer.dispose
-			const { composer } = imageComposer
-
-			// A target that fits `maxTextureSize` can still fail to allocate — the
-			// GPU can be out of memory. That surfaces as a GL error rather than a
-			// throw, and the read below would otherwise hand back a blank image.
-			// Clear stale errors first so the check is about this render alone.
-			const gl = renderer.getContext()
-			while (gl.getError() !== gl.NO_ERROR) {
-				/* drain */
-			}
-
-			// Measure render time
-			const startTime = performance.now()
-			composer.render()
-			const endTime = performance.now()
-
-			// Read the render back into the 2D display canvas, which `saveImage` and
-			// the preview both encode from. The final result lands in the composer's
-			// read buffer; GL rows run bottom-up, so the copy flips vertically.
-			// `Uint16Array` because the buffer is half float — `OutputPass` has
-			// already tone mapped and sRGB-encoded, so the values it holds are the
-			// display-ready [0,1] the canvas wants, just not yet in 8 bits.
-			const buffer = new Uint16Array(width * height * 4)
-			renderer.readRenderTargetPixels(composer.readBuffer, 0, 0, width, height, buffer)
-
-			if (gl.getError() !== gl.NO_ERROR) {
-				throw new Error('The GPU could not render an image this large.')
-			}
-			context.putImageData(toImageData(buffer, width, height), 0, 0)
+			context.putImageData(image, 0, 0)
 
 			renderedImageData.resolution = `${width}x${height}`
 			renderedImageData.format = selectedFormat
@@ -296,60 +251,9 @@ async function renderImage() {
 			})
 			isRendering.value = false
 		} finally {
-			// `dispose` restores the viewport renderer and releases the target with
-			// it (composer.ts). Only free the target here if setup never took it —
-			// a throw before `setupRenderImageComposer` returned.
-			if (disposeComposer) disposeComposer()
-			else target?.dispose()
 			shadingStore.setMode(originalMode)
 		}
 	}, 10)
-}
-
-/**
- * Turns a half-float GL pixel read into `ImageData` for the 2D canvas: half
- * floats decoded to 8 bits, rows flipped top-down, and colour un-premultiplied.
- *
- * The read comes back bottom-up, as GL rows always do, and holds colour already
- * multiplied by coverage — SSAA accumulates premultiplied samples, so a partly
- * covered edge is `rgb = colour × alpha`. `ImageData` is straight alpha, and the
- * canvas premultiplies again on `putImageData`, so handing those values over
- * untouched darkens every antialiased edge into a fringe. Dividing the colour
- * back out is what keeps a transparent render's edges clean.
- */
-function toImageData(buffer: Uint16Array, width: number, height: number): ImageData {
-	const image = new ImageData(width, height)
-	const out = image.data
-	const rowBytes = width * 4
-	// `OutputPass` leaves display-ready [0,1] values, so the only conversion left
-	// is the 8 bits the canvas stores.
-	const toByte = (value: number) => Math.max(0, Math.min(255, Math.round(value * 255)))
-
-	for (let y = 0; y < height; y++) {
-		const srcRow = (height - 1 - y) * rowBytes
-		const dstRow = y * rowBytes
-		for (let x = 0; x < rowBytes; x += 4) {
-			const s = srcRow + x
-			const d = dstRow + x
-			const alpha = THREE.DataUtils.fromHalfFloat(buffer[s + 3]!)
-			out[d + 3] = toByte(alpha)
-			if (alpha <= 0) continue
-
-			const red = THREE.DataUtils.fromHalfFloat(buffer[s]!)
-			const green = THREE.DataUtils.fromHalfFloat(buffer[s + 1]!)
-			const blue = THREE.DataUtils.fromHalfFloat(buffer[s + 2]!)
-			if (alpha >= 1) {
-				out[d] = toByte(red)
-				out[d + 1] = toByte(green)
-				out[d + 2] = toByte(blue)
-				continue
-			}
-			out[d] = toByte(red / alpha)
-			out[d + 1] = toByte(green / alpha)
-			out[d + 2] = toByte(blue / alpha)
-		}
-	}
-	return image
 }
 
 /**
@@ -357,7 +261,12 @@ function toImageData(buffer: Uint16Array, width: number, height: number): ImageD
  */
 async function saveImage() {
 	try {
-		const { selectedFormat, quality, width, height } = renderSettings.value
+		const { selectedFormat, quality } = renderSettings.value
+		// The size on the canvas, not the one in the settings: a request the GPU
+		// could not meet was rendered smaller, and a file named for the request
+		// would say 10000x5000 over 8192x4096 pixels.
+		const width = actualWidth.value
+		const height = actualHeight.value
 
 		const blob = await new Promise<Blob | null>((resolve) => {
 			displayCanvas.toBlob(
