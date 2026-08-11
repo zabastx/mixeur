@@ -12,7 +12,7 @@ import {
 import { createMesh } from '@/shared/three/modules/mesh'
 import { createCamera } from '@/shared/three/modules/camera/create'
 import { exportModel } from '@/shared/three/modules/addons/exporter'
-import { getUserData, enableBVH, isWithin } from '@/shared/three/utils'
+import { getUserData, enableBVH, isWithin, cloneForSerialization } from '@/shared/three/utils'
 import { useShadingStore } from './shading'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP } from './types/world'
@@ -273,21 +273,39 @@ export const useSceneStore = defineStore('scene', () => {
 		}
 	}
 
+	/**
+	 * Puts the material each mesh is really made of onto its clone, throughout
+	 * the subtree.
+	 *
+	 * Below rendered, `mesh.material` is the shading mode's stand-in — the black
+	 * wireframe, the flat grey — so anything written out has to take the cached
+	 * original in its place, and take it for nested meshes too: an imported glTF
+	 * arrives as a Group with every one of its meshes inside it.
+	 *
+	 * A mesh with nothing cached is left as it is. Nothing shades it, so
+	 * `mesh.material` is the only material it has.
+	 */
+	function restoreOriginalMaterials(cloneOf: Map<THREE.Object3D, THREE.Object3D>) {
+		const { getMaterialCache } = useShadingStore()
+
+		cloneOf.forEach((clone, source) => {
+			if (!(source instanceof THREE.Mesh) || !(clone instanceof THREE.Mesh)) return
+			const cachedMaterials = getMaterialCache(source)
+			if (cachedMaterials) clone.material = cachedMaterials.original
+		})
+	}
+
 	function objectToJSON(uuid: string) {
 		const object = scene.value.getObjectByProperty('uuid', uuid)
 		if (!object) return
 
-		const newObj = object.clone()
+		const { clone, cloneOf } = cloneForSerialization(object)
+		restoreOriginalMaterials(cloneOf)
 
-		if (newObj instanceof THREE.Mesh) {
-			const { materialCache } = useShadingStore()
-			newObj.material = materialCache.get(object.uuid)?.original
-		}
-
-		const json = newObj.toJSON()
+		const json = clone.toJSON()
 		json.object.userData = {}
 		const blob = new Blob([JSON.stringify(json)], { type: 'application/json' })
-		downloadFile(blob, `${newObj.name || newObj.type}.json`)
+		downloadFile(blob, `${clone.name || clone.type}.json`)
 	}
 
 	async function importJSON(data: string | Record<string, unknown>) {
@@ -322,7 +340,6 @@ export const useSceneStore = defineStore('scene', () => {
 	function saveProjectFile() {
 		const toast = useToast()
 		try {
-			const { materialCache } = useShadingStore()
 			const cameraStore = useCameraStore()
 
 			let renderCameraUUID: string | null = null
@@ -332,20 +349,24 @@ export const useSceneStore = defineStore('scene', () => {
 			scene.value.children.forEach((child) => {
 				if (getUserData(child).isHelper) return
 
-				const childClone = child.clone()
+				const { clone: childClone, cloneOf } = cloneForSerialization(child)
 
-				if (child.uuid === cameraStore.renderCamera?.uuid) {
-					renderCameraUUID = childClone.uuid
-				}
+				restoreOriginalMaterials(cloneOf)
 
-				if (childClone instanceof THREE.Mesh) {
-					const cachedMaterials = materialCache.get(child.uuid)
-					if (childClone.geometry instanceof TextGeometry) {
-						childClone.geometry.userData = getUserData(child).text ?? {}
+				// The render camera at whatever depth it sits: cameras can be re-parented
+				// into groups, and the clone carries a fresh uuid, so the one saved has to
+				// be the clone's or the reopened project finds nothing to render with.
+				cloneOf.forEach((clone, source) => {
+					if (source.uuid === cameraStore.renderCamera?.uuid) {
+						renderCameraUUID = clone.uuid
 					}
 
-					childClone.material = cachedMaterials?.original
-				}
+					// Text remembers the string it was built from in the source's user
+					// data; the geometry has to carry it or the text is no longer editable.
+					if (clone instanceof THREE.Mesh && clone.geometry instanceof TextGeometry) {
+						clone.geometry.userData = getUserData(source).text ?? {}
+					}
+				})
 
 				exportScene.add(childClone)
 			})

@@ -58,6 +58,48 @@ export function isWithin(node: THREE.Object3D | null, root: THREE.Object3D) {
 	return false
 }
 
+/**
+ * Clones a subtree for writing out, keeping a way back to every node it came
+ * from.
+ *
+ * `Object3D.clone()` gives the copy fresh uuids, which severs it from everything
+ * the editor remembers against the source's uuid — cached original materials,
+ * the render camera's identity. Serialization has to look each of those up per
+ * node, and a call site left to walk the two trees itself tends to reach the
+ * root and stop, which costs every nested mesh its material.
+ *
+ * The returned `cloneOf` maps each source node to its twin, so callers can
+ * iterate the whole subtree once and patch the clone by lookup.
+ *
+ * The pairing is built rather than inferred. Matching the two trees up
+ * afterwards means guessing a correspondence — by child index, since a clone
+ * carries none of the source's uuids — and that guess is only as good as
+ * `clone()` copying children one for one in order. Several classes do not:
+ * `DirectionalLight`, `RectAreaLight`, `LightProbe`, `BatchedMesh` and `LOD` all
+ * declare `copy( source )` and drop the `recursive` flag, and `LOD` re-adds its
+ * levels in distance order. A guess that silently slips by one costs a mesh its
+ * material with nothing to show for it, so the children are cloned here, one at
+ * a time, and each pair recorded as it is made.
+ */
+export function cloneForSerialization(source: THREE.Object3D) {
+	const cloneOf = new Map<THREE.Object3D, THREE.Object3D>()
+
+	function cloneNode(node: THREE.Object3D): THREE.Object3D {
+		// Emptied because `clone( false )` is a request, not a guarantee — the
+		// classes above deep-copy regardless, and those copies are the ones with no
+		// entry in the map. The children that count are added back below.
+		const clone = node.clone(false)
+		clone.clear()
+
+		cloneOf.set(node, clone)
+		node.children.forEach((child) => clone.add(cloneNode(child)))
+
+		return clone
+	}
+
+	return { clone: cloneNode(source), cloneOf }
+}
+
 export function getUserData(obj: THREE.Object3D): MxObjectUserData {
 	if (!obj.userData.mixeur) obj.userData.mixeur = {}
 	return obj.userData.mixeur

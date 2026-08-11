@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Saving a project while the viewport was in wireframe or solid shading wrote those stand-in materials into the file in place of the real ones. Only objects sitting directly in the scene kept theirs, and an imported model arrives as a group with its meshes inside it, so its materials were the ones lost — the project reopened flat grey or black wireframe with no way back to the originals. Exporting an object to JSON had the same hole in it
+- A project whose render camera sat inside a group reopened with no camera set to render. Cameras can be moved into groups like anything else, but only the ones at the top level of the scene were noted down when the project was saved
 - Rendering image after image in one sitting could leave the viewport blank. Every render claimed a graphics context of its own, and a browser keeps only so many per page — around sixteen in Chrome — before quietly dropping the oldest, which was the viewport's. Renders share the viewport's context now, so there is none left to run out of
 
 ## [0.31.0] - 2026-08-09
