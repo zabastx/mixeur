@@ -12,7 +12,14 @@ import {
 import { createMesh } from '@/shared/three/modules/mesh'
 import { createCamera } from '@/shared/three/modules/camera/create'
 import { exportModel } from '@/shared/three/modules/addons/exporter'
-import { getUserData, enableBVH, isWithin, cloneForSerialization } from '@/shared/three/utils'
+import {
+	getUserData,
+	enableBVH,
+	isWithin,
+	cloneForSerialization,
+	meshesMissingBones,
+	sceneForSerialization
+} from '@/shared/three/utils'
 import { useShadingStore } from './shading'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP } from './types/world'
@@ -302,6 +309,21 @@ export const useSceneStore = defineStore('scene', () => {
 		const { clone, cloneOf } = cloneForSerialization(object)
 		restoreOriginalMaterials(cloneOf)
 
+		// Nothing of this export would survive being read back: it is one object,
+		// and the bones posing it are not in it. Refused rather than written, which
+		// is the whole difference from the scene-wide saves, where the rigs that do
+		// come out whole are still worth writing.
+		const missingBones = meshesMissingBones(clone)
+		if (missingBones.length > 0) {
+			const mesh = missingBones[0].name || 'This skinned mesh'
+			useToast().add({
+				type: 'error',
+				title: 'Cannot export this object on its own',
+				message: `${mesh} is posed by bones outside it. Export the object holding those bones instead.`
+			})
+			return
+		}
+
 		const json = clone.toJSON()
 		json.object.userData = {}
 		const blob = new Blob([JSON.stringify(json)], { type: 'application/json' })
@@ -344,31 +366,41 @@ export const useSceneStore = defineStore('scene', () => {
 
 			let renderCameraUUID: string | null = null
 
-			const exportScene = new THREE.Scene()
+			// Cloned across the scene in one pass rather than per child: the outliner
+			// can re-parent a skinned mesh away from the bones posing it, and only a
+			// pass that sees every kept child at once can bind the two back together.
+			const {
+				scene: exportScene,
+				cloneOf,
+				missingBones
+			} = sceneForSerialization(scene.value, (child) => !getUserData(child).isHelper)
 
-			scene.value.children.forEach((child) => {
-				if (getUserData(child).isHelper) return
+			restoreOriginalMaterials(cloneOf)
 
-				const { clone: childClone, cloneOf } = cloneForSerialization(child)
-
-				restoreOriginalMaterials(cloneOf)
-
-				// The render camera at whatever depth it sits: cameras can be re-parented
-				// into groups, and the clone carries a fresh uuid, so the one saved has to
-				// be the clone's or the reopened project finds nothing to render with.
-				cloneOf.forEach((clone, source) => {
-					if (source.uuid === cameraStore.renderCamera?.uuid) {
-						renderCameraUUID = clone.uuid
-					}
-
-					// Text remembers the string it was built from in the source's user
-					// data; the geometry has to carry it or the text is no longer editable.
-					if (clone instanceof THREE.Mesh && clone.geometry instanceof TextGeometry) {
-						clone.geometry.userData = getUserData(source).text ?? {}
-					}
+			// Saved anyway: one stranded rig is not worth losing the project over,
+			// and the rest of the file is sound. Said out loud because that rig will
+			// come back collapsed and nothing else would explain why.
+			if (missingBones.length > 0) {
+				toast.add({
+					type: 'warning',
+					title: 'A rig will not survive this save',
+					message: `${missingBones[0].name || 'A skinned mesh'} is posed by bones the project does not save. Move it and those bones under the same object.`
 				})
+			}
 
-				exportScene.add(childClone)
+			// The render camera at whatever depth it sits: cameras can be re-parented
+			// into groups, and the clone carries a fresh uuid, so the one saved has to
+			// be the clone's or the reopened project finds nothing to render with.
+			cloneOf.forEach((clone, source) => {
+				if (source.uuid === cameraStore.renderCamera?.uuid) {
+					renderCameraUUID = clone.uuid
+				}
+
+				// Text remembers the string it was built from in the source's user
+				// data; the geometry has to carry it or the text is no longer editable.
+				if (clone instanceof THREE.Mesh && clone.geometry instanceof TextGeometry) {
+					clone.geometry.userData = getUserData(source).text ?? {}
+				}
 			})
 
 			const data = {
