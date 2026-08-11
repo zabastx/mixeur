@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-08-11
+
 ### Changed
 
 - Rendering an image is much faster. A render used to build a second renderer from scratch every time, which meant re-uploading every texture and recompiling every shader before it could start drawing; it now draws with the one the viewport is already using, so a render that took several seconds takes a fraction of one
@@ -52,5 +54,6 @@ Released versions are archived once the current file grows past a `0.x0` boundar
 - [0.21.0 – 0.30.2](changelogs/CHANGELOG-0.30.2.md)
 - [0.1.0 – 0.20.0](changelogs/CHANGELOG-0.20.0.md)
 
-[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/zabastx/mixeur/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/zabastx/mixeur/compare/v0.30.2...v0.31.0
