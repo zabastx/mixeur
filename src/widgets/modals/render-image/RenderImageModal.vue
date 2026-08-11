@@ -97,11 +97,9 @@ import { useModals } from '@/shared/lib/modals'
 import { downloadFile } from '@/shared/lib/files'
 import type { RenderSettings } from './RenderImageSettings.vue'
 import { useToast } from '@/shared/lib/toast'
-import { disposeEnvMap, getUserData } from '@/shared/three/utils'
-import { useWorldStore } from '@/app/model/world'
+import { getUserData } from '@/shared/three/utils'
 import { useCameraStore } from '@/app/model/camera'
 import { useComposerStore } from '@/app/model/composer'
-import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 
 const isOpen = defineModel<boolean>({ default: false })
 
@@ -145,8 +143,10 @@ function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
 
 	renderScene.background = sourceScene.background?.clone() ?? null
 	renderScene.fog = sourceScene.fog?.clone() ?? null
-	// `environment` is deliberately not copied here — see `renderImage`, which
-	// has the renderer this scene will be drawn with and rebuilds the map for it.
+	// The World's map can be shared straight across now that the render draws with
+	// the viewport's own renderer: `scene.environment` in export mode already holds
+	// `world.environment`, and it is that renderer's PMREM output (ADR-0002).
+	renderScene.environment = sourceScene.environment
 
 	// The World's strength and orientation live in these fields, not in the
 	// textures above. Left at their defaults the render would come out lit at
@@ -177,15 +177,15 @@ async function renderImage() {
 	const originalMode = shadingStore.shadingMode
 	isRendering.value = true
 
-	const { width, height, background, quality, selectedFormat } = renderSettings.value
-
-	actualWidth.value = width
-	actualHeight.value = height
+	const {
+		background,
+		quality,
+		selectedFormat,
+		width: requestedWidth,
+		height: requestedHeight
+	} = renderSettings.value
 
 	setTimeout(() => {
-		let composer: EffectComposer | undefined = undefined
-		let renderer: THREE.WebGLRenderer | undefined = undefined
-		let environment: THREE.Texture | null = null
 		try {
 			shadingStore.setMode('export')
 
@@ -196,37 +196,34 @@ async function renderImage() {
 			// two places to set a background is how they drift apart.
 			if (!background) renderScene.background = null
 
-			displayCanvas.width = width
-			displayCanvas.height = height
-
-			// Create render composer and render directly to display canvas
-			const composerStore = useComposerStore()
-
-			const imageComposer = composerStore.setupRenderImageComposer({
+			const startTime = performance.now()
+			const { image, width, height } = useComposerStore().renderImage({
 				scene: renderScene,
 				camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
-				canvas: displayCanvas
+				width: requestedWidth,
+				height: requestedHeight
 			})
-
-			if (!imageComposer) throw new Error('Renderer initiation error')
-
-			renderer = imageComposer.renderer
-			composer = imageComposer.composer
-
-			// The World's light has to be filtered again here. The map on the
-			// viewport's scene is a render target in the viewport renderer's GL
-			// context and samples black in this one, which left renders showing the
-			// right backdrop over objects lit by scene lights alone.
-			environment = useWorldStore().environmentFor(renderer)
-			renderScene.environment = environment
-
-			renderer.setSize(width, height, false)
-			composer.setSize(width, height)
-
-			// Measure render time
-			const startTime = performance.now()
-			composer.render()
 			const endTime = performance.now()
+
+			// What came back may be smaller than what was asked for: the GPU caps how
+			// large a target can be. Everything downstream — the metadata, the saved
+			// filename — follows these, not the request.
+			if (width !== requestedWidth || height !== requestedHeight) {
+				toast.add({
+					type: 'warning',
+					title: 'Render size reduced',
+					message: `This GPU could not render ${requestedWidth}x${requestedHeight}; rendered at ${width}x${height}.`
+				})
+			}
+			actualWidth.value = width
+			actualHeight.value = height
+
+			// The 2D canvas is what `saveImage` and the preview both encode from.
+			displayCanvas.width = width
+			displayCanvas.height = height
+			const context = displayCanvas.getContext('2d')
+			if (!context) throw new Error('2D context unavailable')
+			context.putImageData(image, 0, 0)
 
 			renderedImageData.resolution = `${width}x${height}`
 			renderedImageData.format = selectedFormat
@@ -255,10 +252,6 @@ async function renderImage() {
 			isRendering.value = false
 		} finally {
 			shadingStore.setMode(originalMode)
-			// Built for this render and this renderer, so it goes with them.
-			if (environment) disposeEnvMap(environment)
-			composer?.dispose()
-			renderer?.dispose()
 		}
 	}, 10)
 }
@@ -268,7 +261,12 @@ async function renderImage() {
  */
 async function saveImage() {
 	try {
-		const { selectedFormat, quality, width, height } = renderSettings.value
+		const { selectedFormat, quality } = renderSettings.value
+		// The size on the canvas, not the one in the settings: a request the GPU
+		// could not meet was rendered smaller, and a file named for the request
+		// would say 10000x5000 over 8192x4096 pixels.
+		const width = actualWidth.value
+		const height = actualHeight.value
 
 		const blob = await new Promise<Blob | null>((resolve) => {
 			displayCanvas.toBlob(

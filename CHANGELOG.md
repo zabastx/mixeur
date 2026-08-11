@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Rendering an image is much faster. A render used to build a second renderer from scratch every time, which meant re-uploading every texture and recompiling every shader before it could start drawing; it now draws with the one the viewport is already using, so a render that took several seconds takes a fraction of one
+- Asking for a render larger than the graphics card can hold now scales it down to a size the card supports, keeps its proportions and tells you which size it used, and the saved file is named for the size actually rendered rather than the one asked for. Nothing checked the request against the hardware before, and where that ceiling sits varies by machine
+
+### Fixed
+
+- Rendering image after image in one sitting could leave the viewport blank. Every render claimed a graphics context of its own, and a browser keeps only so many per page — around sixteen in Chrome — before quietly dropping the oldest, which was the viewport's. Renders share the viewport's context now, so there is none left to run out of
+
 ## [0.31.0] - 2026-08-09
 
 ### Added
@@ -37,4 +48,5 @@ Released versions are archived once the current file grows past a `0.x0` boundar
 - [0.21.0 – 0.30.2](changelogs/CHANGELOG-0.30.2.md)
 - [0.1.0 – 0.20.0](changelogs/CHANGELOG-0.20.0.md)
 
+[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.31.0...HEAD
 [0.31.0]: https://github.com/zabastx/mixeur/compare/v0.30.2...v0.31.0

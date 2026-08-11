@@ -4,6 +4,7 @@ import {
 	disposePMREMGenerator,
 	initPMREMGenerator
 } from '@/shared/three/modules/extras/pmremGenerator'
+import { imageDataFromHalfFloat } from '@/shared/three/utils'
 import { attachRenderer, detachRenderer } from '@/shared/three/modules/loaders/renderer-context'
 import { disposeStudioLightCache } from '@/shared/three/modules/loaders/studio-light'
 import { useWorldStore } from './world'
@@ -122,26 +123,123 @@ export const useComposerStore = defineStore('composer', () => {
 		return { composer, outlinePass, handleResize }
 	}
 
-	function setupRenderImageComposer({
+	/**
+	 * Draws one still image of `scene` and hands back its pixels.
+	 *
+	 * The viewport's own renderer does the drawing, offscreen, into a target this
+	 * function owns from allocation to disposal. Sharing that renderer is the
+	 * point: GPU resources — the World's environment map above all — cannot cross
+	 * GL contexts, and the second renderer this replaced made them silently sample
+	 * black (ADR-0002). One renderer draws everything, so `world.environment` is
+	 * usable directly.
+	 *
+	 * Everything GL-side lives here rather than at the call site, which wants a
+	 * picture and not a framebuffer. The returned size is the size actually
+	 * rendered: a request past `maxTextureSize` is scaled down with its aspect
+	 * kept, because a target the driver cannot allocate reads back blank and a
+	 * smaller picture beats no picture. Compare it against what you asked for to
+	 * find out whether that happened.
+	 *
+	 * Throws rather than returning something empty — a blank image that looks
+	 * deliberate is the failure mode worth avoiding here.
+	 */
+	function renderImage({
 		camera,
-		canvas,
-		scene
+		height,
+		scene,
+		width
 	}: {
-		canvas: HTMLCanvasElement
 		camera: THREE.Camera
+		height: number
 		scene: THREE.Scene
-	}) {
-		const renderer = setupRenderer({ canvas })
-		const composer = new EffectComposer(renderer)
-		composer.setPixelRatio(window.devicePixelRatio)
+		width: number
+	}): { image: ImageData; width: number; height: number } {
+		const renderer = rendererRef.value
+		if (!renderer) throw new Error('The viewport renderer is not ready.')
+
+		// Half float, matching what `EffectComposer` builds when left to size its
+		// own buffers, and readable only where the extension backing it is. The
+		// chain carries linear HDR: SSAA adds 16 jittered samples at ~1/16 weight
+		// each and a point light drives radiance past 1, so an 8-bit buffer rounds
+		// every small addition up to the nearest 1/255 and clips the rest before
+		// `OutputPass` tone maps it — measured as a 26% overexposure (issue #29).
+		if (!renderer.capabilities.textureTypeReadable(THREE.HalfFloatType)) {
+			throw new Error('This GPU cannot read back high-precision renders.')
+		}
+
+		const maxSize = renderer.capabilities.maxTextureSize
+		const scale = Math.min(1, maxSize / Math.max(width, height))
+		const targetWidth = Math.max(1, Math.floor(width * scale))
+		const targetHeight = Math.max(1, Math.floor(height * scale))
+
+		const target = new THREE.WebGLRenderTarget(targetWidth, targetHeight, {
+			type: THREE.HalfFloatType,
+			format: THREE.RGBAFormat
+		})
+
+		// The passes restore what they touch — `EffectComposer.render` puts the
+		// active target back, `SSAARenderPass` puts `autoClear` and the clear
+		// colour back — and nothing here resizes the renderer. This snapshot is
+		// belt and braces for the case they cannot cover: a throw partway through
+		// leaves their own restores unrun, and the viewport must not inherit a
+		// half-finished render's state.
+		const savedPixelRatio = renderer.getPixelRatio()
+		const savedSize = renderer.getSize(new THREE.Vector2())
+		const savedTarget = renderer.getRenderTarget()
+		const savedAutoClear = renderer.autoClear
+
+		// `target` becomes the composer's `renderTarget1` and is disposed with it;
+		// `renderTarget2` is the clone the result actually lands in, which is why
+		// the read below goes through `readBuffer` rather than `target`.
+		const composer = new EffectComposer(renderer, target)
+		// Pins the buffers to the target's exact size: the viewport renderer
+		// reports a device pixel ratio the composer would otherwise multiply the
+		// passes by, leaving them larger than the target.
+		composer.setPixelRatio(1)
+		// The last pass writes into the composer's buffer, not the framebuffer:
+		// this render never reaches the screen.
+		composer.renderToScreen = false
 
 		const ssaaPass = new SSAARenderPass(scene, camera)
 		composer.addPass(ssaaPass)
-
 		const outputPass = new OutputPass()
 		composer.addPass(outputPass)
 
-		return { composer, renderer }
+		try {
+			// A target inside `maxTextureSize` can still fail to allocate on a GPU
+			// that is out of memory, which surfaces as a GL error rather than a
+			// throw. Drain stale errors first so the check below is about this
+			// render alone.
+			const gl = renderer.getContext()
+			while (gl.getError() !== gl.NO_ERROR) {
+				/* drain */
+			}
+
+			composer.render()
+
+			const buffer = new Uint16Array(targetWidth * targetHeight * 4)
+			renderer.readRenderTargetPixels(composer.readBuffer, 0, 0, targetWidth, targetHeight, buffer)
+
+			if (gl.getError() !== gl.NO_ERROR) {
+				throw new Error('The GPU failed while rendering the image.')
+			}
+
+			return {
+				image: imageDataFromHalfFloat(buffer, targetWidth, targetHeight),
+				width: targetWidth,
+				height: targetHeight
+			}
+		} finally {
+			ssaaPass.dispose()
+			outputPass.dispose()
+			// Releases `target` — its `renderTarget1` — along with the clone.
+			composer.dispose()
+
+			renderer.setPixelRatio(savedPixelRatio)
+			renderer.setSize(savedSize.x, savedSize.y, false)
+			renderer.setRenderTarget(savedTarget)
+			renderer.autoClear = savedAutoClear
+		}
 	}
 
 	/**
@@ -226,7 +324,7 @@ export const useComposerStore = defineStore('composer', () => {
 	return {
 		composerPasses,
 		init,
-		setupRenderImageComposer,
+		renderImage,
 		rendererRef,
 		outlinePassRef,
 		setOutlineObjects,
