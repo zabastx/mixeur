@@ -80,24 +80,139 @@ export function isWithin(node: THREE.Object3D | null, root: THREE.Object3D) {
  * levels in distance order. A guess that silently slips by one costs a mesh its
  * material with nothing to show for it, so the children are cloned here, one at
  * a time, and each pair recorded as it is made.
+ *
+ * The same pairing is what makes a rig survive the trip. A `SkinnedMesh` is
+ * posed by a `Skeleton` holding bones that live beside it in the tree rather
+ * than inside it, and `SkinnedMesh.copy` shares the source's skeleton outright —
+ * so a clone is posed by the *source's* bones while its own copies of them carry
+ * fresh uuids. `toJSON` then writes a skeleton naming bones the file does not
+ * contain, `ObjectLoader` resolves none of them and substitutes loose `Bone`s
+ * left at identity, and every skinned mesh loads collapsed onto its bones'
+ * origins; `GLTFExporter` writes `"joints": [null, …]` from the same cause. So
+ * each cloned mesh is re-bound to the cloned bones before the clone is handed
+ * back.
  */
 export function cloneForSerialization(source: THREE.Object3D) {
 	const cloneOf = new Map<THREE.Object3D, THREE.Object3D>()
+	const clone = cloneInto(source, cloneOf)
+	rebindSkeletons(cloneOf)
+	return { clone, cloneOf }
+}
 
-	function cloneNode(node: THREE.Object3D): THREE.Object3D {
-		// Emptied because `clone( false )` is a request, not a guarantee — the
-		// classes above deep-copy regardless, and those copies are the ones with no
-		// entry in the map. The children that count are added back below.
-		const clone = node.clone(false)
-		clone.clear()
+/** Clones `node` and everything under it, recording each pair in `cloneOf`. */
+function cloneInto(node: THREE.Object3D, cloneOf: Map<THREE.Object3D, THREE.Object3D>) {
+	// Emptied because `clone( false )` is a request, not a guarantee — the
+	// classes above deep-copy regardless, and those copies are the ones with no
+	// entry in the map. The children that count are added back below.
+	const clone = node.clone(false)
+	clone.clear()
 
-		cloneOf.set(node, clone)
-		node.children.forEach((child) => clone.add(cloneNode(child)))
+	cloneOf.set(node, clone)
+	node.children.forEach((child) => clone.add(cloneInto(child, cloneOf)))
 
-		return clone
+	return clone
+}
+
+/**
+ * Points every cloned skinned mesh at cloned bones, given the whole of what was
+ * cloned. A bone that was not is kept as it is: a hole in the bone list would
+ * make `Skeleton.toJSON` throw, and {@link meshesMissingBones} reports the mesh
+ * anyway.
+ */
+function rebindSkeletons(cloneOf: Map<THREE.Object3D, THREE.Object3D>) {
+	// One skeleton usually poses every mesh of a character — a glTF body, its
+	// eyes, its teeth and its clothes all share one. Rebuilding it per mesh would
+	// write that bone list into the file once per mesh and hand the renderer a
+	// bone texture per mesh, so each is rebuilt once and shared as it was.
+	const rebuilt = new Map<THREE.Skeleton, THREE.Skeleton>()
+
+	for (const [source, copy] of cloneOf) {
+		if (!(source instanceof THREE.SkinnedMesh) || !(copy instanceof THREE.SkinnedMesh)) continue
+
+		const skeleton = source.skeleton
+		let rebuiltSkeleton = rebuilt.get(skeleton)
+
+		if (!rebuiltSkeleton) {
+			const bones = skeleton.bones.map((bone) => {
+				const cloned = cloneOf.get(bone)
+				return cloned instanceof THREE.Bone ? cloned : bone
+			})
+
+			rebuiltSkeleton = new THREE.Skeleton(
+				bones,
+				skeleton.boneInverses.map((matrix) => matrix.clone())
+			)
+			rebuilt.set(skeleton, rebuiltSkeleton)
+		}
+
+		copy.bind(rebuiltSkeleton, source.bindMatrix)
 	}
+}
 
-	return { clone: cloneNode(source), cloneOf }
+/**
+ * The skinned meshes in `root` that some of their bones did not come with.
+ *
+ * Serializing one writes a skeleton naming bones the output does not contain,
+ * and whatever reads it back finds none of them and loads the mesh collapsed
+ * onto their origins. Ask this of the tree that is actually about to be written
+ * — a mesh and its bones can be together in a scene and still be separated by
+ * whatever picks out the part of it to write.
+ */
+export function meshesMissingBones(root: THREE.Object3D): THREE.SkinnedMesh[] {
+	const present = new Set<THREE.Object3D>()
+	root.traverse((node) => {
+		if (node instanceof THREE.Bone) present.add(node)
+	})
+
+	const missing: THREE.SkinnedMesh[] = []
+	root.traverse((node) => {
+		if (node instanceof THREE.SkinnedMesh && node.skeleton.bones.some((b) => !present.has(b))) {
+			missing.push(node)
+		}
+	})
+
+	return missing
+}
+
+/** A scene assembled for serialization, and what the assembly cost its rigs. */
+export interface SerializableScene {
+	/** The scene to serialize. */
+	scene: THREE.Scene
+	/** Each node of the source that was kept, keyed to its twin in `scene`. */
+	cloneOf: Map<THREE.Object3D, THREE.Object3D>
+	/** The rigs `keep` broke, per {@link meshesMissingBones}. Usually empty. */
+	missingBones: THREE.SkinnedMesh[]
+}
+
+/**
+ * Assembles the children of `source` that `keep` accepts into a scene to write.
+ *
+ * Children are cloned one by one but re-bound together, at the end, against
+ * everything kept: a skinned mesh and the bones posing it need not be under the
+ * same child once the outliner has re-parented either, and binding per child
+ * would lose a rig that spans two of them.
+ *
+ * What `keep` rejects is never cloned, because a scene holds things that cannot
+ * be — `CameraHelper.clone()` throws, its constructor wanting the camera that
+ * `Object3D.clone` does not pass, and every scene here has one. Rejecting a
+ * child can strand a rig even so, so the meshes that lost bones are counted
+ * against the assembled scene — the one that gets written — and handed back for
+ * the caller to answer for.
+ */
+export function sceneForSerialization(
+	source: THREE.Scene,
+	keep: (child: THREE.Object3D) => boolean
+): SerializableScene {
+	const scene = new THREE.Scene()
+	const cloneOf = new Map<THREE.Object3D, THREE.Object3D>()
+
+	source.children.forEach((child) => {
+		if (keep(child)) scene.add(cloneInto(child, cloneOf))
+	})
+
+	rebindSkeletons(cloneOf)
+
+	return { scene, cloneOf, missingBones: meshesMissingBones(scene) }
 }
 
 export function getUserData(obj: THREE.Object3D): MxObjectUserData {
