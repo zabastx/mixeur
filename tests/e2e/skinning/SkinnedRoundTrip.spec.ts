@@ -98,6 +98,23 @@ async function rigCoverage(page: Page) {
 }
 
 test.describe('Skinned models survive a round trip', () => {
+	test('a Duplicate keeps its rig visible after deleting the original', async ({ page }) => {
+		const lostBones = watchForLostBones(page)
+		await openApp(page)
+		await importModel(page, riggedFixture, 'rigged.glb')
+		const before = await rigCoverage(page)
+		expect(before).toBeGreaterThan(0.01)
+		const rigs = page.locator('[data-testid="outliner-item"]', { hasText: 'rigged.glb' })
+		await rigs.first().click({ button: 'right' })
+		await page.getByRole('menuitem', { name: /Duplicate Object/ }).click()
+		await expect(rigs).toHaveCount(2)
+		await rigs.first().click({ button: 'right' })
+		await page.getByRole('menuitem', { name: /Delete/ }).click()
+		await expect(rigs).toHaveCount(1)
+		expect(await rigCoverage(page)).toBeGreaterThan(before * 0.8)
+		expect(lostBones).toEqual([])
+	})
+
 	test('a project save and reopen keeps the rig posed', async ({ page }) => {
 		const lostBones = watchForLostBones(page)
 		await openApp(page)

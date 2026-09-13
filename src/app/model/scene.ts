@@ -12,14 +12,7 @@ import {
 import { createMesh } from '@/shared/three/modules/mesh'
 import { createCamera } from '@/shared/three/modules/camera/create'
 import { exportModel } from '@/shared/three/modules/addons/exporter'
-import {
-	getUserData,
-	enableBVH,
-	isWithin,
-	cloneForSerialization,
-	meshesMissingBones,
-	sceneForSerialization
-} from '@/shared/three/utils'
+import { getUserData, enableBVH, isWithin } from '@/shared/three/utils'
 import { useShadingStore } from './shading'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP } from './types/world'
@@ -29,12 +22,12 @@ import { useComposerStore } from './composer'
 import { useCameraStore } from './camera'
 import { useUvStore } from './uv'
 import { useUvGridStore } from './uv-grid'
+import { duplicateObject as createDuplicate, snapshotObject, snapshotScene } from './scene-copy'
 import { downloadFile } from '@/shared/lib/files'
 import { useFileDialog } from '@vueuse/core'
 import { encodeProject, decodeProject } from '@/shared/lib/project-file'
 import { useToast } from '@/shared/lib/toast'
 import { MxObjectLoader } from '@/shared/three/modules/loaders/object-loader/MxObjectLoader'
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 export const useSceneStore = defineStore('scene', () => {
 	const scene = shallowRef(new THREE.Scene())
@@ -201,16 +194,19 @@ export const useSceneStore = defineStore('scene', () => {
 		updateScene()
 	}
 
-	function cloneObject(uuid: string) {
-		const { getMaterialCache } = useShadingStore()
+	function duplicateObject(uuid: string) {
 		const object = scene.value.getObjectByProperty('uuid', uuid)
-		if (!object) return console.warn('cloneObject: object is undefined')
-		const newObj = object.clone()
-		newObj.userData.mixeur = structuredClone(getUserData(object))
-		if (object instanceof THREE.Mesh && newObj instanceof THREE.Mesh) {
-			newObj.material = getMaterialCache(object)?.original
+		if (!object) return console.warn('duplicateObject: object is undefined')
+		try {
+			const newObj = createDuplicate(object)
+			addObjectToScene(newObj, object.parent)
+		} catch (error) {
+			useToast().add({
+				type: 'error',
+				title: 'Cannot duplicate this object',
+				message: (error as Error).message
+			})
 		}
-		addObjectToScene(newObj, object.parent)
 	}
 
 	function deleteFromScene(uuid: string) {
@@ -227,8 +223,11 @@ export const useSceneStore = defineStore('scene', () => {
 		// go if it lives anywhere inside the object being removed.
 		if (selectionStore.isSelectedWithin(object)) selectionStore.clear()
 
-		const helperUUID = getUserData(object).helperUUID
-		if (helperUUID) {
+		const removedObjects: THREE.Object3D[] = []
+		object.traverse((child) => removedObjects.push(child))
+		for (const removed of removedObjects) {
+			const helperUUID = getUserData(removed).helperUUID
+			if (!helperUUID) continue
 			const helper = scene.value.getObjectByProperty('uuid', helperUUID)
 			if (helper) {
 				removeFromOutline(helper.uuid)
@@ -248,20 +247,18 @@ export const useSceneStore = defineStore('scene', () => {
 			cameraStore.renderCamera = null
 		}
 
-		removeFromOutline(object.uuid)
-		removeFromRaycaster(object.uuid)
-
 		// Traversed, because a deleted group takes its meshes with it and each of
-		// them may have UVs or a replaced map remembered against its uuid.
 		const uvStore = useUvStore()
 		const uvGridStore = useUvGridStore()
-		object.traverse((child) => {
+		for (const child of removedObjects) {
+			removeFromOutline(child.uuid)
+			removeFromRaycaster(child.uuid)
 			uvStore.forget(child.uuid)
 			uvGridStore.forget(child.uuid)
-		})
+		}
 
 		disposeModel(object)
-		clearMaterialCache(object.uuid)
+		for (const child of removedObjects) clearMaterialCache(child.uuid)
 		updateScene()
 	}
 
@@ -280,40 +277,16 @@ export const useSceneStore = defineStore('scene', () => {
 		}
 	}
 
-	/**
-	 * Puts the material each mesh is really made of onto its clone, throughout
-	 * the subtree.
-	 *
-	 * Below rendered, `mesh.material` is the shading mode's stand-in — the black
-	 * wireframe, the flat grey — so anything written out has to take the cached
-	 * original in its place, and take it for nested meshes too: an imported glTF
-	 * arrives as a Group with every one of its meshes inside it.
-	 *
-	 * A mesh with nothing cached is left as it is. Nothing shades it, so
-	 * `mesh.material` is the only material it has.
-	 */
-	function restoreOriginalMaterials(cloneOf: Map<THREE.Object3D, THREE.Object3D>) {
-		const { getMaterialCache } = useShadingStore()
-
-		cloneOf.forEach((clone, source) => {
-			if (!(source instanceof THREE.Mesh) || !(clone instanceof THREE.Mesh)) return
-			const cachedMaterials = getMaterialCache(source)
-			if (cachedMaterials) clone.material = cachedMaterials.original
-		})
-	}
-
 	function objectToJSON(uuid: string) {
 		const object = scene.value.getObjectByProperty('uuid', uuid)
 		if (!object) return
 
-		const { clone, cloneOf } = cloneForSerialization(object)
-		restoreOriginalMaterials(cloneOf)
+		const { object: clone, missingBones } = snapshotObject(object)
 
 		// Nothing of this export would survive being read back: it is one object,
 		// and the bones posing it are not in it. Refused rather than written, which
 		// is the whole difference from the scene-wide saves, where the rigs that do
 		// come out whole are still worth writing.
-		const missingBones = meshesMissingBones(clone)
 		if (missingBones.length > 0) {
 			const mesh = missingBones[0].name || 'This skinned mesh'
 			useToast().add({
@@ -351,12 +324,29 @@ export const useSceneStore = defineStore('scene', () => {
 		}
 	}
 
-	function exportScene() {
-		const { shadingMode, setMode } = useShadingStore()
-		const mode = shadingMode
-		setMode('export')
-		exportModel(scene.value)
-		setMode(mode)
+	async function exportScene() {
+		const toast = useToast()
+		try {
+			const { scene: exportScene, missingBones } = snapshotScene(scene.value, {
+				keep: (object) =>
+					!(object instanceof THREE.Light) ||
+					object instanceof THREE.PointLight ||
+					object instanceof THREE.DirectionalLight ||
+					object instanceof THREE.SpotLight
+			})
+			if (missingBones.length > 0) {
+				toast.add({
+					type: 'warning',
+					title: 'A rig will not survive this export',
+					message: `${missingBones[0].name || 'A skinned mesh'} is posed by bones this export leaves out. Move it and those bones under the same object.`
+				})
+			}
+			await exportModel(exportScene)
+		} catch (error) {
+			const err = error as Error
+			console.error('Export error:', err.message)
+			toast.add({ type: 'error', title: 'Failed to export scene', message: err.message })
+		}
 	}
 
 	function saveProjectFile() {
@@ -364,18 +354,14 @@ export const useSceneStore = defineStore('scene', () => {
 		try {
 			const cameraStore = useCameraStore()
 
-			let renderCameraUUID: string | null = null
-
 			// Cloned across the scene in one pass rather than per child: the outliner
 			// can re-parent a skinned mesh away from the bones posing it, and only a
 			// pass that sees every kept child at once can bind the two back together.
 			const {
 				scene: exportScene,
-				cloneOf,
+				renderCameraUUID,
 				missingBones
-			} = sceneForSerialization(scene.value, (child) => !getUserData(child).isHelper)
-
-			restoreOriginalMaterials(cloneOf)
+			} = snapshotScene(scene.value, { renderCamera: cameraStore.renderCamera })
 
 			// Saved anyway: one stranded rig is not worth losing the project over,
 			// and the rest of the file is sound. Said out loud because that rig will
@@ -387,21 +373,6 @@ export const useSceneStore = defineStore('scene', () => {
 					message: `${missingBones[0].name || 'A skinned mesh'} is posed by bones the project does not save. Move it and those bones under the same object.`
 				})
 			}
-
-			// The render camera at whatever depth it sits: cameras can be re-parented
-			// into groups, and the clone carries a fresh uuid, so the one saved has to
-			// be the clone's or the reopened project finds nothing to render with.
-			cloneOf.forEach((clone, source) => {
-				if (source.uuid === cameraStore.renderCamera?.uuid) {
-					renderCameraUUID = clone.uuid
-				}
-
-				// Text remembers the string it was built from in the source's user
-				// data; the geometry has to carry it or the text is no longer editable.
-				if (clone instanceof THREE.Mesh && clone.geometry instanceof TextGeometry) {
-					clone.geometry.userData = getUserData(source).text ?? {}
-				}
-			})
 
 			const data = {
 				scene: exportScene.toJSON(),
@@ -538,7 +509,7 @@ export const useSceneStore = defineStore('scene', () => {
 		addGroup,
 		moveObjectToTarget,
 		addObjectToScene,
-		cloneObject,
+		duplicateObject,
 		deleteFromScene,
 		objectVisibilityUpdate,
 		objectToJSON,

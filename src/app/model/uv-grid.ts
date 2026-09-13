@@ -37,6 +37,11 @@ export const useUvGridStore = defineStore('uv-grid', () => {
 
 	const isApplied = (uuid: string) => appliedTo.value.has(uuid)
 
+	/** The scene's map, even while the editor is showing UV Grid over it. */
+	function mapWithoutGrid(uuid: string, displayed: THREE.Texture | null): THREE.Texture | null {
+		return replaced.has(uuid) ? replaced.get(uuid)! : displayed
+	}
+
 	function toggle(mesh: THREE.Mesh | null) {
 		if (!mesh || Array.isArray(mesh.material)) return
 
@@ -84,7 +89,7 @@ export const useUvGridStore = defineStore('uv-grid', () => {
 		if (!next.size) shadingBefore = null
 	}
 
-	return { appliedTo, isApplied, toggle, forget }
+	return { appliedTo, isApplied, toggle, forget, mapWithoutGrid }
 })
 
 if (import.meta.hot) {

@@ -38,7 +38,10 @@ vi.mock('./camera', () => ({ useCameraStore: () => cameraHolder }))
 vi.mock('./selection', () => ({ useSelectionStore: () => selectionHolder }))
 const uvHolder = vi.hoisted(() => ({ forget: vi.fn() }))
 vi.mock('./uv', () => ({ useUvStore: () => uvHolder }))
-const uvGridHolder = vi.hoisted(() => ({ forget: vi.fn() }))
+const uvGridHolder = vi.hoisted(() => ({
+	forget: vi.fn(),
+	mapWithoutGrid: (_uuid: string, displayed: unknown) => displayed
+}))
 vi.mock('./uv-grid', () => ({ useUvGridStore: () => uvGridHolder }))
 const worldHolder = vi.hoisted(() => ({ snapshot: vi.fn(() => ({})) }))
 vi.mock('./world', () => ({ useWorldStore: () => worldHolder }))

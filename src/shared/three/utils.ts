@@ -92,23 +92,40 @@ export function isWithin(node: THREE.Object3D | null, root: THREE.Object3D) {
  * each cloned mesh is re-bound to the cloned bones before the clone is handed
  * back.
  */
-export function cloneForSerialization(source: THREE.Object3D) {
+export function cloneForSerialization(
+	source: THREE.Object3D,
+	keep: (node: THREE.Object3D) => boolean = () => true
+) {
 	const cloneOf = new Map<THREE.Object3D, THREE.Object3D>()
-	const clone = cloneInto(source, cloneOf)
+	const clone = cloneInto(source, cloneOf, keep)
 	rebindSkeletons(cloneOf)
 	return { clone, cloneOf }
 }
 
 /** Clones `node` and everything under it, recording each pair in `cloneOf`. */
-function cloneInto(node: THREE.Object3D, cloneOf: Map<THREE.Object3D, THREE.Object3D>) {
-	// Emptied because `clone( false )` is a request, not a guarantee — the
-	// classes above deep-copy regardless, and those copies are the ones with no
-	// entry in the map. The children that count are added back below.
-	const clone = node.clone(false)
+function cloneInto(
+	node: THREE.Object3D,
+	cloneOf: Map<THREE.Object3D, THREE.Object3D>,
+	keep: (node: THREE.Object3D) => boolean
+) {
+	// Some copy methods recurse even with false. Give them a childless view
+	// of the source so a rejected CameraHelper is never constructed.
+	const shell = Object.create(node) as THREE.Object3D
+	shell.children = []
+	if (node instanceof THREE.LOD) Object.defineProperty(shell, 'levels', { value: [] })
+	const clone = shell.clone(false)
 	clone.clear()
 
 	cloneOf.set(node, clone)
-	node.children.forEach((child) => clone.add(cloneInto(child, cloneOf)))
+	node.children.forEach((child) => {
+		if (keep(child)) clone.add(cloneInto(child, cloneOf, keep))
+	})
+	if (node instanceof THREE.LOD && clone instanceof THREE.LOD) {
+		for (const level of node.levels) {
+			const object = cloneOf.get(level.object)
+			if (object) clone.addLevel(object, level.distance, level.hysteresis)
+		}
+	}
 
 	return clone
 }
@@ -127,6 +144,12 @@ function rebindSkeletons(cloneOf: Map<THREE.Object3D, THREE.Object3D>) {
 	const rebuilt = new Map<THREE.Skeleton, THREE.Skeleton>()
 
 	for (const [source, copy] of cloneOf) {
+		if (
+			(source instanceof THREE.DirectionalLight || source instanceof THREE.SpotLight) &&
+			(copy instanceof THREE.DirectionalLight || copy instanceof THREE.SpotLight)
+		) {
+			copy.target = cloneOf.get(source.target) ?? copy.target
+		}
 		if (!(source instanceof THREE.SkinnedMesh) || !(copy instanceof THREE.SkinnedMesh)) continue
 
 		const skeleton = source.skeleton
@@ -207,7 +230,7 @@ export function sceneForSerialization(
 	const cloneOf = new Map<THREE.Object3D, THREE.Object3D>()
 
 	source.children.forEach((child) => {
-		if (keep(child)) scene.add(cloneInto(child, cloneOf))
+		if (keep(child)) scene.add(cloneInto(child, cloneOf, keep))
 	})
 
 	rebindSkeletons(cloneOf)

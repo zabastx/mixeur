@@ -6,6 +6,20 @@ API and this codebase's own history disagree.
 
 ## Language
 
+### Scene editing
+
+**Duplicate**:
+A new Object hierarchy whose geometry, UV layout, materials and rig can be edited
+without changing the original. Existing shared geometry and rig relationships are
+preserved within the Duplicate; texture images may be shared with the original.
+_Avoid_: Copy, clone, linked duplicate
+
+**UV Grid**:
+A temporary checker texture for inspecting a mesh's UV layout, belonging to the editor.
+Duplicates and saved or exported scene data use the mesh's underlying texture,
+leaving the original's UV Grid display unchanged.
+_Avoid_: Material texture, saved texture
+
 ### Environment and lighting
 
 **World**:

@@ -168,7 +168,7 @@ const contextMenuItems = computed<MxContextMenuItem[]>(() => {
 			label: 'Duplicate Object',
 			shortcut: 'Shift + D',
 			onSelect() {
-				sceneStore.cloneObject(uuid)
+				sceneStore.duplicateObject(uuid)
 			}
 		},
 		{

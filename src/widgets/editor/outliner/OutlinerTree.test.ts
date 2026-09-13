@@ -12,7 +12,7 @@ const sceneStore = vi.hoisted(() => ({
 	sceneGroups: [] as Array<{ uuid: string; name: string }>,
 	addGroup: vi.fn(),
 	moveObjectToTarget: vi.fn(),
-	cloneObject: vi.fn(),
+	duplicateObject: vi.fn(),
 	deleteFromScene: vi.fn(),
 	objectVisibilityUpdate: vi.fn()
 }))
@@ -326,7 +326,7 @@ describe('OutlinerTree', () => {
 		expect(sceneStore.addGroup).toHaveBeenCalledTimes(1)
 		expect(sceneStore.moveObjectToTarget).toHaveBeenNthCalledWith(2, 'mesh-context', 'new-group')
 		expect(sceneStore.moveObjectToTarget).toHaveBeenNthCalledWith(3, 'mesh-context', 'group-1')
-		expect(sceneStore.cloneObject).toHaveBeenCalledWith('mesh-context')
+		expect(sceneStore.duplicateObject).toHaveBeenCalledWith('mesh-context')
 		expect(sceneStore.deleteFromScene).toHaveBeenCalledWith('mesh-context')
 	})
 

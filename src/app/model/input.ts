@@ -73,7 +73,7 @@ export const useInputStore = defineStore('input', () => {
 				case 'KeyD':
 					e.preventDefault()
 					if (selectionStore.selectedObject instanceof THREE.Object3D && e.shiftKey) {
-						sceneStore.cloneObject(selectionStore.selectedObject.uuid)
+						sceneStore.duplicateObject(selectionStore.selectedObject.uuid)
 					}
 					break
 
