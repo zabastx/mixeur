@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-09-15
+
+### Fixed
+
+- Duplicating a group or imported model now creates geometry, UVs, materials and a rig that can be edited or deleted without changing the original. Shared geometry and skeletons inside the Duplicate stay shared, and nested camera and light helpers are rebuilt and removed with it
+- The UV Grid remains an editor overlay when an object is duplicated or written to JSON, a project file or GLB. Files contain the underlying texture, and the grid stays visible on the original object
+- A failed GLB export no longer changes geometry or the active shading mode in the open scene
+
 ## [0.32.0] - 2026-08-11
 
 ### Changed
@@ -54,6 +62,7 @@ Released versions are archived once the current file grows past a `0.x0` boundar
 - [0.21.0 – 0.30.2](changelogs/CHANGELOG-0.30.2.md)
 - [0.1.0 – 0.20.0](changelogs/CHANGELOG-0.20.0.md)
 
-[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.1...HEAD
+[0.32.1]: https://github.com/zabastx/mixeur/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/zabastx/mixeur/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/zabastx/mixeur/compare/v0.30.2...v0.31.0
