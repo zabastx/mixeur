@@ -6,6 +6,12 @@ export default mergeConfig(
 	defineConfig({
 		test: {
 			environment: 'happy-dom',
+			// Both defaults, stated so Vitest stops printing speed-up hints after
+			// every run. Neither hint applies: the setup's native `gl` addon cannot
+			// load twice in one process, so `vmThreads` fails every file but the
+			// first, and `isolate: false` would share `vi.mock` state across files.
+			pool: 'forks',
+			isolate: true,
 			coverage: {
 				// Opt-in via `bun run test:coverage` (or `--coverage`); off for the fast watch run.
 				reporter: ['text', 'json', 'html'],

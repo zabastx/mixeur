@@ -36,7 +36,10 @@ export default defineConfig({
 				}
 			}
 		},
-		...(!process.env.CI
+		// Opt-in: CI runs Chromium alone, and a local run without these binaries
+		// installed fails every test in them. `E2E_ALL_BROWSERS=1` brings them back
+		// after `bunx playwright install firefox webkit`.
+		...(process.env.E2E_ALL_BROWSERS
 			? [
 					{
 						name: 'firefox',
