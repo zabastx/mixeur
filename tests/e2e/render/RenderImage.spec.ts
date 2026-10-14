@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { chooseOption } from '../helpers'
+import { chooseOption, moveToNewGroup, outlinerRows } from '../helpers'
 
 /**
  * What a rendered image is lit by, whether it keeps its alpha, and whether the
@@ -319,13 +319,8 @@ test.describe('Render Image', () => {
 
 		// Duplicate places the copy and its helper inside the group, beside the
 		// original: the arrangement a render used to throw on.
-		const lights = page.getByRole('treeitem', { name: 'Point Light', exact: true })
-		await lights.first().click({ button: 'right' })
-		// By keyboard: the pointer's diagonal to the submenu closes it.
-		await page.getByRole('menuitem', { name: 'Move to' }).focus()
-		await page.keyboard.press('ArrowRight')
-		await page.getByRole('menuitem', { name: 'New Group' }).press('Enter')
-		await page.getByRole('treeitem', { name: 'Group' }).locator('[data-toggle]').click()
+		await moveToNewGroup(page, 'Point Light')
+		const lights = outlinerRows(page, 'Point Light')
 		await lights.first().click({ button: 'right' })
 		await page.getByRole('menuitem', { name: /Duplicate Object/ }).click()
 		await expect(lights).toHaveCount(2)

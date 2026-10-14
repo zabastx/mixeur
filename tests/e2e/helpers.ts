@@ -80,3 +80,28 @@ export async function saveAndReopenProject(page: Page) {
 	// Exact match avoids the duplicate aria-live announcer node.
 	await expect(page.getByText('Project loaded successfully', { exact: true })).toBeVisible()
 }
+
+/**
+ * The outliner rows for objects named exactly `name`, one per object.
+ *
+ * Exact, because a light's or camera's helper can show up as a row named after
+ * it ("Point Light Helper"), which a substring match would count too.
+ */
+export function outlinerRows(page: Page, name: string) {
+	return page.getByRole('treeitem', { name, exact: true })
+}
+
+/**
+ * Moves the first object named `name` into a new group, through the outliner's
+ * context menu, and expands that group so the object's row is visible again.
+ */
+export async function moveToNewGroup(page: Page, name: string) {
+	await outlinerRows(page, name).first().click({ button: 'right' })
+	// By keyboard: the submenu closes when the pointer cuts across to it
+	// diagonally, so neither clicking nor hovering "Move to" reliably reaches it.
+	await page.getByRole('menuitem', { name: 'Move to' }).focus()
+	await page.keyboard.press('ArrowRight')
+	await page.getByRole('menuitem', { name: 'New Group' }).press('Enter')
+	// A new group is added collapsed, last among the scene's top-level rows.
+	await outlinerRows(page, 'Group').last().locator('[data-toggle]').click()
+}
