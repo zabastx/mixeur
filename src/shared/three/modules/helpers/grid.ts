@@ -21,6 +21,7 @@ export function setGridHelper(scene: THREE.Scene) {
 
 function getAxes() {
 	const axes = new THREE.AxesHelper(1000)
+	// eslint-disable-next-line no-restricted-syntax -- an editor helper with no children, never part of the scene's data
 	const axesMirror = axes.clone(true)
 	axesMirror.rotateY(Math.PI)
 	const axesGroup = new THREE.Group()
