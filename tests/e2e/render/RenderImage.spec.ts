@@ -312,4 +312,29 @@ test.describe('Render Image', () => {
 		const moved = await sampleViewport(page)
 		expect(Math.abs(moved.mean - after.mean)).toBeGreaterThan(0.3)
 	})
+
+	test('renders a light Duplicated inside a group', async ({ page }) => {
+		await page.goto('/')
+		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+
+		// Duplicate places the copy and its helper inside the group, beside the
+		// original: the arrangement a render used to throw on.
+		const lights = page.getByRole('treeitem', { name: 'Point Light', exact: true })
+		await lights.first().click({ button: 'right' })
+		// By keyboard: the pointer's diagonal to the submenu closes it.
+		await page.getByRole('menuitem', { name: 'Move to' }).focus()
+		await page.keyboard.press('ArrowRight')
+		await page.getByRole('menuitem', { name: 'New Group' }).press('Enter')
+		await page.getByRole('treeitem', { name: 'Group' }).locator('[data-toggle]').click()
+		await lights.first().click({ button: 'right' })
+		await page.getByRole('menuitem', { name: /Duplicate Object/ }).click()
+		await expect(lights).toHaveCount(2)
+
+		await openRenderModal(page)
+		await page.getByRole('button', { name: 'Render Image' }).click()
+
+		await expect
+			.poll(() => sampleRender(page).then((s) => s?.mean ?? -1), { timeout: 20_000 })
+			.toBeGreaterThan(0)
+	})
 })

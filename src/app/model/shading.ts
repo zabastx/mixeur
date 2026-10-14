@@ -23,8 +23,6 @@ export const useShadingStore = defineStore('shading', () => {
 	const materialCache = new Map<string, MaterialCache>()
 	const shadingMode = computed(() => currentMode.value)
 
-	let helperObjects: THREE.Object3D[] = []
-
 	/**
 	 * Determines if an object should be affected by shading modes.
 	 * Only objects explicitly marked as shadable will be affected by shading changes.
@@ -109,21 +107,6 @@ export const useShadingStore = defineStore('shading', () => {
 			setSceneLightsVisibility(false)
 		}
 
-		if (mode === 'export') {
-			scene.traverse((object) => {
-				if (getUserData(object).isHelper) {
-					object.visible = false
-					helperObjects.push(object)
-				}
-			})
-			setMode('rendered')
-		} else {
-			helperObjects.forEach((obj) => {
-				obj.visible = true
-			})
-			helperObjects = []
-		}
-
 		scene.traverse((object) => {
 			const userData = getUserData(object)
 			if (userData.hideInModes?.includes(mode)) {
@@ -158,7 +141,7 @@ export const useShadingStore = defineStore('shading', () => {
 	function applyWorldAndStudioLight(mode: ShadingMode) {
 		const { scene } = useSceneStore()
 
-		if (mode === 'rendered' || mode === 'export') {
+		if (mode === 'rendered') {
 			useWorldStore().writeTo(scene)
 			return
 		}
@@ -450,7 +433,7 @@ function getSolidShadingLights() {
 		userData.hideInOutliner = true
 		userData.isHelper = true
 		userData.isSystemObj = true
-		userData.hideInModes = ['wireframe', 'preview', 'rendered', 'export']
+		userData.hideInModes = ['wireframe', 'preview', 'rendered']
 	})
 
 	return lights

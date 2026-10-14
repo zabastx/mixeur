@@ -3,7 +3,7 @@ import type THREE from '@/shared/three'
 /**
  * Represents the different shading modes available, replicating Blender's viewport shading options.
  */
-export type ShadingMode = 'wireframe' | 'solid' | 'preview' | 'rendered' | 'export'
+export type ShadingMode = 'wireframe' | 'solid' | 'preview' | 'rendered'
 
 /**
  * Internal cache for storing original and current materials for each mesh.

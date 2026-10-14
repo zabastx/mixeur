@@ -134,16 +134,6 @@ describe('useShadingStore', () => {
 			expect(background()).toBe(new THREE.Color(VIEWPORT_BACKDROP).getHexString())
 		})
 
-		it('reaches renders through export mode as well', () => {
-			const store = useShadingStore()
-			const world = useWorldStore()
-			setWorldColor(world, '#00ff00')
-
-			store.setMode('export')
-
-			expect(background()).toBe('00ff00')
-		})
-
 		it('applies the World fog in rendered mode and clears it elsewhere', () => {
 			const store = useShadingStore()
 			const world = useWorldStore()
