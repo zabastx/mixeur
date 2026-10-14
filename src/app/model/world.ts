@@ -23,8 +23,8 @@ import {
  * The store holds the World's *description*; it does not decide when the World
  * is on screen. That is the shading mode's call, and it lives in `shading.ts`
  * beside the material substitution it belongs with (ADR-0002). What this store
- * publishes is what to write when the World is shown: `background`,
- * `environment`, `strength` and `fog`.
+ * offers is the write itself: `writeTo` puts the World onto whichever scene is
+ * showing it.
  */
 export const useWorldStore = defineStore('world', () => {
 	const initial = defaultWorld()
@@ -179,6 +179,32 @@ export const useWorldStore = defineStore('world', () => {
 	}
 
 	/**
+	 * Puts the World onto a scene: every field it owns, in one place.
+	 *
+	 * The viewport in rendered and export modes and every Render all go through
+	 * here, so a new World field reaches them with one line rather than one each.
+	 * Whether the World is on a scene at all is not this store's call — that
+	 * stays with the shading mode (ADR-0002).
+	 */
+	function writeTo(scene: THREE.Scene) {
+		scene.environment = environment.value
+		scene.background = background()
+		scene.fog = sceneFog()
+
+		// One value drives both: a sky brighter than the light it casts is a lie
+		// nobody reaches for deliberately.
+		scene.environmentIntensity = strength.value
+		scene.backgroundIntensity = strength.value
+
+		// The one field with no lighting counterpart: blurring the backdrop is a
+		// framing choice, and there is nothing it could mean for the light.
+		scene.backgroundBlurriness = blurriness.value
+
+		scene.environmentRotation.copy(rotation.value)
+		scene.backgroundRotation.copy(rotation.value)
+	}
+
+	/**
 	 * Switches the fog to a different kind, with fresh defaults.
 	 *
 	 * Actions here change a *kind*, because that replaces the whole value and
@@ -269,6 +295,7 @@ export const useWorldStore = defineStore('world', () => {
 		needsReimport,
 		background,
 		sceneFog,
+		writeTo,
 		rebuildEnvironment,
 		setSurfaceKind,
 		setSource,

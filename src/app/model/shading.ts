@@ -157,27 +157,27 @@ export const useShadingStore = defineStore('shading', () => {
 	 */
 	function applyWorldAndStudioLight(mode: ShadingMode) {
 		const { scene } = useSceneStore()
-		const world = useWorldStore()
-		const showsWorld = mode === 'rendered' || mode === 'export'
 
-		scene.environment =
-			mode === 'preview' ? studioLight.value : showsWorld ? world.environment : null
-		scene.background = showsWorld ? world.background() : new THREE.Color(VIEWPORT_BACKDROP)
-		scene.fog = showsWorld ? world.sceneFog() : null
+		if (mode === 'rendered' || mode === 'export') {
+			useWorldStore().writeTo(scene)
+			return
+		}
 
-		// One value drives both: a sky brighter than the light it casts is a lie
-		// nobody reaches for deliberately.
-		const intensity = showsWorld ? world.strength : studioLightIntensity.value
-		scene.environmentIntensity = intensity
-		scene.backgroundIntensity = intensity
+		scene.environment = mode === 'preview' ? studioLight.value : null
+		scene.background = new THREE.Color(VIEWPORT_BACKDROP)
+		scene.fog = null
 
-		scene.environmentRotation.copy(showsWorld ? world.rotation : studioLightRotation.value)
-		scene.backgroundRotation.copy(scene.environmentRotation)
+		// Same lockstep as the World's Strength: a sky brighter than the light it
+		// casts is a lie nobody reaches for deliberately.
+		scene.environmentIntensity = studioLightIntensity.value
+		scene.backgroundIntensity = studioLightIntensity.value
 
-		// The one field that is allowed to differ between the two: blurring the
-		// backdrop is a framing choice, and there is nothing it could mean for the
-		// light. The Studio Light has no equivalent, hence no blur below rendered.
-		scene.backgroundBlurriness = showsWorld ? world.blurriness : 0
+		scene.environmentRotation.copy(studioLightRotation.value)
+		scene.backgroundRotation.copy(studioLightRotation.value)
+
+		// The Studio Light has no blur of its own: blurring the backdrop is a
+		// framing choice the World makes, and below rendered the backdrop is chrome.
+		scene.backgroundBlurriness = 0
 	}
 
 	// Editing the World has to reach the viewport without a mode change, and so

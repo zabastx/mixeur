@@ -100,6 +100,7 @@ import { useToast } from '@/shared/lib/toast'
 import { getUserData } from '@/shared/three/utils'
 import { useCameraStore } from '@/app/model/camera'
 import { useComposerStore } from '@/app/model/composer'
+import { useWorldStore } from '@/app/model/world'
 
 const isOpen = defineModel<boolean>({ default: false })
 
@@ -141,21 +142,10 @@ const canSaveImage = computed(() => {
 function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
 	const renderScene = new THREE.Scene()
 
-	renderScene.background = sourceScene.background?.clone() ?? null
-	renderScene.fog = sourceScene.fog?.clone() ?? null
-	// The World's map can be shared straight across now that the render draws with
-	// the viewport's own renderer: `scene.environment` in export mode already holds
-	// `world.environment`, and it is that renderer's PMREM output (ADR-0002).
-	renderScene.environment = sourceScene.environment
-
-	// The World's strength and orientation live in these fields, not in the
-	// textures above. Left at their defaults the render would come out lit at
-	// strength 1 whatever the World says.
-	renderScene.environmentIntensity = sourceScene.environmentIntensity
-	renderScene.backgroundIntensity = sourceScene.backgroundIntensity
-	renderScene.backgroundBlurriness = sourceScene.backgroundBlurriness
-	renderScene.environmentRotation.copy(sourceScene.environmentRotation)
-	renderScene.backgroundRotation.copy(sourceScene.backgroundRotation)
+	// The World writes itself, every field at once, so a new one cannot be left
+	// behind here. Its map is shared rather than copied: the render draws with the
+	// viewport's own renderer, whose PMREM output it is (ADR-0002).
+	useWorldStore().writeTo(renderScene)
 
 	// Clone non-helper objects
 	sourceScene.children.forEach((child) => {
@@ -190,7 +180,7 @@ async function renderImage() {
 			shadingStore.setMode('export')
 
 			const renderScene = createRenderScene(sceneStore.scene as THREE.Scene)
-			// `createRenderScene` has already copied the World's backdrop across.
+			// `createRenderScene` has already written the World's backdrop.
 			// The toggle only decides whether it is drawn at all — choosing a
 			// different colour for one render is the World tab's job, and having
 			// two places to set a background is how they drift apart.
