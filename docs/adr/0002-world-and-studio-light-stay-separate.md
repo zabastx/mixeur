@@ -60,7 +60,7 @@ The existing code called the studio maps _world_ maps — `DEFAULT_WORLD_MAPS`,
 `loadWorldTexture`, `/textures/world/`. Under this decision that vocabulary
 points at the wrong concept, so it was renamed to _studio_, matching Blender's
 own term and the popover's existing "Studio lighting setup" tooltip. See
-`CONTEXT.md` for the fixed definitions. The eight files still serve both roles —
+`GLOSSARY.md` for the fixed definitions. The eight files still serve both roles —
 they are offered in the World tab as presets — but nothing in the code calls a
 studio light a world.
 

@@ -1,7 +1,7 @@
 /**
  * The World: the scene's own environment — the surface behind and around
  * everything, and the light it casts. Distinct from the Studio Light, which is
- * the editor's material-preview rig. See ADR-0002 and CONTEXT.md.
+ * the editor's material-preview rig. See ADR-0002 and GLOSSARY.md.
  */
 
 import type { StudioLightName } from '@/shared/three/modules/loaders/studio-light'
