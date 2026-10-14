@@ -1,3 +1,15 @@
+import type { ShadingMode } from '@/app/model/types/shading'
+import type THREE from '@/shared/three'
+
+declare global {
+	interface DocumentEventMap {
+		'shading:modeChange': CustomEvent<ShadingMode>
+		'scene:objectDeleted': CustomEvent<unknown>
+		'scene:objectAdded': CustomEvent<THREE.Object3D>
+		'three:renderRequested': CustomEvent<unknown>
+	}
+}
+
 export function emitCustomEvent<K extends keyof DocumentEventMap>(
 	type: K,
 	detail?: DocumentEventMap[K] extends CustomEvent<infer D> ? D : never
