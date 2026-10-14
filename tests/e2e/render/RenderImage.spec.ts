@@ -332,4 +332,19 @@ test.describe('Render Image', () => {
 			.poll(() => sampleRender(page).then((s) => s?.mean ?? -1), { timeout: 20_000 })
 			.toBeGreaterThan(0)
 	})
+
+	test('cannot render without a Render Camera', async ({ page }) => {
+		await page.goto('/')
+		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+
+		// The default scene's camera is its Render Camera; with it gone there is
+		// nothing to see a Render through, and no viewport view to fall back on.
+		await outlinerRows(page, 'Camera').click({ button: 'right' })
+		await page.getByRole('menuitem', { name: 'Delete' }).click()
+		await expect(outlinerRows(page, 'Camera')).toHaveCount(0)
+
+		await openRenderModal(page)
+		await expect(page.getByRole('button', { name: 'Render Image' })).toBeDisabled()
+		await expect(page.locator('[data-testid="render-camera-hint"]')).toBeVisible()
+	})
 })

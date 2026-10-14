@@ -29,7 +29,8 @@
 					</div>
 					<button
 						class="btn absolute top-2 right-2 text-xs px-2 py-1 rounded text-white"
-						:disabled="isRendering"
+						:disabled="isRendering || !cameraStore.renderCamera"
+						:title="cameraStore.renderCamera ? undefined : renderCameraHint"
 						@click="renderImage()"
 					>
 						Render Image
@@ -55,23 +56,22 @@
 				<ScrollContainer>
 					<MxAccordionRoot
 						collapsible
-						:default-value="['image']"
+						:default-value="cameraStore.renderCamera ? ['image'] : ['image', 'camera']"
 						type="multiple"
 						class="space-y-1 pr-2.5"
 					>
 						<MxAccordionItem label="Image" :item="{ value: 'image' }">
 							<RenderImageSettings v-model="renderSettings" />
 						</MxAccordionItem>
-						<MxAccordionItem
-							v-if="cameraStore.renderCameraList.length > 0"
-							label="Render Camera"
-							:item="{ value: 'camera' }"
-						>
+						<MxAccordionItem label="Render Camera" :item="{ value: 'camera' }">
 							<CameraSettings />
 						</MxAccordionItem>
-						<p v-else class="text-ui-panel-title">
-							No cameras found in scene. <br />
-							Viewport camera will be used
+						<p
+							v-if="!cameraStore.renderCamera"
+							class="text-ui-panel-title"
+							data-testid="render-camera-hint"
+						>
+							{{ renderCameraHint }}
 						</p>
 					</MxAccordionRoot>
 				</ScrollContainer>
@@ -129,6 +129,12 @@ const actualHeight = ref(1080)
 
 const previewRef = useTemplateRef('previewRef')
 
+const renderCameraHint = computed(() =>
+	cameraStore.renderCameraList.length > 0
+		? 'Choose a Render Camera in the Camera dropdown to render.'
+		: 'Add a camera to the scene, then choose it in the Camera dropdown to render.'
+)
+
 const canSaveImage = computed(() => {
 	return !isRendering.value && previewRef.value?.src
 })
@@ -152,19 +158,19 @@ async function renderImage() {
 	setTimeout(() => {
 		try {
 			const startTime = performance.now()
-			const { image, width, height } = withRenderScene(sceneStore.scene as THREE.Scene, (scene) => {
-				// The copy already carries the World's backdrop. The toggle only
-				// decides whether it is drawn at all — choosing a different colour for
-				// one render is the World tab's job, and having two places to set a
-				// background is how they drift apart.
-				if (!background) scene.background = null
-				return useComposerStore().renderImage({
-					scene,
-					camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
-					width: requestedWidth,
-					height: requestedHeight
-				})
-			})
+			const requested = { width: requestedWidth, height: requestedHeight }
+			const { image, width, height } = withRenderScene(
+				sceneStore.scene as THREE.Scene,
+				requested,
+				(scene, camera) => {
+					// The copy already carries the World's backdrop. The toggle only
+					// decides whether it is drawn at all — choosing a different colour for
+					// one render is the World tab's job, and having two places to set a
+					// background is how they drift apart.
+					if (!background) scene.background = null
+					return useComposerStore().renderImage({ scene, camera, ...requested })
+				}
+			)
 			const endTime = performance.now()
 
 			// What came back may be smaller than what was asked for: the GPU caps how

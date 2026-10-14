@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import THREE from '@/shared/three'
+import { useCameraStore } from './camera'
 import { useSceneStore } from './scene'
 import { useShadingStore } from './shading'
 import { useSelectionStore } from './selection'
@@ -31,13 +32,26 @@ function meshNamed(root: THREE.Object3D, name: string): THREE.Mesh {
 	return object
 }
 
-/** The scene a Render would draw, kept past its release for inspection. */
-function sceneForRender(): THREE.Scene {
-	let assembled: THREE.Scene | undefined
-	withRenderScene(useSceneStore().scene, (scene) => {
-		assembled = scene
+const size = { width: 1920, height: 1080 }
+
+function addRenderCamera<T extends THREE.Camera>(camera: T): T {
+	useSceneStore().addObjectToScene(camera)
+	useCameraStore().setRenderCamera(camera.uuid)
+	return camera
+}
+
+/** What a Render would draw and see it through, kept past its release for inspection. */
+function assembleRender(requested = size) {
+	if (!useCameraStore().renderCamera) addRenderCamera(new THREE.PerspectiveCamera())
+	let assembled: { scene: THREE.Scene; camera: THREE.Camera } | undefined
+	withRenderScene(useSceneStore().scene, requested, (scene, camera) => {
+		assembled = { scene, camera }
 	})
 	return assembled!
+}
+
+function sceneForRender(): THREE.Scene {
+	return assembleRender().scene
 }
 
 /** Records each watched object as it is disposed, in order. */
@@ -386,6 +400,67 @@ describe('scene copying', () => {
 	})
 
 	describe('for a Render', () => {
+		it('sees it through a copy of the Render Camera at the requested aspect', () => {
+			const lens = addRenderCamera(new THREE.PerspectiveCamera(39.6, 1))
+			lens.name = 'Lens'
+
+			const { scene, camera } = assembleRender({ width: 1600, height: 400 })
+			expect(camera).toBeInstanceOf(THREE.PerspectiveCamera)
+			expect(camera).not.toBe(lens)
+			expect(scene.getObjectByName('Lens')).toBe(camera)
+			expect((camera as THREE.PerspectiveCamera).aspect).toBe(4)
+			expect(camera.projectionMatrix.elements[0]).toBeCloseTo(
+				camera.projectionMatrix.elements[5] / 4
+			)
+		})
+
+		it.each([
+			['widens', { width: 400, height: 100 }, -2, 6],
+			['narrows', { width: 100, height: 200 }, 1.5, 2.5]
+		])(
+			'%s an orthographic Render Camera around its centre, keeping its vertical extent',
+			(_, requested, left, right) => {
+				// Off-centre and square: 4 wide by 2 tall, centred on x = 2.
+				addRenderCamera(new THREE.OrthographicCamera(0, 4, 1, -1))
+
+				const camera = assembleRender(requested).camera as THREE.OrthographicCamera
+				expect([camera.left, camera.right, camera.top, camera.bottom]).toEqual([left, right, 1, -1])
+				expect(camera.projectionMatrix.elements[0]).toBeCloseTo(2 / (right - left))
+			}
+		)
+
+		it("leaves the user's Render Camera as it was", () => {
+			const lens = addRenderCamera(new THREE.PerspectiveCamera(50, 1.5))
+			const projection = lens.projectionMatrix.clone()
+			const flat = addRenderCamera(new THREE.OrthographicCamera(-1, 1, 1, -1))
+
+			assembleRender({ width: 300, height: 100 })
+			useCameraStore().setRenderCamera(lens.uuid)
+			assembleRender({ width: 300, height: 100 })
+
+			expect(lens.aspect).toBe(1.5)
+			expect(lens.projectionMatrix.equals(projection)).toBe(true)
+			expect([flat.left, flat.right, flat.top, flat.bottom]).toEqual([-1, 1, 1, -1])
+		})
+
+		it.each([
+			['none was ever chosen', () => {}],
+			[
+				'the chosen one was deleted',
+				() => {
+					const lens = addRenderCamera(new THREE.PerspectiveCamera())
+					useSceneStore().deleteFromScene(lens.uuid)
+				}
+			]
+		])('refuses when there is no Render Camera because %s', (_, arrange) => {
+			useSceneStore().addObjectToScene(new THREE.PerspectiveCamera())
+			arrange()
+			const draw = vi.fn()
+
+			expect(() => withRenderScene(useSceneStore().scene, size, draw)).toThrow(/Render Camera/)
+			expect(draw).not.toHaveBeenCalled()
+		})
+
 		it('assembles a light and a camera Duplicated inside a group', () => {
 			const scene = useSceneStore()
 			const group = scene.addGroup()
@@ -534,6 +609,7 @@ describe('scene copying', () => {
 			'disposes its own materials and none of the source geometry when the render %s',
 			(_, finish) => {
 				const scene = useSceneStore()
+				addRenderCamera(new THREE.PerspectiveCamera())
 				const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
 				mesh.name = 'Body'
 				scene.addObjectToScene(mesh)
@@ -543,7 +619,7 @@ describe('scene copying', () => {
 				let material: THREE.Material | undefined
 
 				try {
-					withRenderScene(scene.scene, (assembled) => {
+					withRenderScene(scene.scene, size, (assembled) => {
 						material = meshNamed(assembled, 'Body').material as THREE.Material
 						watch(material)
 						finish()
@@ -559,6 +635,7 @@ describe('scene copying', () => {
 
 		it('frees the shadow maps and bone textures the render allocated for its copies', () => {
 			const scene = useSceneStore()
+			addRenderCamera(new THREE.PerspectiveCamera())
 			const light = createLight({ type: 'sun' })
 			scene.addObjectToScene(light)
 			const bone = new THREE.Bone()
@@ -572,7 +649,7 @@ describe('scene copying', () => {
 			watch(kept)
 			const allocated: object[] = []
 
-			withRenderScene(scene.scene, (assembled) => {
+			withRenderScene(scene.scene, size, (assembled) => {
 				// What WebGLRenderer allocates on a first draw of each.
 				const shadowMap = new THREE.WebGLRenderTarget(1, 1)
 				;(assembled.getObjectByName(light.name) as THREE.DirectionalLight).shadow.map = shadowMap
