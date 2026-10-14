@@ -20,6 +20,20 @@ Duplicates and saved or exported scene data use the mesh's underlying texture,
 leaving the original's UV Grid display unchanged.
 _Avoid_: Material texture, saved texture
 
+### Rendering
+
+**Render**:
+A still image of the scene as it is made (the same objects, materials and visibility
+a save records), lit and backed by its World. It does not depend on how the viewport
+is shaded, and nothing that belongs to the editor appears in it. It is always seen
+through the Render Camera, never through the viewport's own view.
+_Avoid_: Export, screenshot, snapshot
+
+**Render Camera**:
+The one camera in the scene that a Render is seen through. A scene may hold several
+cameras; one of them is the Render Camera. With none chosen, there is nothing to render.
+_Avoid_: Active camera, scene camera
+
 ### Environment and lighting
 
 **World**:

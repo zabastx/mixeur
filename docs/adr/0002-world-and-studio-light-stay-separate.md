@@ -130,22 +130,29 @@ browser offers 1k, 2k and 4k in Radiance HDR and nothing else: the sizes above
 that run to hundreds of megabytes for a backdrop, and at these sizes EXR buys
 nothing an HDR at half the bytes does not already give.
 
-`RenderImageModal` builds a fresh `THREE.Scene` per render and copies the World
-onto it by hand. `background`, `environment` and `fog` were copied already;
-`environmentIntensity`, `backgroundIntensity`, `backgroundBlurriness` and both
-rotations were not, so a render came out lit at strength 1 whatever the World
-said. Every field a World writes has to be copied there, and a new one is a new
-line in that function.
+The World writes itself onto a scene: `writeTo` in the World store sets every
+field it owns — `environment`, `background`, `fog`, both intensities from the
+one Strength, `backgroundBlurriness` and both rotations — onto whichever scene
+it is handed. Shading calls it on the viewport's scene in `rendered` and
+`export`, and `RenderImageModal` calls it on the fresh `THREE.Scene` it builds
+per render. Neither keeps its own list of World fields, so a new one reaches
+both with one line in one place. That list used to be kept twice, and the
+render's copy fell behind: `environmentIntensity`, `backgroundIntensity`,
+`backgroundBlurriness` and both rotations were missing from it, and a render
+came out lit at strength 1 whatever the World said. Which of the two
+environments is mounted is still decided by Shading alone; `writeTo` is only
+the write.
 
-`environment` was once the exception that could not be copied at all. When the
-render drew with a second `WebGLRenderer` on its own canvas, the filtered map — a
-render target with no pixels outside the GL context that produced it — sampled
-black in that other context, and renders came out correctly framed with every
-object lit by scene lights alone (issue #29). The render now draws with the
-viewport's own renderer into a `WebGLRenderTarget` and reads the pixels back, so
-there is no second context and `environment` copies straight across like every
-other field. Any future scene render should reuse the viewport renderer for the
-same reason, rather than reviving a per-renderer filter.
+`environment` was once the exception that could not be shared with a render at
+all. When the render drew with a second `WebGLRenderer` on its own canvas, the
+filtered map — a render target with no pixels outside the GL context that
+produced it — sampled black in that other context, and renders came out
+correctly framed with every object lit by scene lights alone (issue #29). The
+render now draws with the viewport's own renderer into a `WebGLRenderTarget` and
+reads the pixels back, so there is no second context and `environment` is
+written straight across like every other field. Any future scene render should
+reuse the viewport renderer for the same reason, rather than reviving a
+per-renderer filter.
 
 Its own background colour picker gave way to the World's, leaving only the
 transparent toggle, because alpha is a genuinely render-specific choice and a

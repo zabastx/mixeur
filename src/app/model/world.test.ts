@@ -476,6 +476,31 @@ describe('useWorldStore', () => {
 		})
 	})
 
+	describe('writeTo', () => {
+		it('puts every World field onto the scene it is given', async () => {
+			const world = useWorldStore()
+			setPreset(world, 'forest')
+			await nextTick()
+			await world.rebuildEnvironment()
+			world.strength = 3
+			world.blurriness = 0.2
+			world.rotation.set(0, 1.25, 0)
+			world.setFogKind('linear')
+			const scene = new THREE.Scene()
+
+			world.writeTo(scene)
+
+			expect(scene.environment).toBe(fakePreset)
+			expect(scene.background).toBe(fakePresetImage)
+			expect(scene.fog).toBeInstanceOf(THREE.Fog)
+			expect(scene.environmentIntensity).toBe(3)
+			expect(scene.backgroundIntensity).toBe(3)
+			expect(scene.backgroundBlurriness).toBe(0.2)
+			expect(scene.environmentRotation.y).toBeCloseTo(1.25)
+			expect(scene.backgroundRotation.y).toBeCloseTo(1.25)
+		})
+	})
+
 	describe('snapshot / restore', () => {
 		it('round-trips a colour World through a plain object', () => {
 			const world = useWorldStore()
