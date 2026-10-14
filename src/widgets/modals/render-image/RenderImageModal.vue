@@ -150,6 +150,7 @@ function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
 	// Clone non-helper objects
 	sourceScene.children.forEach((child) => {
 		if (!getUserData(child).isHelper) {
+			// eslint-disable-next-line no-restricted-syntax -- the bug #35 removes along with this function
 			const cloned = child.clone(true)
 			renderScene.add(cloned)
 		}
