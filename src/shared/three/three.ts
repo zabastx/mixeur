@@ -1,5 +1,5 @@
-import type { ShadingMode } from '@/app/model/shading'
-import {
+import type { ShadingMode } from '@/app/model/types/shading'
+import type {
 	computeBoundsTree,
 	disposeBoundsTree,
 	computeBatchedBoundsTree,
@@ -8,12 +8,12 @@ import {
 } from 'three-mesh-bvh'
 import type { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
-interface MxTextObjectData {
+export interface MxTextObjectData {
 	textValue: string
 	parameters: TextGeometry['parameters']
 }
 
-interface MxObjectUserData {
+export interface MxObjectUserData {
 	isShadable?: boolean
 	isHelper?: boolean
 	helperUUID?: string
