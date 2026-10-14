@@ -9,14 +9,14 @@ holds whichever one the current shading mode calls for.
 
 ## What each one is
 
-| | Studio Light | World |
-| --- | --- | --- |
-| Owned by | the editor | the scene |
-| Edited from | the Viewport Shading popover | the World properties tab |
-| Active in | `preview` | `rendered`, and every Render |
-| Saved with the project | no | yes |
-| Appears in renders | no | yes |
-| Source | 8 bundled maps | colour, preset, Poly Haven or an imported file |
+|                        | Studio Light                 | World                                          |
+| ---------------------- | ---------------------------- | ---------------------------------------------- |
+| Owned by               | the editor                   | the scene                                      |
+| Edited from            | the Viewport Shading popover | the World properties tab                       |
+| Active in              | `preview`                    | `rendered`, and every Render                   |
+| Saved with the project | no                           | yes                                            |
+| Appears in renders     | no                           | yes                                            |
+| Source                 | 8 bundled maps               | colour, preset, Poly Haven or an imported file |
 
 Neither is visible in `solid` or `wireframe`. `scene.environment` is a single
 slot, so the two can never both be mounted — on the viewport, `setMode` in
@@ -30,7 +30,7 @@ defaults to that same `#3D3D3D`, so the backdrop looks unchanged until someone
 edits it, and projects saved before this feature open with the default rather
 than with no World.
 
-Rendered mode does not look *identical*, and cannot: filling the environment
+Rendered mode does not look _identical_, and cannot: filling the environment
 hole is the point. A default World now lights the scene with a flat `#3D3D3D`
 where `scene.environment` used to be `null`, so physical materials pick up a
 faint even ambient they did not have. The backdrop is what stays the same.
