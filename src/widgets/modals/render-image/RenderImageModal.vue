@@ -90,17 +90,15 @@
 
 <script lang="ts" setup>
 import { useSceneStore } from '@/app/model/scene'
-import { useShadingStore } from '@/app/model/shading'
+import { withRenderScene } from '@/app/model/scene-copy'
 import { useTemplateRef, ref, computed, reactive } from 'vue'
 import THREE from '@/shared/three'
 import { useModals } from '@/shared/lib/modals'
 import { downloadFile } from '@/shared/lib/files'
 import type { RenderSettings } from './RenderImageSettings.vue'
 import { useToast } from '@/shared/lib/toast'
-import { getUserData } from '@/shared/three/utils'
 import { useCameraStore } from '@/app/model/camera'
 import { useComposerStore } from '@/app/model/composer'
-import { useWorldStore } from '@/app/model/world'
 
 const isOpen = defineModel<boolean>({ default: false })
 
@@ -109,7 +107,6 @@ const sceneStore = useSceneStore()
 const { close } = useModals()
 const toast = useToast()
 
-const shadingStore = useShadingStore()
 const cameraStore = useCameraStore()
 
 const renderSettings = ref<RenderSettings>({
@@ -136,36 +133,12 @@ const canSaveImage = computed(() => {
 	return !isRendering.value && previewRef.value?.src
 })
 
-/**
- * Creates a render scene from the source scene, excluding helper objects.
- */
-function createRenderScene(sourceScene: THREE.Scene): THREE.Scene {
-	const renderScene = new THREE.Scene()
-
-	// The World writes itself, every field at once, so a new one cannot be left
-	// behind here. Its map is shared rather than copied: the render draws with the
-	// viewport's own renderer, whose PMREM output it is (ADR-0002).
-	useWorldStore().writeTo(renderScene)
-
-	// Clone non-helper objects
-	sourceScene.children.forEach((child) => {
-		if (!getUserData(child).isHelper) {
-			// eslint-disable-next-line no-restricted-syntax -- the bug #35 removes along with this function
-			const cloned = child.clone(true)
-			renderScene.add(cloned)
-		}
-	})
-
-	return renderScene
-}
-
 const displayCanvas = document.createElement('canvas')
 
 /**
  * Renders the scene to the canvas.
  */
 async function renderImage() {
-	const originalMode = shadingStore.shadingMode
 	isRendering.value = true
 
 	const {
@@ -178,21 +151,19 @@ async function renderImage() {
 
 	setTimeout(() => {
 		try {
-			shadingStore.setMode('export')
-
-			const renderScene = createRenderScene(sceneStore.scene as THREE.Scene)
-			// `createRenderScene` has already written the World's backdrop.
-			// The toggle only decides whether it is drawn at all — choosing a
-			// different colour for one render is the World tab's job, and having
-			// two places to set a background is how they drift apart.
-			if (!background) renderScene.background = null
-
 			const startTime = performance.now()
-			const { image, width, height } = useComposerStore().renderImage({
-				scene: renderScene,
-				camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
-				width: requestedWidth,
-				height: requestedHeight
+			const { image, width, height } = withRenderScene(sceneStore.scene as THREE.Scene, (scene) => {
+				// The copy already carries the World's backdrop. The toggle only
+				// decides whether it is drawn at all — choosing a different colour for
+				// one render is the World tab's job, and having two places to set a
+				// background is how they drift apart.
+				if (!background) scene.background = null
+				return useComposerStore().renderImage({
+					scene,
+					camera: cameraStore.renderCamera ?? cameraStore.activeCamera,
+					width: requestedWidth,
+					height: requestedHeight
+				})
 			})
 			const endTime = performance.now()
 
@@ -241,8 +212,6 @@ async function renderImage() {
 				message: err.message
 			})
 			isRendering.value = false
-		} finally {
-			shadingStore.setMode(originalMode)
 		}
 	}, 10)
 }

@@ -181,7 +181,7 @@ export const useWorldStore = defineStore('world', () => {
 	/**
 	 * Puts the World onto a scene: every field it owns, in one place.
 	 *
-	 * The viewport in rendered and export modes and every Render all go through
+	 * The viewport in rendered mode and every Render both go through
 	 * here, so a new World field reaches them with one line rather than one each.
 	 * Whether the World is on a scene at all is not this store's call — that
 	 * stays with the shading mode (ADR-0002).

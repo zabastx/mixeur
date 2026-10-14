@@ -7,6 +7,7 @@ import {
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { useShadingStore } from './shading'
 import { useUvGridStore } from './uv-grid'
+import { useWorldStore } from './world'
 
 /** Copy the objects the scene is made of, independently of viewport shading. */
 export function duplicateObject(source: THREE.Object3D): THREE.Object3D {
@@ -57,6 +58,39 @@ export function snapshotScene(
 	return { scene, missingBones, renderCameraUUID }
 }
 
+/**
+ * Assembles the scene a Render draws, by snapshot's rules, and hands it to `draw`.
+ *
+ * The World's map is shared rather than copied: the render draws with the
+ * viewport's own renderer, whose PMREM output it is (ADR-0002). Released when
+ * `draw` returns or throws, so nothing the copy owns outlives the render.
+ */
+export function withRenderScene<T>(source: THREE.Scene, draw: (scene: THREE.Scene) => T): T {
+	const { scene } = snapshotScene(source)
+	useWorldStore().writeTo(scene)
+	try {
+		return draw(scene)
+	} finally {
+		release(scene)
+	}
+}
+
+/**
+ * Frees what a Render's copy owns: its cloned materials, and the shadow maps and
+ * bone textures the renderer allocated for its own lights and skeletons. Its
+ * geometry is borrowed and never disposed.
+ */
+function release(scene: THREE.Scene) {
+	const skeletons = new Set<THREE.Skeleton>()
+	scene.traverse((object) => {
+		if (object instanceof THREE.Light) object.dispose()
+		if (object instanceof THREE.SkinnedMesh) skeletons.add(object.skeleton)
+		if (!hasMaterial(object)) return
+		for (const material of materialsOf(object)) material.dispose()
+	})
+	for (const skeleton of skeletons) skeleton.dispose()
+}
+
 function prepareCopies(
 	cloneOf: Map<THREE.Object3D, THREE.Object3D>,
 	policy: 'duplicate' | 'snapshot'
@@ -92,7 +126,7 @@ function prepareCopies(
 			material.map = useUvGridStore().mapWithoutGrid(original.uuid, material.map)
 		}
 		if (policy === 'snapshot') continue
-		for (const material of Array.isArray(copy.material) ? copy.material : [copy.material]) {
+		for (const material of materialsOf(copy)) {
 			for (const [key, value] of Object.entries(material)) {
 				if (!(value instanceof THREE.Texture)) continue
 				let texture = textures.get(value)
@@ -112,6 +146,10 @@ function snapshotGeometry(source: THREE.BufferGeometry): THREE.BufferGeometry {
 	const geometry = Object.create(source) as THREE.BufferGeometry
 	geometry.attributes = { ...source.attributes }
 	return geometry
+}
+
+function materialsOf(object: THREE.Mesh | THREE.Line | THREE.Points | THREE.Sprite) {
+	return Array.isArray(object.material) ? object.material : [object.material]
 }
 
 function hasMaterial(

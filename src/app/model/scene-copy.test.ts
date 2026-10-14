@@ -13,16 +13,39 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import fontData from '../../../public/fonts/helvetiker_regular.typeface.json'
 import { MxObjectLoader } from '@/shared/three/modules/loaders/object-loader/MxObjectLoader'
 import { useToast } from '@/shared/lib/toast'
+import { withRenderScene } from './scene-copy'
+import { useWorldStore } from './world'
 
 const downloads = vi.hoisted(() => [] as (Blob | ArrayBuffer)[])
 vi.mock('@/shared/lib/files', () => ({
 	downloadFile: (data: Blob | ArrayBuffer) => downloads.push(data)
 }))
 
+vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
+	loadStudioLight: () => Promise.resolve({ ok: false, error: new Error('not loaded in tests') })
+}))
+
 function meshNamed(root: THREE.Object3D, name: string): THREE.Mesh {
 	const object = root.getObjectByName(name)
 	if (!(object instanceof THREE.Mesh)) throw new Error(`Missing mesh: ${name}`)
 	return object
+}
+
+/** The scene a Render would draw, kept past its release for inspection. */
+function sceneForRender(): THREE.Scene {
+	let assembled: THREE.Scene | undefined
+	withRenderScene(useSceneStore().scene, (scene) => {
+		assembled = scene
+	})
+	return assembled!
+}
+
+/** Records each watched object as it is disposed, in order. */
+function watchDisposal() {
+	const disposed: object[] = []
+	const watch = (target: THREE.EventDispatcher<{ dispose: object }>) =>
+		target.addEventListener('dispose', () => disposed.push(target))
+	return { disposed, watch }
 }
 
 function duplicate(source: THREE.Object3D) {
@@ -360,5 +383,209 @@ describe('scene copying', () => {
 		expect(geometry.attributes.uv.getX(0)).toBe(0)
 		expect(geometry.attributes.uv.getY(0)).toBe(1)
 		expect(geometry.attributes.position.getX(0)).toBe(-0.5)
+	})
+
+	describe('for a Render', () => {
+		it('assembles a light and a camera Duplicated inside a group', () => {
+			const scene = useSceneStore()
+			const group = scene.addGroup()
+			const light = createLight({ type: 'point' })
+			const camera = new THREE.PerspectiveCamera()
+			camera.name = 'Lens'
+			scene.addObjectToScene(light, group)
+			scene.addObjectToScene(camera, group)
+			duplicate(light)
+			duplicate(camera)
+
+			const assembled = sceneForRender()
+			const lights: THREE.Object3D[] = []
+			const cameras: THREE.Object3D[] = []
+			assembled.traverse((object) => {
+				if (object.name === light.name) lights.push(object)
+				if (object.name === 'Lens') cameras.push(object)
+			})
+			expect(lights).toHaveLength(2)
+			expect(cameras).toHaveLength(2)
+		})
+
+		it('keeps the objects parented under a directional light', () => {
+			const scene = useSceneStore()
+			const light = createLight({ type: 'sun' })
+			scene.addObjectToScene(light)
+			const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+			mesh.name = 'Lamp Shade'
+			scene.addObjectToScene(mesh, light)
+
+			const assembled = sceneForRender()
+			const copy = assembled.getObjectByName(light.name) as THREE.DirectionalLight
+			expect(meshNamed(assembled, 'Lamp Shade').parent).toBe(copy)
+			// Aimed through its own target: a detached one never gets a world matrix.
+			expect(copy.target.parent).toBe(copy)
+		})
+
+		it('shows a mesh wearing UV Grid with its real texture', () => {
+			const scene = useSceneStore()
+			const image = document.createElement('canvas')
+			const texture = new THREE.CanvasTexture(image)
+			const mesh = new THREE.Mesh(
+				new THREE.PlaneGeometry(),
+				new THREE.MeshStandardMaterial({ map: texture })
+			)
+			mesh.name = 'Body'
+			scene.addObjectToScene(mesh)
+			useShadingStore().setMode('rendered')
+			useUvGridStore().toggle(mesh)
+
+			const material = meshNamed(sceneForRender(), 'Body').material as THREE.MeshStandardMaterial
+			expect(material.map).toBe(texture)
+			expect(useUvGridStore().isApplied(mesh.uuid)).toBe(true)
+		})
+
+		it('gives meshes their real materials while the viewport is in Solid', () => {
+			const scene = useSceneStore()
+			const group = new THREE.Group()
+			const mesh = new THREE.Mesh(
+				new THREE.BoxGeometry(),
+				new THREE.MeshStandardMaterial({ color: 0xff0000 })
+			)
+			mesh.name = 'Body'
+			group.add(mesh)
+			scene.addObjectToScene(group)
+			expect(useShadingStore().shadingMode).toBe('solid')
+
+			const material = meshNamed(sceneForRender(), 'Body').material as THREE.MeshStandardMaterial
+			expect(material).toBeInstanceOf(THREE.MeshStandardMaterial)
+			expect(material.color.getHex()).toBe(0xff0000)
+		})
+
+		it('leaves out what the user hid and lights with what the mode hid', () => {
+			const scene = useSceneStore()
+			const light = createLight({ type: 'point' })
+			const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+			mesh.name = 'Hidden'
+			scene.addObjectToScene(light)
+			scene.addObjectToScene(mesh)
+			scene.objectVisibilityUpdate(mesh.uuid, false)
+			expect(light.visible).toBe(false)
+
+			const assembled = sceneForRender()
+			expect(meshNamed(assembled, 'Hidden').visible).toBe(false)
+			expect(assembled.getObjectByName(light.name)!.visible).toBe(true)
+		})
+
+		it('holds nothing that belongs to the editor, at any depth', () => {
+			const scene = useSceneStore()
+			useShadingStore().init()
+			const group = scene.addGroup()
+			const inner = new THREE.Group()
+			scene.addObjectToScene(inner, group)
+			scene.addObjectToScene(createLight({ type: 'spot' }), inner)
+			scene.addObjectToScene(new THREE.PerspectiveCamera(), inner)
+
+			const editorOnly: THREE.Object3D[] = []
+			sceneForRender().traverse((object) => {
+				const userData = getUserData(object)
+				if (
+					userData.isHelper ||
+					userData.isSystemObj ||
+					object instanceof THREE.CameraHelper ||
+					object.name.startsWith('SolidMode') ||
+					object.name === 'InfiniteGridHelper'
+				) {
+					editorOnly.push(object)
+				}
+			})
+			expect(editorOnly).toEqual([])
+		})
+
+		it('is lit and backed by the World', () => {
+			const world = useWorldStore()
+			world.setSurfaceKind('color')
+			if (world.surface.kind !== 'color') throw new Error('expected a colour Surface')
+			world.surface.color = '#336699'
+			world.strength = 2.5
+			world.blurriness = 0.3
+			world.rotation.set(0, 0.75, 0)
+			world.setFogKind('exp2')
+
+			const assembled = sceneForRender()
+			expect(assembled.environment).toBe(world.environment)
+			// A colour backdrop carries Strength in the colour itself.
+			expect(
+				(assembled.background as THREE.Color).equals(new THREE.Color('#336699').multiplyScalar(2.5))
+			).toBe(true)
+			expect(assembled.fog).toBeInstanceOf(THREE.FogExp2)
+			expect(assembled.environmentIntensity).toBe(2.5)
+			expect(assembled.backgroundIntensity).toBe(2.5)
+			expect(assembled.backgroundBlurriness).toBe(0.3)
+			expect(assembled.environmentRotation.y).toBeCloseTo(0.75)
+			expect(assembled.backgroundRotation.y).toBeCloseTo(0.75)
+		})
+
+		it.each([
+			['finishes', () => {}],
+			[
+				'throws',
+				() => {
+					throw new Error('GPU lost')
+				}
+			]
+		])(
+			'disposes its own materials and none of the source geometry when the render %s',
+			(_, finish) => {
+				const scene = useSceneStore()
+				const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+				mesh.name = 'Body'
+				scene.addObjectToScene(mesh)
+				const { disposed, watch } = watchDisposal()
+				watch(mesh.geometry)
+				watch(useShadingStore().shadedMaterial(mesh)!)
+				let material: THREE.Material | undefined
+
+				try {
+					withRenderScene(scene.scene, (assembled) => {
+						material = meshNamed(assembled, 'Body').material as THREE.Material
+						watch(material)
+						finish()
+					})
+				} catch {
+					// What a throwing render rethrows is the caller's to report.
+				}
+
+				expect(disposed).toEqual([material])
+				expect(mesh.geometry.attributes.position.count).toBeGreaterThan(0)
+			}
+		)
+
+		it('frees the shadow maps and bone textures the render allocated for its copies', () => {
+			const scene = useSceneStore()
+			const light = createLight({ type: 'sun' })
+			scene.addObjectToScene(light)
+			const bone = new THREE.Bone()
+			const mesh = new THREE.SkinnedMesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+			mesh.name = 'Body'
+			mesh.add(bone)
+			mesh.bind(new THREE.Skeleton([bone]))
+			scene.addObjectToScene(mesh)
+			const kept = mesh.skeleton.computeBoneTexture().boneTexture!
+			const { disposed, watch } = watchDisposal()
+			watch(kept)
+			const allocated: object[] = []
+
+			withRenderScene(scene.scene, (assembled) => {
+				// What WebGLRenderer allocates on a first draw of each.
+				const shadowMap = new THREE.WebGLRenderTarget(1, 1)
+				;(assembled.getObjectByName(light.name) as THREE.DirectionalLight).shadow.map = shadowMap
+				const skeleton = (meshNamed(assembled, 'Body') as THREE.SkinnedMesh).skeleton
+				const boneTexture = skeleton.computeBoneTexture().boneTexture!
+				allocated.push(shadowMap, boneTexture)
+				watch(shadowMap)
+				watch(boneTexture)
+			})
+
+			expect(disposed).toEqual(expect.arrayContaining(allocated))
+			expect(disposed).not.toContain(kept)
+			expect(mesh.skeleton.boneTexture).toBe(kept)
+		})
 	})
 })

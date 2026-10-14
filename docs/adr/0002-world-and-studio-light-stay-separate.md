@@ -13,14 +13,15 @@ holds whichever one the current shading mode calls for.
 | --- | --- | --- |
 | Owned by | the editor | the scene |
 | Edited from | the Viewport Shading popover | the World properties tab |
-| Active in | `preview` | `rendered`, `export` |
+| Active in | `preview` | `rendered`, and every Render |
 | Saved with the project | no | yes |
 | Appears in renders | no | yes |
 | Source | 8 bundled maps | colour, preset, Poly Haven or an imported file |
 
 Neither is visible in `solid` or `wireframe`. `scene.environment` is a single
-slot, so the two can never both be mounted — `setMode` in `shading.ts` picks one
-from the table above, alongside the material substitution it already does.
+slot, so the two can never both be mounted — on the viewport, `setMode` in
+`shading.ts` picks one from the table above, alongside the material substitution
+it already does. A Render always carries the World, whatever the mode.
 
 The World also owns `scene.background`, under the same table. Below `rendered`
 the viewport keeps its flat `#3D3D3D`, which is editor chrome; at `rendered` the
@@ -133,15 +134,15 @@ nothing an HDR at half the bytes does not already give.
 The World writes itself onto a scene: `writeTo` in the World store sets every
 field it owns — `environment`, `background`, `fog`, both intensities from the
 one Strength, `backgroundBlurriness` and both rotations — onto whichever scene
-it is handed. Shading calls it on the viewport's scene in `rendered` and
-`export`, and `RenderImageModal` calls it on the fresh `THREE.Scene` it builds
-per render. Neither keeps its own list of World fields, so a new one reaches
-both with one line in one place. That list used to be kept twice, and the
+it is handed. Shading calls it on the viewport's scene in `rendered`, and
+scene-copy's `withRenderScene` calls it on the copy it assembles for each
+Render. Neither keeps its own list of World fields, so a new one reaches both
+with one line in one place. That list used to be kept twice, and the
 render's copy fell behind: `environmentIntensity`, `backgroundIntensity`,
 `backgroundBlurriness` and both rotations were missing from it, and a render
 came out lit at strength 1 whatever the World said. Which of the two
-environments is mounted is still decided by Shading alone; `writeTo` is only
-the write.
+environments the viewport mounts is still decided by Shading alone; `writeTo`
+is only the write.
 
 `environment` was once the exception that could not be shared with a render at
 all. When the render drew with a second `WebGLRenderer` on its own canvas, the

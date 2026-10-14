@@ -51,17 +51,14 @@ import type { MxTooltipContent } from '@/shared/lib/types'
 
 const shadingStore = useShadingStore()
 
-const SETTINGS_COMPONENTS: Record<Exclude<ShadingMode, 'export'>, Component | null> = {
+const SETTINGS_COMPONENTS: Record<ShadingMode, Component | null> = {
 	wireframe: null,
 	solid: null,
 	preview: ShadingControlsSettingsPreview,
 	rendered: null
 } as const
 
-const settingsComponent = computed(() => {
-	if (shadingStore.shadingMode === 'export') return null
-	return SETTINGS_COMPONENTS[shadingStore.shadingMode]
-})
+const settingsComponent = computed(() => SETTINGS_COMPONENTS[shadingStore.shadingMode])
 
 const buttons: ShadingControlsElement[] = [
 	{
