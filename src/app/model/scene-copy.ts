@@ -5,6 +5,7 @@ import {
 	sceneForSerialization
 } from '@/shared/three/utils'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+import { useCameraStore } from './camera'
 import { useShadingStore } from './shading'
 import { useUvGridStore } from './uv-grid'
 import { useWorldStore } from './world'
@@ -35,43 +36,71 @@ function copyObjectTree(source: THREE.Object3D) {
 	return { object, cloneOf, missingBones: meshesMissingBones(object) }
 }
 
+interface SceneCopyOptions {
+	renderCamera?: THREE.Object3D | null
+	keep?: (object: THREE.Object3D) => boolean
+}
+
 /** File snapshots borrow vertex buffers; callers must not edit or dispose them. */
-export function snapshotScene(
-	source: THREE.Scene,
-	{
-		renderCamera,
-		keep = () => true
-	}: {
-		renderCamera?: THREE.Object3D | null
-		keep?: (object: THREE.Object3D) => boolean
-	} = {}
-) {
+export function snapshotScene(source: THREE.Scene, options: SceneCopyOptions = {}) {
+	const { scene, missingBones, renderCamera } = copyScene(source, options)
+	return { scene, missingBones, renderCameraUUID: renderCamera?.uuid ?? null }
+}
+
+function copyScene(source: THREE.Scene, { renderCamera, keep = () => true }: SceneCopyOptions) {
 	const { scene, cloneOf, missingBones } = sceneForSerialization(
 		source,
 		(node) => !node.userData.mixeur?.isHelper && keep(node)
 	)
 	prepareCopies(cloneOf, 'snapshot')
-	let renderCameraUUID: string | null = null
-	for (const [original, copy] of cloneOf) {
-		if (original.uuid === renderCamera?.uuid) renderCameraUUID = copy.uuid
-	}
-	return { scene, missingBones, renderCameraUUID }
+	const renderCameraCopy = renderCamera ? cloneOf.get(renderCamera) : undefined
+	return { scene, missingBones, renderCamera: renderCameraCopy }
 }
 
 /**
- * Assembles the scene a Render draws, by snapshot's rules, and hands it to `draw`.
+ * Assembles the scene a Render draws, by snapshot's rules, and hands it to `draw`
+ * with the camera to see it through: the copy's own Render Camera, framed for
+ * `width` × `height`. The user's camera is never touched.
  *
  * The World's map is shared rather than copied: the render draws with the
  * viewport's own renderer, whose PMREM output it is (ADR-0002). Released when
  * `draw` returns or throws, so nothing the copy owns outlives the render.
  */
-export function withRenderScene<T>(source: THREE.Scene, draw: (scene: THREE.Scene) => T): T {
-	const { scene } = snapshotScene(source)
-	useWorldStore().writeTo(scene)
+export function withRenderScene<T>(
+	source: THREE.Scene,
+	{ width, height }: { width: number; height: number },
+	draw: (scene: THREE.Scene, camera: THREE.Camera) => T
+): T {
+	const { scene, renderCamera } = copyScene(source, {
+		renderCamera: useCameraStore().renderCamera
+	})
 	try {
-		return draw(scene)
+		if (!(renderCamera instanceof THREE.Camera)) {
+			throw new Error('There is no Render Camera to render through.')
+		}
+		frame(renderCamera, width / height)
+		useWorldStore().writeTo(scene)
+		return draw(scene, renderCamera)
 	} finally {
 		release(scene)
+	}
+}
+
+/**
+ * Fits a camera's projection to an aspect: a perspective camera takes it as is,
+ * an orthographic one keeps its vertical extent and widens or narrows around
+ * its centre.
+ */
+function frame(camera: THREE.Camera, aspect: number) {
+	if (camera instanceof THREE.PerspectiveCamera) {
+		camera.aspect = aspect
+		camera.updateProjectionMatrix()
+	} else if (camera instanceof THREE.OrthographicCamera) {
+		const centre = (camera.left + camera.right) / 2
+		const halfWidth = ((camera.top - camera.bottom) / 2) * aspect
+		camera.left = centre - halfWidth
+		camera.right = centre + halfWidth
+		camera.updateProjectionMatrix()
 	}
 }
 
