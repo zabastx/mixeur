@@ -28,6 +28,7 @@ export function snapshotObject(source: THREE.Object3D) {
 	return { object, missingBones }
 }
 
+/** Copies the object hierarchy without editor helpers and reports meshes missing bones. */
 function copyObjectTree(source: THREE.Object3D) {
 	const { clone: object, cloneOf } = cloneForSerialization(
 		source,
@@ -47,6 +48,7 @@ export function snapshotScene(source: THREE.Scene, options: SceneCopyOptions = {
 	return { scene, missingBones, renderCameraUUID: renderCamera?.uuid ?? null }
 }
 
+/** Copies scene data with snapshot ownership rules and pairs the Render Camera with its copy. */
 function copyScene(source: THREE.Scene, { renderCamera, keep = () => true }: SceneCopyOptions) {
 	const { scene, cloneOf, missingBones } = sceneForSerialization(
 		source,
@@ -120,6 +122,10 @@ function release(scene: THREE.Scene) {
 	for (const skeleton of skeletons) skeleton.dispose()
 }
 
+/**
+ * Restores user visibility and real materials on copies. Duplicates own cloned
+ * geometry and textures; snapshots borrow vertex buffers and textures.
+ */
 function prepareCopies(
 	cloneOf: Map<THREE.Object3D, THREE.Object3D>,
 	policy: 'duplicate' | 'snapshot'
@@ -169,6 +175,7 @@ function prepareCopies(
 	}
 }
 
+/** Borrows geometry buffers while keeping attribute slots separate for serialization. */
 function snapshotGeometry(source: THREE.BufferGeometry): THREE.BufferGeometry {
 	// GLTFExporter temporarily replaces normals and indices, even across awaits.
 	// Own those slots while borrowing the read-only buffers and geometry parameters.
@@ -177,10 +184,12 @@ function snapshotGeometry(source: THREE.BufferGeometry): THREE.BufferGeometry {
 	return geometry
 }
 
+/** Returns an object's materials as an array, including single-material objects. */
 function materialsOf(object: THREE.Mesh | THREE.Line | THREE.Points | THREE.Sprite) {
 	return Array.isArray(object.material) ? object.material : [object.material]
 }
 
+/** Narrows a scene object to the supported types that carry materials. */
 function hasMaterial(
 	object: THREE.Object3D
 ): object is THREE.Mesh | THREE.Line | THREE.Points | THREE.Sprite {

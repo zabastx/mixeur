@@ -411,6 +411,7 @@ export const useShadingStore = defineStore('shading', () => {
 	}
 })
 
+/** Creates the editor lighting rig, visible only in Solid viewport shading. */
 function getSolidShadingLights() {
 	// Ambient light for overall illumination
 	const ambient = new THREE.AmbientLight(0xffffff, 1)

@@ -2,6 +2,7 @@ import THREE from '@/shared/three'
 import { InfiniteGridHelper } from './InfiniteGridHelper'
 import { getUserData } from '@/shared/three/utils'
 
+/** Adds the editor grid and ground-plane axes to a scene, returning the grid. */
 export function setGridHelper(scene: THREE.Scene) {
 	const grid = new InfiniteGridHelper(1, 10, new THREE.Color(0.48, 0.48, 0.48), 1000)
 	grid.renderOrder = -1
@@ -19,6 +20,7 @@ export function setGridHelper(scene: THREE.Scene) {
 	return grid
 }
 
+/** Builds mirrored ground-plane axes marked as editor helpers. */
 function getAxes() {
 	const axes = new THREE.AxesHelper(1000)
 	// eslint-disable-next-line no-restricted-syntax -- an editor helper with no children, never part of the scene's data
