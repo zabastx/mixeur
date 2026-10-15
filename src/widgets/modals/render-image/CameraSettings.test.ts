@@ -89,4 +89,16 @@ describe('CameraSettings', () => {
 		const expected = new THREE.PerspectiveCamera(60, camera.aspect, 0.5, 100)
 		expect(camera.projectionMatrix.elements).toEqual(expected.projectionMatrix.elements)
 	})
+
+	it('keeps the camera as it was when a field is cleared', async () => {
+		const camera = addCamera('a', { fov: 30, near: 0.5, far: 100, zoom: 1 })
+		useCameraStore().setRenderCamera('a')
+		render(CameraSettings)
+
+		await userEvent.clear(field('Clip Start'))
+		await userEvent.tab()
+
+		expect(camera.near).toBe(0.5)
+		expect(field('Clip Start').value).toBe('0.5')
+	})
 })

@@ -14,7 +14,7 @@
 					:format-options="{ unit: 'degree', unitDisplay: 'narrow', style: 'unit' }"
 					:max="180"
 					:min="1"
-					@update:model-value="setValue('number', 'fov', $event)"
+					@update:model-value="setLens('fov', $event)"
 				/>
 			</InputField>
 			<InputField label="Clip Start" label-width="125px">
@@ -22,7 +22,7 @@
 					:model-value="getValue('number', 'near')"
 					:step="1"
 					:format-options="{ minimumFractionDigits: 1 }"
-					@update:model-value="setValue('number', 'near', $event)"
+					@update:model-value="setLens('near', $event)"
 				/>
 			</InputField>
 			<InputField label="Clip End" label-width="125px">
@@ -30,7 +30,7 @@
 					:model-value="getValue('number', 'far')"
 					:step="1"
 					:format-options="{ minimumFractionDigits: 1 }"
-					@update:model-value="setValue('number', 'far', $event)"
+					@update:model-value="setLens('far', $event)"
 				/>
 			</InputField>
 			<InputField label="Zoom" label-width="125px">
@@ -38,7 +38,7 @@
 					:model-value="getValue('number', 'zoom')"
 					:step="0.1"
 					:format-options="{ minimumFractionDigits: 2 }"
-					@update:model-value="setValue('number', 'zoom', $event)"
+					@update:model-value="setLens('zoom', $event)"
 				/>
 			</InputField>
 		</template>
@@ -47,7 +47,7 @@
 
 <script lang="ts" setup>
 import { useCameraStore } from '@/app/model/camera'
-import { createObjectTarget, useFields } from '@/shared/lib/field-descriptor'
+import { createObjectTarget, useFields, type ObjectProp } from '@/shared/lib/field-descriptor'
 import type THREE from '@/shared/three'
 import { computed } from 'vue'
 
@@ -69,6 +69,12 @@ const { getValue, setValue } = useFields(
 		afterWrite: (camera) => camera.updateProjectionMatrix()
 	})
 )
+
+/** A cleared field emits `undefined`, which would leave the projection NaN; keep the old value. */
+function setLens(prop: ObjectProp<CameraLens>, value: number | undefined) {
+	if (value === undefined) return
+	setValue('number', prop, value)
+}
 
 const renderCameraOptions = computed(() =>
 	cameraStore.renderCameraList.map((cam) => ({
