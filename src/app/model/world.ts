@@ -191,8 +191,8 @@ export const useWorldStore = defineStore('world', () => {
 		scene.background = background()
 		scene.fog = sceneFog()
 
-		// One value drives both: a sky brighter than the light it casts is a lie
-		// nobody reaches for deliberately.
+		// One value drives both: a Surface brighter than the light it casts is a
+		// lie nobody reaches for deliberately.
 		scene.environmentIntensity = strength.value
 		scene.backgroundIntensity = strength.value
 
