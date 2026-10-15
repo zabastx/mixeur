@@ -183,6 +183,7 @@ export const useWorldStore = defineStore('world', () => {
 	 *
 	 * The viewport in rendered mode and every Render both go through
 	 * here, so a new World field reaches them with one line rather than one each.
+	 * Taking one off again below rendered is Shading's job, not this one's.
 	 * Whether the World is on a scene at all is not this store's call — that
 	 * stays with the shading mode (ADR-0002).
 	 */

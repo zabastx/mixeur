@@ -146,6 +146,9 @@ export const useShadingStore = defineStore('shading', () => {
 			return
 		}
 
+		// Every slot `writeTo` sets has to be overwritten below, or the World
+		// stays on the viewport after leaving rendered. The tests check this by
+		// slot, so a field added there alone fails them (ADR-0002).
 		scene.environment = mode === 'preview' ? studioLight.value : null
 		scene.background = new THREE.Color(VIEWPORT_BACKDROP)
 		scene.fog = null

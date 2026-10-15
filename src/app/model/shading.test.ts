@@ -33,6 +33,32 @@ function background(): string {
 	return value.getHexString()
 }
 
+/**
+ * Wraps a scene so that every write to it is recorded by top-level property,
+ * including writes made in place on an object a property holds — the rotations
+ * are `.copy`'d into, never reassigned. Reads are not recorded.
+ */
+function recordWrites(scene: THREE.Scene) {
+	const written = new Set<PropertyKey>()
+	const recorded = new Proxy(scene, {
+		set(target, key, value) {
+			written.add(key)
+			return Reflect.set(target, key, value)
+		},
+		get(target, key) {
+			const value = Reflect.get(target, key)
+			if (typeof value !== 'object' || value === null) return value
+			return new Proxy(value, {
+				set(inner, innerKey, innerValue) {
+					written.add(key)
+					return Reflect.set(inner, innerKey, innerValue)
+				}
+			})
+		}
+	})
+	return { scene: recorded, written }
+}
+
 function makeShadableMesh(name = 'Mesh', color = 0xff0000) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color }))
 	mesh.name = name
@@ -171,6 +197,28 @@ describe('useShadingStore', () => {
 			store.setMode('preview')
 			expect(sceneStoreMock.scene.environmentIntensity).toBe(0.5)
 		})
+
+		// Guards by slot rather than by value: a World field whose default happens
+		// to match what the mode shows would pass a value check and still leak
+		// once someone edits it.
+		it.each(['solid', 'preview', 'wireframe'] as const)(
+			'takes every slot the World writes back off the scene in %s',
+			(mode) => {
+				const store = useShadingStore()
+				const worldWrites = recordWrites(new THREE.Scene())
+				useWorldStore().writeTo(worldWrites.scene)
+				const worldSlots = [...worldWrites.written]
+				expect(worldSlots).not.toHaveLength(0)
+
+				const viewportWrites = recordWrites(new THREE.Scene())
+				sceneStoreMock.scene = viewportWrites.scene
+				store.setMode('rendered')
+				viewportWrites.written.clear()
+
+				store.setMode(mode)
+				expect(worldSlots.filter((slot) => !viewportWrites.written.has(slot))).toEqual([])
+			}
+		)
 	})
 
 	describe('setStudioLight', () => {

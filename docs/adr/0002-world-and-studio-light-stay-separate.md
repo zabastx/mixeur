@@ -136,13 +136,24 @@ field it owns — `environment`, `background`, `fog`, both intensities from the
 one Strength, `backgroundBlurriness` and both rotations — onto whichever scene
 it is handed. Shading calls it on the viewport's scene in `rendered`, and
 scene-copy's `withRenderScene` calls it on the copy it assembles for each
-Render. Neither keeps its own list of World fields, so a new one reaches both
-with one line in one place. That list used to be kept twice, and the
-render's copy fell behind: `environmentIntensity`, `backgroundIntensity`,
+Render. Neither keeps its own list of World fields for the write, so a new one
+reaches both with one line in one place. That list used to be kept twice, and
+the render's copy fell behind: `environmentIntensity`, `backgroundIntensity`,
 `backgroundBlurriness` and both rotations were missing from it, and a render
 came out lit at strength 1 whatever the World said. Which of the two
 environments the viewport mounts is still decided by Shading alone; `writeTo`
 is only the write.
+
+Only the write is single-sourced. Taking the World back off the viewport below
+`rendered` is Shading's job, and it overwrites the same slots by hand with the
+Studio Light or editor chrome, because what goes there is Shading's to decide.
+That hand-kept list is guarded by a test instead: it records which scene slots
+`writeTo` writes and fails if leaving `rendered` for any other mode leaves one
+of them unwritten, whatever value the World holds. A new World field is
+therefore one line in `writeTo` plus one in Shading, and forgetting the second
+fails the test rather than leaking World data into `solid` and `preview`
+(issue #38). A `clearFrom` on the World store was considered and rejected: it
+would move the second list next to the first rather than remove it.
 
 `environment` was once the exception that could not be shared with a render at
 all. When the render drew with a second `WebGLRenderer` on its own canvas, the
