@@ -10,31 +10,35 @@
 		<template v-if="renderCamera">
 			<InputField v-if="'fov' in renderCamera" label="FOV" label-width="125px">
 				<InputNumber
-					v-model="cameraSettings.fov"
+					:model-value="getValue('number', 'fov')"
 					:format-options="{ unit: 'degree', unitDisplay: 'narrow', style: 'unit' }"
 					:max="180"
 					:min="1"
+					@update:model-value="setValue('number', 'fov', $event)"
 				/>
 			</InputField>
 			<InputField label="Clip Start" label-width="125px">
 				<InputNumber
-					v-model="cameraSettings.near"
+					:model-value="getValue('number', 'near')"
 					:step="1"
 					:format-options="{ minimumFractionDigits: 1 }"
+					@update:model-value="setValue('number', 'near', $event)"
 				/>
 			</InputField>
 			<InputField label="Clip End" label-width="125px">
 				<InputNumber
-					v-model="cameraSettings.far"
+					:model-value="getValue('number', 'far')"
 					:step="1"
 					:format-options="{ minimumFractionDigits: 1 }"
+					@update:model-value="setValue('number', 'far', $event)"
 				/>
 			</InputField>
 			<InputField label="Zoom" label-width="125px">
 				<InputNumber
-					v-model="cameraSettings.zoom"
+					:model-value="getValue('number', 'zoom')"
 					:step="0.1"
 					:format-options="{ minimumFractionDigits: 2 }"
+					@update:model-value="setValue('number', 'zoom', $event)"
 				/>
 			</InputField>
 		</template>
@@ -43,9 +47,9 @@
 
 <script lang="ts" setup>
 import { useCameraStore } from '@/app/model/camera'
-import { isPerspectiveCamera } from '@/shared/lib/types'
-import THREE from '@/shared/three'
-import { computed, reactive, watch } from 'vue'
+import { createObjectTarget, useFields } from '@/shared/lib/field-descriptor'
+import type THREE from '@/shared/three'
+import { computed } from 'vue'
 
 const cameraStore = useCameraStore()
 
@@ -53,24 +57,18 @@ const renderCamera = computed(() => {
 	return cameraStore.renderCamera as THREE.PerspectiveCamera | THREE.OrthographicCamera | null
 })
 
-const cameraSettings = reactive({
-	fov: isPerspectiveCamera(renderCamera.value) ? renderCamera.value.fov : 50,
-	zoom: renderCamera.value?.zoom ?? 1,
-	near: renderCamera.value?.near ?? 0.1,
-	far: renderCamera.value?.far ?? 2000
-})
+/** What the panel edits: a perspective camera's lens, with `fov` absent on an orthographic one. */
+type CameraLens = Partial<Pick<THREE.PerspectiveCamera, 'fov'>> &
+	Pick<THREE.PerspectiveCamera, 'near' | 'far' | 'zoom' | 'updateProjectionMatrix'>
 
-watch(cameraSettings, ({ far, fov, near, zoom }) => {
-	if (!renderCamera.value) return
-
-	renderCamera.value.near = near
-	renderCamera.value.far = far
-	renderCamera.value.zoom = zoom
-
-	if (isPerspectiveCamera(renderCamera.value)) {
-		renderCamera.value.fov = fov
-	}
-})
+// Resolved on every access, so the fields follow the Render Camera as the
+// dropdown changes it. The projection is rebuilt on each write, so a viewport
+// looking through the camera shows the edit without waiting for a resize.
+const { getValue, setValue } = useFields(
+	createObjectTarget<CameraLens>(renderCamera, {
+		afterWrite: (camera) => camera.updateProjectionMatrix()
+	})
+)
 
 const renderCameraOptions = computed(() =>
 	cameraStore.renderCameraList.map((cam) => ({
