@@ -150,8 +150,7 @@ export const useShadingStore = defineStore('shading', () => {
 		scene.background = new THREE.Color(VIEWPORT_BACKDROP)
 		scene.fog = null
 
-		// Same lockstep as the World's Strength: a sky brighter than the light it
-		// casts is a lie nobody reaches for deliberately.
+		// The same lockstep `writeTo` keeps for the World's Strength.
 		scene.environmentIntensity = studioLightIntensity.value
 		scene.backgroundIntensity = studioLightIntensity.value
 

@@ -455,6 +455,12 @@ describe('scene copying', () => {
 					const lens = addRenderCamera(new THREE.PerspectiveCamera())
 					useSceneStore().deleteFromScene(lens.uuid)
 				}
+			],
+			[
+				'the chosen one is not in the scene',
+				() => {
+					useCameraStore().renderCamera = new THREE.PerspectiveCamera()
+				}
 			]
 		])('refuses when there is no Render Camera because %s', (_, arrange) => {
 			useSceneStore().addObjectToScene(new THREE.PerspectiveCamera())

@@ -38,14 +38,14 @@ function copyObjectTree(source: THREE.Object3D) {
 }
 
 interface SceneCopyOptions {
-	renderCamera?: THREE.Object3D | null
+	renderCamera?: THREE.Camera | null
 	keep?: (object: THREE.Object3D) => boolean
 }
 
 /** File snapshots borrow vertex buffers; callers must not edit or dispose them. */
 export function snapshotScene(source: THREE.Scene, options: SceneCopyOptions = {}) {
-	const { scene, missingBones, renderCamera } = copyScene(source, options)
-	return { scene, missingBones, renderCameraUUID: renderCamera?.uuid ?? null }
+	const { scene, missingBones, renderCameraCopy } = copyScene(source, options)
+	return { scene, missingBones, renderCameraUUID: renderCameraCopy?.uuid ?? null }
 }
 
 /** Copies scene data with snapshot ownership rules and pairs the Render Camera with its copy. */
@@ -56,13 +56,14 @@ function copyScene(source: THREE.Scene, { renderCamera, keep = () => true }: Sce
 	)
 	prepareCopies(cloneOf, 'snapshot')
 	const renderCameraCopy = renderCamera ? cloneOf.get(renderCamera) : undefined
-	return { scene, missingBones, renderCamera: renderCameraCopy }
+	return { scene, missingBones, renderCameraCopy }
 }
 
 /**
- * Assembles the scene a Render draws, by snapshot's rules, and hands it to `draw`
- * with the camera to see it through: the copy's own Render Camera, framed for
- * `width` × `height`. The user's camera is never touched.
+ * Assembles the scene a Render draws, copied by the same rules as a saved project,
+ * and hands it to `draw` with the camera to see it through: the copy's own Render
+ * Camera, framed for `width` × `height`. The user's camera is never touched.
+ * Refuses before copying anything when no Render Camera is chosen.
  *
  * The World's map is shared rather than copied: the render draws with the
  * viewport's own renderer, whose PMREM output it is (ADR-0002). Released when
@@ -73,19 +74,22 @@ export function withRenderScene<T>(
 	{ width, height }: { width: number; height: number },
 	draw: (scene: THREE.Scene, camera: THREE.Camera) => T
 ): T {
-	const { scene, renderCamera } = copyScene(source, {
-		renderCamera: useCameraStore().renderCamera
-	})
+	const { renderCamera } = useCameraStore()
+	if (!renderCamera) throw noRenderCamera()
+	const { scene, renderCameraCopy } = copyScene(source, { renderCamera })
 	try {
-		if (!(renderCamera instanceof THREE.Camera)) {
-			throw new Error('There is no Render Camera to render through.')
-		}
-		frame(renderCamera, width / height)
+		// Chosen but not in `source`: a camera the scene no longer holds.
+		if (!(renderCameraCopy instanceof THREE.Camera)) throw noRenderCamera()
+		frame(renderCameraCopy, width / height)
 		useWorldStore().writeTo(scene)
-		return draw(scene, renderCamera)
+		return draw(scene, renderCameraCopy)
 	} finally {
 		release(scene)
 	}
+}
+
+function noRenderCamera() {
+	return new Error('There is no Render Camera to render through.')
 }
 
 /**
