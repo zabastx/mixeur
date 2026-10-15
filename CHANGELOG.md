@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-10-15
+
+### Changed
+
+- Render Image needs a Render Camera now, and its Render button stays disabled with a hint to pick one in the Camera dropdown until you do. Without one it used to quietly fall back to whatever the viewport was looking at, which is not a shot anyone had set up
+
+### Fixed
+
+- A render is framed through the Render Camera at the size you asked for. It used to come out square from a camera you had never looked through, and at the viewport's proportions from one you had, so the same camera gave two different pictures depending on how you last used it. The camera itself is left as it was: a render frames a copy of it
+- Rendering a scene with a light or camera that had been duplicated inside a group failed outright, and a duplicated directional light rendered aimed somewhere other than where it pointed in the viewport
+- A mesh showing the UV Grid rendered with the grid on it instead of its own texture. The grid is an editor overlay and no longer reaches a render
+- The Camera settings in Render Image kept showing the first camera's FOV, clip range and zoom after you picked another one in the dropdown, and the next edit wrote all four of those stale values onto the new camera. They follow the chosen camera now, an edit changes only its own field, and a view through the camera updates straight away instead of on the next window resize
+- Clearing one of those camera fields left the camera broken, and a view through it went blank. An empty field is ignored now and shows the camera's value again
+
 ## [0.32.1] - 2026-09-15
 
 ### Fixed
@@ -62,7 +76,8 @@ Released versions are archived once the current file grows past a `0.x0` boundar
 - [0.21.0 – 0.30.2](changelogs/CHANGELOG-0.30.2.md)
 - [0.1.0 – 0.20.0](changelogs/CHANGELOG-0.20.0.md)
 
-[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.1...HEAD
+[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.2...HEAD
+[0.32.2]: https://github.com/zabastx/mixeur/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/zabastx/mixeur/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/zabastx/mixeur/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/zabastx/mixeur/compare/v0.30.2...v0.31.0
