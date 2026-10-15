@@ -1,0 +1,1 @@
+import{t as e}from"./three-PoTjg6_P.js";async function t({url:t}){return await new e.TextureLoader().loadAsync(t)}export{t as loadImageTexture};
