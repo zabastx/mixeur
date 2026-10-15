@@ -10,6 +10,7 @@ declare global {
 	}
 }
 
+/** Dispatches a document event with the detail type declared in DocumentEventMap. */
 export function emitCustomEvent<K extends keyof DocumentEventMap>(
 	type: K,
 	detail?: DocumentEventMap[K] extends CustomEvent<infer D> ? D : never

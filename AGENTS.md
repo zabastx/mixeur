@@ -8,7 +8,7 @@
 
 ### Issue tracker
 
-Issues live as GitHub issues in `zabastx/mixeur`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues in `zabastx/mixeur`, managed with the `gh` CLI (the codeberg and gitverse remotes are mirrors only). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

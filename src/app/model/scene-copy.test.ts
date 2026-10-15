@@ -26,6 +26,7 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 	loadStudioLight: () => Promise.resolve({ ok: false, error: new Error('not loaded in tests') })
 }))
 
+/** Finds a named mesh, failing the test if it is absent or has a different type. */
 function meshNamed(root: THREE.Object3D, name: string): THREE.Mesh {
 	const object = root.getObjectByName(name)
 	if (!(object instanceof THREE.Mesh)) throw new Error(`Missing mesh: ${name}`)
@@ -34,6 +35,7 @@ function meshNamed(root: THREE.Object3D, name: string): THREE.Mesh {
 
 const size = { width: 1920, height: 1080 }
 
+/** Adds a camera to the scene and selects it as the Render Camera for the test. */
 function addRenderCamera<T extends THREE.Camera>(camera: T): T {
 	useSceneStore().addObjectToScene(camera)
 	useCameraStore().setRenderCamera(camera.uuid)
@@ -50,6 +52,7 @@ function assembleRender(requested = size) {
 	return assembled!
 }
 
+/** Returns the assembled Render scene after its owned resources have been released. */
 function sceneForRender(): THREE.Scene {
 	return assembleRender().scene
 }
@@ -62,6 +65,7 @@ function watchDisposal() {
 	return { disposed, watch }
 }
 
+/** Duplicates through the scene store and returns the newly selected object. */
 function duplicate(source: THREE.Object3D) {
 	useSelectionStore().select(source)
 	useSceneStore().duplicateObject(source.uuid)
