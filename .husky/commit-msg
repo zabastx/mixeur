@@ -1,0 +1,14 @@
+# CODING_STANDARDS.md: a commit that adds or strengthens an assertion names the
+# mutation it was run against and saw fail. Only the committer knows it, so the
+# check runs here rather than in review.
+git rev-parse -q --verify MERGE_HEAD >/dev/null && exit 0
+
+added=$(git diff --cached -U0 -- '*.test.ts' | grep -E '^\+[^+].*(expect\(|(get|query|find)(All)?By)' || true)
+[ -z "$added" ] && exit 0
+
+grep -qiE '^(mutation|no new assertions)' "$1" && exit 0
+
+echo "commit-msg: this commit adds test assertions." >&2
+echo "Add a line starting with 'Mutation' naming the mutation each new assertion" >&2
+echo "was run against and saw fail, or 'No new assertions' if it only moves tests." >&2
+exit 1
