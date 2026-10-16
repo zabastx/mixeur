@@ -31,10 +31,11 @@ Behaviour that needs the real primitives and is awkward to reach in happy-dom be
 the Playwright suite, which is why the outliner is covered there.
 
 **A test whose name claims a behaviour fails when that behaviour is removed.** Name the
-mutation it catches: delete the watcher, ignore the option, check the wrong object. One
-audit found five tests that stayed green with their behaviour gone (the World's Surface
-watcher, icon rendering, the download's MIME type, `crc32`'s offset, delete's selection
-check).
+mutation it catches: delete the watcher, ignore the option, check the wrong object. A
+commit that adds or strengthens an assertion names, in its message, the mutation it was
+run against and saw fail; reading the test alone cannot tell. One audit found five tests
+that stayed green with their behaviour gone (the World's Surface watcher, icon
+rendering, the download's MIME type, `crc32`'s offset, delete's selection check).
 
 **Assert the value.** `toBeDefined()`, `toBeTruthy()` and a bare `toHaveBeenCalled()`
 pass for any result that exists; pin what the result should be.
