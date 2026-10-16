@@ -11,9 +11,7 @@
 					bg-ui-tooltip-inner p-2 text-tooltip text-ui-tooltip-text z-2000"
 			>
 				<slot name="content">
-					<span v-if="tooltip?.title">{{ tooltip.title }}</span>
-					<p v-if="tooltip?.text" class="whitespace-pre-line">{{ tooltip?.text }}</p>
-					<span v-if="tooltip?.footer" class="text-[0.9em] opacity-50">{{ tooltip?.footer }}</span>
+					<MxTooltipBody :tooltip />
 				</slot>
 			</TooltipContent>
 		</TooltipPortal>

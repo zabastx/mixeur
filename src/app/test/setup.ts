@@ -4,18 +4,16 @@ import { cleanup } from '@testing-library/vue'
 
 afterEach(() => cleanup())
 
-// Renders the tooltip's content inline next to its trigger, so a test finds a
-// tooltip by its text, as a user does, without hovering through reka-ui's portal.
-vi.mock('@/shared/ui/MxTooltip.vue', () => ({
+// Renders the tooltip's real body inline next to its trigger, so a test finds a
+// tooltip by its text without hovering through reka-ui's portal, which happy-dom
+// cannot reach.
+vi.mock('@/shared/ui/MxTooltip.vue', async () => ({
 	default: {
+		components: { MxTooltipBody: (await import('@/shared/ui/MxTooltipBody.vue')).default },
 		template: `
 			<slot name="default"></slot>
 			<div v-if="!tooltipDisabled" role="tooltip">
-				<slot name="content">
-					<span v-if="tooltip?.title">{{ tooltip.title }}</span>
-					<p v-if="tooltip?.text">{{ tooltip.text }}</p>
-					<span v-if="tooltip?.footer">{{ tooltip.footer }}</span>
-				</slot>
+				<slot name="content"><MxTooltipBody :tooltip="tooltip" /></slot>
 			</div>
 		`,
 		props: ['tooltipDisabled', 'tooltip', 'options']

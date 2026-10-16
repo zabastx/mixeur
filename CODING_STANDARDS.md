@@ -28,7 +28,9 @@ with the real project decoder.
 is clicks and typing on elements found by role, label or text; output is the DOM and
 emitted events. A stub of a child component or of a reka-ui primitive tests the stub.
 Behaviour that needs the real primitives and is awkward to reach in happy-dom belongs in
-the Playwright suite, which is why the outliner is covered there.
+the Playwright suite, which is why the outliner is covered there. The global `MxTooltip`
+stub in `src/app/test/setup.ts` is the one sanctioned exception: reka-ui's hover-and-portal
+path is out of happy-dom's reach, so the stub renders the real `MxTooltipBody` inline.
 
 **A test whose name claims a behaviour fails when that behaviour is removed.** Name the
 mutation it catches: delete the watcher, ignore the option, check the wrong object. A
