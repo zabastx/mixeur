@@ -50,6 +50,7 @@
 									<div
 										v-for="item in requiredAssets"
 										:key="item"
+										data-testid="required-asset"
 										class="border-b border-ui-text-outline pb-0.5 last:border-b-0 grid
 											grid-cols-[1fr_200px]"
 									>

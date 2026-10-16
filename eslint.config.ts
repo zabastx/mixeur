@@ -2,6 +2,8 @@ import eslint from '@eslint/js'
 import eslintConfigPrettier from 'eslint-config-prettier'
 import gitignore from 'eslint-config-flat-gitignore'
 import eslintPluginVue from 'eslint-plugin-vue'
+import playwright from 'eslint-plugin-playwright'
+import vitest from '@vitest/eslint-plugin'
 import globals from 'globals'
 import typescriptEslint from 'typescript-eslint'
 import { defineConfig } from 'eslint/config'
@@ -41,6 +43,23 @@ export default defineConfig(
 				}
 			],
 			'vue/require-default-prop': 'off'
+		}
+	},
+	// An unawaited assertion can settle after the test has ended, so the test passes
+	// whatever the app does. Only these two rules for now; the plugins' other
+	// test-smell rules come in once the tests they would flag are fixed.
+	{
+		files: ['tests/e2e/**/*.ts'],
+		plugins: { playwright },
+		rules: {
+			'playwright/missing-playwright-await': 'error'
+		}
+	},
+	{
+		files: ['src/**/*.test.ts'],
+		plugins: { vitest },
+		rules: {
+			'vitest/valid-expect': ['error', { alwaysAwait: true }]
 		}
 	},
 	eslintConfigPrettier

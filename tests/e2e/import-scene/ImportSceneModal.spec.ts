@@ -23,7 +23,7 @@ test.describe('Import Scene Modal', () => {
 		await page.locator('text=test-gltf.glb').click()
 		await page.getByRole('button', { name: 'Import' }).click()
 		await page.locator('[data-testid="import-scene"]').waitFor({ state: 'hidden' })
-		expect(page.getByText('test-gltf.glb')).toBeVisible()
+		await expect(page.getByText('test-gltf.glb')).toBeVisible()
 	})
 
 	test('Import OBJ file with assets', async ({ page }) => {
@@ -43,7 +43,6 @@ test.describe('Import Scene Modal', () => {
 		)
 
 		await page.locator('[data-testid="model-file"]').click()
-		page.getByRole('button', { name: 'Import' })
 		const autoFillBtn = page.locator('button', { hasText: 'Auto Fill' })
 		await autoFillBtn.waitFor()
 		await autoFillBtn.click()
@@ -97,21 +96,40 @@ test.describe('Import Scene Modal', () => {
 	})
 
 	test('Manual asset mapping', async ({ page }) => {
-		const [fileChooser] = await Promise.all([
+		const [dirChooser] = await Promise.all([
 			page.waitForEvent('filechooser'),
 			page.click('text=Upload a folder')
 		])
-		const dirPath = fileURLToPath(new URL('../files/obj', import.meta.url))
-		await fileChooser.setFiles(dirPath)
+		await dirChooser.setFiles(fileURLToPath(new URL('../files/obj', import.meta.url)))
+		// A second model, only so the OBJ can be left and selected again below.
+		const [fileChooser] = await Promise.all([
+			page.waitForEvent('filechooser'),
+			page.click('text=Upload files')
+		])
+		await fileChooser.setFiles(fileURLToPath(new URL('../files/test-gltf.glb', import.meta.url)))
 
-		// Select the model file (should show required assets)
-		await page.locator('[data-testid="model-file"]').click()
+		const objModel = page.getByTestId('model-file').filter({ hasText: 'female02.obj' })
+		await objModel.click()
 
 		// Verify required assets section appears (OBJ with MTL has required assets)
 		await expect(page.getByRole('heading', { name: /Required Assets/i })).toBeVisible()
 
-		// Change asset selection via dropdown instead of using Auto Fill
-		const assetSelect = page.locator('[data-testid^="asset-file"]').first()
-		await assetSelect.click()
+		// Selecting the model auto-fills only the MTL; the textures it names stay
+		// empty until mapped. Pick a file other than the one Auto Fill would choose,
+		// so the slot can only hold it if the dropdown put it there.
+		const slot = page
+			.getByTestId('required-asset')
+			.filter({ has: page.getByText('01_-_Default1noCulling.JPG', { exact: true }) })
+		await slot.getByRole('combobox').click()
+		await page.getByRole('option', { name: '02_-_Default1noCulling.JPG', exact: true }).click()
+
+		// An empty select keeps its own value, so it shows the pick even if the mapping
+		// dropped it. Leaving the model and coming back redraws the slots from the
+		// mapping alone.
+		await page.getByTestId('model-file').filter({ hasText: 'test-gltf.glb' }).click()
+		await expect(page.getByTestId('required-asset')).toHaveCount(0)
+		await objModel.click()
+
+		await expect(slot.getByRole('combobox')).toHaveText('02_-_Default1noCulling.JPG')
 	})
 })
