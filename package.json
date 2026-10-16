@@ -21,7 +21,7 @@
 		"types:check": "vue-tsc --build"
 	},
 	"lint-staged": {
-		"src/**/*.{js,ts,vue}": [
+		"{src,tests}/**/*.{js,ts,vue}": [
 			"eslint --fix",
 			"prettier --write"
 		],
