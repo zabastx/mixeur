@@ -1,7 +1,8 @@
 <template>
 	<Menubar.Root loop>
 		<Menubar.Menu v-for="menu in items" :key="menu.label">
-			<Menubar.Trigger class="menubar-trigger">
+			<!-- An icon has no text to name the menu by, so the label does it. -->
+			<Menubar.Trigger class="menubar-trigger" :aria-label="menu.icon ? menu.label : undefined">
 				<img
 					v-if="menu.icon === 'mixeur'"
 					src="/favicon-96x96.png"

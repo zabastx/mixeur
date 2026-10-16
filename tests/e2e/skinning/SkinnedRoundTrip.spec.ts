@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
+import { importModel, openApp, openMenu, openSubmenu, saveAndReopenProject } from '../helpers'
 
 /**
  * A rigged model has to come back from a file the same shape it went in.
@@ -25,41 +26,20 @@ function watchForLostBones(page: Page) {
 	return lost
 }
 
-async function openApp(page: Page) {
-	await page.goto('/')
-	await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+/** Opens the app in Preview shading with the default cube deleted. */
+async function openInPreviewWithoutCube(page: Page) {
+	await openApp(page)
 
 	// Solid shading paints everything the same grey, which is no use for telling
 	// the fixture apart from the default cube. Preview draws its own material.
-	await page.locator('[data-testid="shading-btn-preview"]').click()
-	await expect(page.locator('[data-testid="shading-btn-preview"]')).toHaveAttribute(
-		'data-active',
-		'true'
-	)
+	await page.getByTestId('shading-btn-preview').click()
+	await expect(page.getByTestId('shading-btn-preview')).toHaveAttribute('data-active', 'true')
 
 	// And the default cube is in front of where the fixture lands, so it goes.
-	const cube = page.locator('[data-testid="outliner-item"]', { hasText: 'cube' }).first()
+	const cube = page.getByTestId('outliner-item').filter({ hasText: 'cube' }).first()
 	await cube.click({ button: 'right' })
 	await page.getByRole('menuitem', { name: 'Delete' }).click()
 	await expect(cube).toHaveCount(0)
-}
-
-/** Imports a model file through the Import Scene modal. */
-async function importModel(page: Page, path: string, name: string) {
-	await page.click('text=File')
-	await page.hover('text=Import')
-	await page.click('text=Import from file')
-	await page.waitForSelector('[data-testid="import-scene"]', { state: 'visible' })
-
-	const [chooser] = await Promise.all([
-		page.waitForEvent('filechooser'),
-		page.click('text=Upload files')
-	])
-	await chooser.setFiles(path)
-
-	await page.locator(`text=${name}`).click()
-	await page.getByRole('button', { name: 'Import' }).click()
-	await page.locator('[data-testid="import-scene"]').waitFor({ state: 'hidden' })
 }
 
 /**
@@ -75,7 +55,7 @@ async function rigCoverage(page: Page) {
 		() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))))
 	)
 
-	const shot = await page.locator('[data-testid="viewport-canvas"]').screenshot()
+	const shot = await page.getByTestId('viewport-canvas').screenshot()
 
 	return await page.evaluate(async (bytes) => {
 		const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' })
@@ -100,11 +80,11 @@ async function rigCoverage(page: Page) {
 test.describe('Skinned models survive a round trip', () => {
 	test('a Duplicate keeps its rig visible after deleting the original', async ({ page }) => {
 		const lostBones = watchForLostBones(page)
-		await openApp(page)
+		await openInPreviewWithoutCube(page)
 		await importModel(page, riggedFixture, 'rigged.glb')
 		const before = await rigCoverage(page)
 		expect(before).toBeGreaterThan(0.01)
-		const rigs = page.locator('[data-testid="outliner-item"]', { hasText: 'rigged.glb' })
+		const rigs = page.getByTestId('outliner-item').filter({ hasText: 'rigged.glb' })
 		await rigs.first().click({ button: 'right' })
 		await page.getByRole('menuitem', { name: /Duplicate Object/ }).click()
 		await expect(rigs).toHaveCount(2)
@@ -117,27 +97,13 @@ test.describe('Skinned models survive a round trip', () => {
 
 	test('a project save and reopen keeps the rig posed', async ({ page }) => {
 		const lostBones = watchForLostBones(page)
-		await openApp(page)
+		await openInPreviewWithoutCube(page)
 		await importModel(page, riggedFixture, 'rigged.glb')
 
 		const before = await rigCoverage(page)
 		expect(before).toBeGreaterThan(0.01)
 
-		await page.click('text=File')
-		const [download] = await Promise.all([
-			page.waitForEvent('download'),
-			page.getByRole('menuitem', { name: 'Save' }).click()
-		])
-		const saved = await download.path()
-		expect(saved).toBeTruthy()
-
-		await page.click('text=File')
-		const [chooser] = await Promise.all([
-			page.waitForEvent('filechooser'),
-			page.getByRole('menuitem', { name: 'Open' }).click()
-		])
-		await chooser.setFiles(saved!)
-		await expect(page.getByText('Project loaded successfully', { exact: true })).toBeVisible()
+		await saveAndReopenProject(page)
 
 		const after = await rigCoverage(page)
 
@@ -148,13 +114,13 @@ test.describe('Skinned models survive a round trip', () => {
 
 	test('Save to JSON and Import Three.js JSON keeps the rig posed', async ({ page }) => {
 		const lostBones = watchForLostBones(page)
-		await openApp(page)
+		await openInPreviewWithoutCube(page)
 		await importModel(page, riggedFixture, 'rigged.glb')
 
 		const before = await rigCoverage(page)
 		expect(before).toBeGreaterThan(0.01)
 
-		const rig = page.locator('[data-testid="outliner-item"]', { hasText: 'rigged.glb' }).first()
+		const rig = page.getByTestId('outliner-item').filter({ hasText: 'rigged.glb' }).first()
 		await rig.click({ button: 'right' })
 		const [download] = await Promise.all([
 			page.waitForEvent('download'),
@@ -168,16 +134,16 @@ test.describe('Skinned models survive a round trip', () => {
 		await page.getByRole('menuitem', { name: 'Delete' }).click()
 		expect(await rigCoverage(page)).toBeLessThan(0.001)
 
-		await page.click('text=File')
-		await page.hover('text=Import')
+		await openMenu(page, 'File')
+		await openSubmenu(page, 'Import')
 		const [chooser] = await Promise.all([
 			page.waitForEvent('filechooser'),
-			page.click('text=Import Three.js JSON')
+			page.getByRole('menuitem', { name: 'Import Three.js JSON' }).click()
 		])
 		await chooser.setFiles(saved!)
 
 		await expect(
-			page.locator('[data-testid="outliner-item"]', { hasText: 'rigged.glb' }).first()
+			page.getByTestId('outliner-item').filter({ hasText: 'rigged.glb' }).first()
 		).toBeVisible()
 
 		const after = await rigCoverage(page)

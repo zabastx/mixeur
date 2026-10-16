@@ -4,20 +4,20 @@ import { importGlb } from '../helpers'
 test.describe('Properties · Transform', () => {
 	test.beforeEach(async ({ page }) => {
 		await importGlb(page)
-		await page.locator('[data-testid="outliner-item"]').first().click()
+		await page.getByTestId('outliner-item').first().click()
 	})
 
 	test('object tab is available when an object is selected', async ({ page }) => {
-		await expect(page.locator('[data-testid="properties-tab-object"]')).toBeVisible()
+		await expect(page.getByTestId('properties-tab-object')).toBeVisible()
 	})
 
 	test('editing a transform field commits the new value', async ({ page }) => {
-		await page.locator('[data-testid="properties-tab-object"]').click()
+		await page.getByTestId('properties-tab-object').click()
 
 		// Transform values live behind a collapsible accordion section.
 		await page.getByRole('button', { name: 'Transform' }).click()
 
-		const input = page.locator('[data-testid="number-input"]').first()
+		const input = page.getByTestId('number-input').first()
 		await expect(input).toBeVisible()
 
 		await input.focus()

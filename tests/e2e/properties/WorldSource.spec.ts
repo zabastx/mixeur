@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { chooseOption, equirectFixture, otherEquirectFixture } from '../helpers'
+import { chooseOption, equirectFixture, openApp, otherEquirectFixture } from '../helpers'
 
 /**
  * Choosing where a World's image comes from.
@@ -89,15 +89,14 @@ async function stubPolyHaven(page: Page) {
 test.describe('World Source', () => {
 	test.beforeEach(async ({ page }) => {
 		await stubPolyHaven(page)
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
-		await page.locator('[data-testid="properties-tab-world"]').click()
+		await openApp(page)
+		await page.getByTestId('properties-tab-world').click()
 	})
 
 	test('an image Surface starts on a preset', async ({ page }) => {
 		await chooseOption(page, 'world-surface', 'Image')
 
-		await expect(page.locator('[data-testid="world-preset"]')).toBeVisible()
+		await expect(page.getByTestId('world-preset')).toBeVisible()
 	})
 
 	test('choosing Poly Haven opens the HDRI browser', async ({ page }) => {
@@ -105,20 +104,20 @@ test.describe('World Source', () => {
 
 		await chooseOption(page, 'world-source', 'Poly Haven')
 
-		await expect(page.locator('[data-testid="modal-asset-browser-hdris"]')).toBeVisible()
+		await expect(page.getByTestId('modal-asset-browser-hdris')).toBeVisible()
 	})
 
 	test('leaving the browser without importing keeps the preset Source', async ({ page }) => {
 		await chooseOption(page, 'world-surface', 'Image')
 		await chooseOption(page, 'world-source', 'Poly Haven')
-		await expect(page.locator('[data-testid="modal-asset-browser-hdris"]')).toBeVisible()
+		await expect(page.getByTestId('modal-asset-browser-hdris')).toBeVisible()
 
 		await page.getByRole('button', { name: 'Close dialog' }).click()
 
 		// The select reads from the Surface, so a cancelled browse leaves it showing
 		// the Source really in effect rather than one with no image behind it.
-		await expect(page.locator('[data-testid="modal-asset-browser-hdris"]')).toBeHidden()
-		await expect(page.locator('[data-testid="world-preset"]')).toBeVisible()
+		await expect(page.getByTestId('modal-asset-browser-hdris')).toBeHidden()
+		await expect(page.getByTestId('world-preset')).toBeVisible()
 	})
 
 	test('importing an HDRI names it in the panel', async ({ page }) => {
@@ -128,7 +127,7 @@ test.describe('World Source', () => {
 		await page.getByText('Kloofendal 43d Clear').first().click()
 		await page.getByRole('button', { name: 'Import' }).click()
 
-		const image = page.locator('[data-testid="world-image"]')
+		const image = page.getByTestId('world-image')
 		await expect(image).toContainText('Kloofendal 43d Clear')
 		// 2k unless asked otherwise: large enough not to look soft, small enough to
 		// browse several in a row.
@@ -146,15 +145,12 @@ test.describe('World Source', () => {
 		await chooseOption(page, 'world-source', 'Poly Haven')
 		await page.getByText('Kloofendal 43d Clear').first().click()
 		await page.getByRole('button', { name: 'Import' }).click()
-		await expect(page.locator('[data-testid="world-image"]')).toContainText('2k')
+		await expect(page.getByTestId('world-image')).toContainText('2k')
 
 		// Rendered is the only mode where the World reaches `scene.environment`, so
 		// a map PMREM could not filter fails to compile here and nowhere else.
-		await page.locator('[data-testid="shading-btn-rendered"]').click()
-		await expect(page.locator('[data-testid="shading-btn-rendered"]')).toHaveAttribute(
-			'data-active',
-			'true'
-		)
+		await page.getByTestId('shading-btn-rendered').click()
+		await expect(page.getByTestId('shading-btn-rendered')).toHaveAttribute('data-active', 'true')
 
 		expect(errors).toEqual([])
 	})
@@ -174,16 +170,13 @@ test.describe('World Source', () => {
 		// bytes rather than on a stub.
 		await (await chooser).setFiles(equirectFixture)
 
-		const image = page.locator('[data-testid="world-image"]')
+		const image = page.getByTestId('world-image')
 		await expect(image).toContainText('sunset.exr')
 		// A file that is here has nothing to say beyond its name.
-		await expect(page.locator('[data-testid="world-image-detail"]')).toHaveText('')
+		await expect(page.getByTestId('world-image-detail')).toHaveText('')
 
-		await page.locator('[data-testid="shading-btn-rendered"]').click()
-		await expect(page.locator('[data-testid="shading-btn-rendered"]')).toHaveAttribute(
-			'data-active',
-			'true'
-		)
+		await page.getByTestId('shading-btn-rendered').click()
+		await expect(page.getByTestId('shading-btn-rendered')).toHaveAttribute('data-active', 'true')
 
 		expect(errors).toEqual([])
 	})
@@ -194,10 +187,10 @@ test.describe('World Source', () => {
 		const first = page.waitForEvent('filechooser')
 		await chooseOption(page, 'world-source', 'Import')
 		await (await first).setFiles(equirectFixture)
-		await expect(page.locator('[data-testid="world-image"]')).toContainText('sunset.exr')
+		await expect(page.getByTestId('world-image')).toContainText('sunset.exr')
 
 		await chooseOption(page, 'world-source', 'Preset')
-		await expect(page.locator('[data-testid="world-preset"]')).toBeVisible()
+		await expect(page.getByTestId('world-preset')).toBeVisible()
 
 		// The dialog reuses one input and keeps its selection, so re-picking the
 		// identical file used to fire no change event and quietly do nothing.
@@ -205,7 +198,7 @@ test.describe('World Source', () => {
 		await chooseOption(page, 'world-source', 'Import')
 		await (await second).setFiles(equirectFixture)
 
-		await expect(page.locator('[data-testid="world-image"]')).toContainText('sunset.exr')
+		await expect(page.getByTestId('world-image')).toContainText('sunset.exr')
 	})
 
 	test('the image row picks a different file without changing Source', async ({ page }) => {
@@ -213,16 +206,16 @@ test.describe('World Source', () => {
 		const first = page.waitForEvent('filechooser')
 		await chooseOption(page, 'world-source', 'Import')
 		await (await first).setFiles(equirectFixture)
-		await expect(page.locator('[data-testid="world-image"]')).toContainText('sunset.exr')
+		await expect(page.getByTestId('world-image')).toContainText('sunset.exr')
 
 		// The Source select changes the *kind* and stays quiet when re-picking the
 		// kind already in effect, so swapping one imported image for another is the
 		// row's job.
 		const second = page.waitForEvent('filechooser')
-		await page.locator('[data-testid="world-image"] button').click()
+		await page.getByTestId('world-image').getByRole('button').click()
 		await (await second).setFiles(otherEquirectFixture)
 
-		await expect(page.locator('[data-testid="world-image"]')).toContainText('night.exr')
+		await expect(page.getByTestId('world-image')).toContainText('night.exr')
 	})
 
 	test('cancelling the file dialog keeps the preset Source', async ({ page }) => {
@@ -232,6 +225,6 @@ test.describe('World Source', () => {
 		await chooseOption(page, 'world-source', 'Import')
 		await (await chooser).setFiles([])
 
-		await expect(page.locator('[data-testid="world-preset"]')).toBeVisible()
+		await expect(page.getByTestId('world-preset')).toBeVisible()
 	})
 })

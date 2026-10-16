@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test'
+import { openApp } from '../helpers'
 
 test.describe('Viewport Controls', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 	})
 
 	test('Toolbar buttons switch transform mode', async ({ page }) => {
-		const translateBtn = page.locator('[data-testid="toolbar-btn-translate"]')
-		const rotateBtn = page.locator('[data-testid="toolbar-btn-rotate"]')
-		const scaleBtn = page.locator('[data-testid="toolbar-btn-scale"]')
+		const translateBtn = page.getByTestId('toolbar-btn-translate')
+		const rotateBtn = page.getByTestId('toolbar-btn-rotate')
+		const scaleBtn = page.getByTestId('toolbar-btn-scale')
 
 		await expect(translateBtn).toHaveAttribute('data-active', 'true')
 		await expect(rotateBtn).toHaveAttribute('data-active', 'false')
@@ -27,10 +27,10 @@ test.describe('Viewport Controls', () => {
 	})
 
 	test('Keyboard shortcuts G,R,S switch tools', async ({ page }) => {
-		const translateBtn = page.locator('[data-testid="toolbar-btn-translate"]')
-		const rotateBtn = page.locator('[data-testid="toolbar-btn-rotate"]')
-		const scaleBtn = page.locator('[data-testid="toolbar-btn-scale"]')
-		const canvas = page.locator('[data-testid="viewport-canvas"]')
+		const translateBtn = page.getByTestId('toolbar-btn-translate')
+		const rotateBtn = page.getByTestId('toolbar-btn-rotate')
+		const scaleBtn = page.getByTestId('toolbar-btn-scale')
+		const canvas = page.getByTestId('viewport-canvas')
 
 		await canvas.click()
 		await canvas.press('g')

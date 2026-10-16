@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test'
-import { chooseOption, moveToNewGroup, outlinerRows } from '../helpers'
+import {
+	chooseOption,
+	moveToNewGroup,
+	openApp,
+	openMenu,
+	openSubmenu,
+	outlinerRows
+} from '../helpers'
 
 /**
  * What a rendered image is lit by, whether it keeps its alpha, and whether the
@@ -129,9 +136,7 @@ async function sampleViewport(
 	// no drawing buffer between frames, so `drawImage` on it comes back blank.
 	// A screenshot is the composited result, which is what the user sees — so
 	// nothing may cover the canvas when this is called.
-	const png = (await page.locator('[data-testid="viewport-canvas"]').screenshot()).toString(
-		'base64'
-	)
+	const png = (await page.getByTestId('viewport-canvas').screenshot()).toString('base64')
 
 	const stats = await page.evaluate(async (base64) => {
 		const image = new Image()
@@ -163,7 +168,7 @@ async function sampleViewport(
 
 /** Orbits the viewport camera — middle-drag, as the controls bind it. */
 async function orbitViewport(page: Page) {
-	const box = (await page.locator('[data-testid="viewport-canvas"]').boundingBox())!
+	const box = (await page.getByTestId('viewport-canvas').boundingBox())!
 	const x = box.x + box.width / 2
 	const y = box.y + box.height / 2
 
@@ -171,25 +176,22 @@ async function orbitViewport(page: Page) {
 	await page.mouse.down({ button: 'middle' })
 	await page.mouse.move(x + 160, y + 90, { steps: 10 })
 	await page.mouse.up({ button: 'middle' })
-	// A frame to redraw before the pixels are read.
-	await page.waitForTimeout(300)
 }
 
 /** Opens the Render Image modal from the top menu. */
 async function openRenderModal(page: Page) {
-	await page.click('text=Render')
+	await openMenu(page, 'Render')
 	await page.getByRole('menuitem', { name: 'Render Image' }).click()
-	await expect(page.locator('[data-testid="modal-render-image"]')).toBeVisible()
+	await expect(page.getByTestId('modal-render-image')).toBeVisible()
 }
 
 test.describe('Render Image', () => {
 	test('renders the scene lit by the World, not by scene lights alone', async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 
 		// An image Surface: bright enough on every side that a cube lit by it
 		// cannot come out with a black face.
-		await page.locator('[data-testid="properties-tab-world"]').click()
+		await page.getByTestId('properties-tab-world').click()
 		await chooseOption(page, 'world-surface', 'Image')
 
 		await openRenderModal(page)
@@ -203,16 +205,15 @@ test.describe('Render Image', () => {
 	test('carries HDR through the chain, so a point-lit scene is exposed correctly', async ({
 		page
 	}) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 
 		// A point light on the default (dark) World is the case that exposes the
 		// composer's buffer precision. SSAA accumulates 16 jittered samples at
 		// ~1/16 weight each and the light drives radiance past 1: in an 8-bit
 		// buffer every small addition rounds up to the nearest 1/255 and anything
 		// over 1 clips before `OutputPass` tone maps it.
-		await page.click('text=Add')
-		await page.getByRole('menuitem', { name: 'Light' }).click()
+		await openMenu(page, 'Add')
+		await openSubmenu(page, 'Light')
 		await page.getByRole('menuitem', { name: 'Point', exact: true }).click()
 
 		await openRenderModal(page)
@@ -233,14 +234,13 @@ test.describe('Render Image', () => {
 	})
 
 	test('keeps real transparency when the Background toggle is off', async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 
 		await openRenderModal(page)
 
 		// Off makes the render's backdrop transparent; the cube in the middle stays
 		// opaque. The one checkbox in the render settings is this toggle.
-		await page.locator('[data-testid="modal-render-image"]').getByRole('checkbox').click()
+		await page.getByTestId('modal-render-image').getByRole('checkbox').click()
 		await page.getByRole('button', { name: 'Render Image' }).click()
 
 		// Wait on the centre first: it only goes opaque once the preview has
@@ -266,10 +266,9 @@ test.describe('Render Image', () => {
 	})
 
 	test('leaves the viewport rendering after repeated renders', async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 
-		await page.locator('[data-testid="properties-tab-world"]').click()
+		await page.getByTestId('properties-tab-world').click()
 		await chooseOption(page, 'world-surface', 'Image')
 
 		// What the viewport looked like before anything borrowed its renderer.
@@ -292,7 +291,7 @@ test.describe('Render Image', () => {
 		// The modal sits over the viewport, and the sample below reads composited
 		// pixels — so it has to go before the viewport can be looked at.
 		await page.getByRole('button', { name: 'Cancel' }).click()
-		await expect(page.locator('[data-testid="modal-render-image"]')).toBeHidden()
+		await expect(page.getByTestId('modal-render-image')).toBeHidden()
 
 		// Not just "the context lives" — that was true of every failure worth
 		// worrying about here. A renderer handed back at the render's size, still
@@ -307,15 +306,16 @@ test.describe('Render Image', () => {
 		// And it has to still be *drawing*, not showing the last frame it managed
 		// before the render borrowed its renderer. Orbiting is the cheapest proof:
 		// a viewport left bound to the render's target keeps its context and its
-		// stale picture, and only a changed camera tells the two apart.
+		// stale picture, and only a changed camera tells the two apart. Polled, as
+		// the redraw lands on a later frame than the drag that asked for it.
 		await orbitViewport(page)
-		const moved = await sampleViewport(page)
-		expect(Math.abs(moved.mean - after.mean)).toBeGreaterThan(0.3)
+		await expect
+			.poll(async () => Math.abs((await sampleViewport(page)).mean - after.mean))
+			.toBeGreaterThan(0.3)
 	})
 
 	test('renders a light Duplicated inside a group', async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 
 		// Duplicate places the copy and its helper inside the group, beside the
 		// original: the arrangement a render used to throw on.
@@ -334,8 +334,7 @@ test.describe('Render Image', () => {
 	})
 
 	test('cannot render without a Render Camera', async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 
 		// The default scene's camera is its Render Camera; with it gone there is
 		// nothing to see a Render through, and no viewport view to fall back on.
@@ -345,6 +344,6 @@ test.describe('Render Image', () => {
 
 		await openRenderModal(page)
 		await expect(page.getByRole('button', { name: 'Render Image' })).toBeDisabled()
-		await expect(page.locator('[data-testid="render-camera-hint"]')).toBeVisible()
+		await expect(page.getByTestId('render-camera-hint')).toBeVisible()
 	})
 })

@@ -46,13 +46,18 @@ export default defineConfig(
 		}
 	},
 	// An unawaited assertion can settle after the test has ended, so the test passes
-	// whatever the app does. Only these two rules for now; the plugins' other
-	// test-smell rules come in once the tests they would flag are fixed.
+	// whatever the app does. The plugins' other test-smell rules come in once the
+	// tests they would flag are fixed.
 	{
 		files: ['tests/e2e/**/*.ts'],
 		plugins: { playwright },
 		rules: {
-			'playwright/missing-playwright-await': 'error'
+			'playwright/missing-playwright-await': 'error',
+			// Locate by role, label, text or test id, and wait on a condition: a raw
+			// selector couples the test to markup, a fixed sleep to the machine's speed.
+			'playwright/no-raw-locators': 'error',
+			'playwright/no-wait-for-selector': 'error',
+			'playwright/no-wait-for-timeout': 'error'
 		}
 	},
 	{

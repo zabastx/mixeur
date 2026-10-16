@@ -32,7 +32,7 @@
 						<button
 							v-if="item.hasChildren"
 							type="button"
-							data-toggle
+							data-testid="outliner-toggle"
 							class="text-base inline-flex items-center justify-center cursor-pointer
 								hover:brightness-125 size-4"
 							@click.stop="handleToggle"

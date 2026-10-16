@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { openApp } from '../helpers'
 
 /**
  * A smoke test for the properties panel, aimed at the two failure shapes that
@@ -27,18 +28,17 @@ function collectConsoleErrors(page: Page): string[] {
 
 test.describe('Properties tabs', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/')
-		await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
+		await openApp(page)
 	})
 
 	test('every tab is reachable and none is oversized', async ({ page }) => {
-		const panel = page.locator('[role="tablist"]')
+		const panel = page.getByRole('tablist')
 		await expect(panel).toBeVisible()
 
 		const viewportHeight = page.viewportSize()?.height ?? 0
 
 		for (const tab of TABS) {
-			const trigger = page.locator(`[data-testid="properties-tab-${tab}"]`)
+			const trigger = page.getByTestId(`properties-tab-${tab}`)
 			await expect(trigger).toBeVisible()
 
 			const box = await trigger.boundingBox()
@@ -60,9 +60,9 @@ test.describe('Properties tabs', () => {
 		const errors = collectConsoleErrors(page)
 
 		for (const tab of TABS) {
-			await page.locator(`[data-testid="properties-tab-${tab}"]`).click()
-			// Every panel stays mounted; only one is not hidden.
-			await expect(page.locator('[role="tabpanel"][data-state="active"]')).toBeVisible()
+			await page.getByTestId(`properties-tab-${tab}`).click()
+			// Every panel stays mounted; only one is not hidden, so only one has the role.
+			await expect(page.getByRole('tabpanel')).toBeVisible()
 		}
 
 		expect(errors).toEqual([])
@@ -71,17 +71,14 @@ test.describe('Properties tabs', () => {
 	test('the World renders in every shading mode without shader errors', async ({ page }) => {
 		const errors = collectConsoleErrors(page)
 
-		await page.locator('[data-testid="properties-tab-world"]').click()
+		await page.getByTestId('properties-tab-world').click()
 		await expect(page.getByText('Strength')).toBeVisible()
 
 		// Rendered is where the World occupies `scene.environment`. A malformed
 		// environment map fails to compile there and nowhere else.
 		for (const mode of ['wireframe', 'preview', 'rendered', 'solid'] as const) {
-			await page.locator(`[data-testid="shading-btn-${mode}"]`).click()
-			await expect(page.locator(`[data-testid="shading-btn-${mode}"]`)).toHaveAttribute(
-				'data-active',
-				'true'
-			)
+			await page.getByTestId(`shading-btn-${mode}`).click()
+			await expect(page.getByTestId(`shading-btn-${mode}`)).toHaveAttribute('data-active', 'true')
 		}
 
 		expect(errors).toEqual([])

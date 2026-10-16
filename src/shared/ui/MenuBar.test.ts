@@ -134,6 +134,18 @@ describe('MenuBar', () => {
 		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
 	})
 
+	it('names an icon-only menu by its label', () => {
+		const items: IMenubarMenu[] = [
+			{ label: 'mixeur', icon: 'mixeur', items: [] },
+			{ label: 'Tools', icon: 'base/folder' as unknown as IMenubarMenu['icon'], items: [] }
+		]
+
+		render(MenuBar, { props: { items } })
+
+		expect(screen.getByRole('menuitem', { name: 'mixeur' })).toBeTruthy()
+		expect(screen.getByRole('menuitem', { name: 'Tools' })).toBeTruthy()
+	})
+
 	it('renders with empty items', () => {
 		const items = [{ label: 'Empty Menu', items: [] }]
 

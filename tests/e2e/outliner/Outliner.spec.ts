@@ -7,7 +7,7 @@ test.describe('Outliner', () => {
 	})
 
 	test('imported object appears and can be selected', async ({ page }) => {
-		const item = page.locator('[data-testid="outliner-item"]').first()
+		const item = page.getByTestId('outliner-item').first()
 		await expect(item).toBeVisible()
 
 		await item.click()
@@ -16,17 +16,17 @@ test.describe('Outliner', () => {
 	})
 
 	test('add group creates a new outliner row', async ({ page }) => {
-		const items = page.locator('[data-testid="outliner-item"]')
+		const items = page.getByTestId('outliner-item')
 		const before = await items.count()
 
-		await page.locator('[data-testid="outliner-add-group"]').click()
+		await page.getByTestId('outliner-add-group').click()
 
 		await expect(items).toHaveCount(before + 1)
 		await expect(page.getByText('Group', { exact: true })).toBeVisible()
 	})
 
 	test('visibility toggle flips the checkbox state', async ({ page }) => {
-		const checkbox = page.locator('[data-testid="visibility-toggle"]').first()
+		const checkbox = page.getByTestId('visibility-toggle').first()
 		const initial = await checkbox.getAttribute('data-state')
 
 		await checkbox.click()
@@ -35,7 +35,7 @@ test.describe('Outliner', () => {
 	})
 
 	test('delete removes an object through the context menu', async ({ page }) => {
-		const items = page.locator('[data-testid="outliner-item"]')
+		const items = page.getByTestId('outliner-item')
 		const before = await items.count()
 
 		await items.first().click({ button: 'right' })

@@ -1,36 +1,60 @@
 import { type Page, expect } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
+/** The GLB fixture `importGlb` brings in. */
+export const glbFixture = fileURLToPath(new URL('./files/test-gltf.glb', import.meta.url))
+
+/** Opens the app and waits for the viewport's canvas to be in the page. */
+export async function openApp(page: Page) {
+	await page.goto('/')
+	await expect(page.getByTestId('viewport-canvas')).toBeAttached()
+}
+
+/**
+ * Opens a top-level menu by its name: the visible label, or for an icon-only
+ * menu such as "mixeur", the label it carries as its accessible name.
+ */
+export async function openMenu(page: Page, label: string) {
+	await page.getByRole('menuitem', { name: label, exact: true }).click()
+}
+
+/** Opens a submenu of the menu already open, by hovering its trigger. */
+export async function openSubmenu(page: Page, label: string) {
+	await page.getByRole('menuitem', { name: label, exact: true }).hover()
+}
+
+/** Opens the Import Scene modal through File › Import › Import from file. */
+export async function openImportScene(page: Page) {
+	await openMenu(page, 'File')
+	await openSubmenu(page, 'Import')
+	await page.getByRole('menuitem', { name: 'Import from file' }).click()
+	await expect(page.getByTestId('import-scene')).toBeVisible()
+}
+
+/**
+ * Imports the model file at `path` through the Import Scene modal, picking the
+ * model listed as `name`, and returns once the modal has closed.
+ */
+export async function importModel(page: Page, path: string, name: string) {
+	await openImportScene(page)
+
+	const chooser = page.waitForEvent('filechooser')
+	await page.getByRole('button', { name: 'Upload files' }).click()
+	await (await chooser).setFiles(path)
+
+	await page.getByText(name).click()
+	await page.getByRole('button', { name: 'Import' }).click()
+	await expect(page.getByTestId('import-scene')).toBeHidden()
+}
+
 /**
  * Opens the app and imports the shared GLB fixture through the Import Scene modal,
  * leaving the imported object selected and visible in the outliner.
  */
 export async function importGlb(page: Page) {
-	await page.goto('/')
-	await page.waitForSelector('[data-testid="viewport-canvas"]', { state: 'attached' })
-
-	await page.click('text=File')
-	await page.hover('text=Import')
-	await page.click('text=Import from file')
-	await page.waitForSelector('[data-testid="import-scene"]', { state: 'visible' })
-
-	const [fileChooser] = await Promise.all([
-		page.waitForEvent('filechooser'),
-		page.click('text=Upload files')
-	])
-	const filePath = fileURLToPath(new URL('./files/test-gltf.glb', import.meta.url))
-	await fileChooser.setFiles(filePath)
-
-	await page.locator('text=test-gltf.glb').click()
-	await page.getByRole('button', { name: 'Import' }).click()
-	await page.locator('[data-testid="import-scene"]').waitFor({ state: 'hidden' })
-
-	await expect(page.locator('[data-testid="outliner-item"]').first()).toBeVisible()
-}
-
-/** Opens a top-level menubar menu by its visible label. */
-export async function openMenu(page: Page, label: string) {
-	await page.click(`text=${label}`)
+	await openApp(page)
+	await importModel(page, glbFixture, 'test-gltf.glb')
+	await expect(page.getByTestId('outliner-item').first()).toBeVisible()
 }
 
 /**
@@ -53,7 +77,7 @@ export const otherEquirectFixture = fileURLToPath(
 
 /** Opens one of the properties panel's selects and picks an option by label. */
 export async function chooseOption(page: Page, testId: string, option: string) {
-	await page.locator(`[data-testid="${testId}"]`).getByRole('combobox').click()
+	await page.getByTestId(testId).getByRole('combobox').click()
 	await page.getByRole('option', { name: option, exact: true }).click()
 }
 
@@ -62,7 +86,7 @@ export async function chooseOption(page: Page, testId: string, option: string) {
  * been confirmed. The round trip every "does this survive a save" test needs.
  */
 export async function saveAndReopenProject(page: Page) {
-	await page.click('text=File')
+	await openMenu(page, 'File')
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByRole('menuitem', { name: 'Save' }).click()
@@ -70,7 +94,7 @@ export async function saveAndReopenProject(page: Page) {
 	const downloadPath = await download.path()
 	expect(downloadPath).toBeTruthy()
 
-	await page.click('text=File')
+	await openMenu(page, 'File')
 	const [fileChooser] = await Promise.all([
 		page.waitForEvent('filechooser'),
 		page.getByRole('menuitem', { name: 'Open' }).click()
@@ -103,5 +127,5 @@ export async function moveToNewGroup(page: Page, name: string) {
 	await page.keyboard.press('ArrowRight')
 	await page.getByRole('menuitem', { name: 'New Group' }).press('Enter')
 	// A new group is added collapsed, last among the scene's top-level rows.
-	await outlinerRows(page, 'Group').last().locator('[data-toggle]').click()
+	await outlinerRows(page, 'Group').last().getByTestId('outliner-toggle').click()
 }
