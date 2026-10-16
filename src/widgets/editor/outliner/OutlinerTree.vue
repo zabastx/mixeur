@@ -29,6 +29,7 @@
 							'bg-outliner-active-highlight text-outliner-active-object': isSelected
 						}"
 					>
+						<!-- No aria-label: it would join the treeitem's accessible name ("Expand Group"). -->
 						<button
 							v-if="item.hasChildren"
 							type="button"

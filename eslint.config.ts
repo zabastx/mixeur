@@ -56,6 +56,8 @@ export default defineConfig(
 			// Locate by role, label, text or test id, and wait on a condition: a raw
 			// selector couples the test to markup, a fixed sleep to the machine's speed.
 			'playwright/no-raw-locators': 'error',
+			'playwright/prefer-locator': 'error',
+			'playwright/prefer-web-first-assertions': 'error',
 			'playwright/no-wait-for-selector': 'error',
 			'playwright/no-wait-for-timeout': 'error'
 		}
