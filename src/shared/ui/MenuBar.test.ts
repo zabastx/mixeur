@@ -18,7 +18,7 @@ describe('MenuBar', () => {
 			props: { items }
 		})
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 
 	it('renders menu labels', () => {
@@ -29,8 +29,8 @@ describe('MenuBar', () => {
 
 		render(MenuBar, { props: { items } })
 
-		expect(screen.getByText('File')).toBeTruthy()
-		expect(screen.getByText('Edit')).toBeTruthy()
+		expect(screen.getByText('File')).toBeInTheDocument()
+		expect(screen.getByText('Edit')).toBeInTheDocument()
 	})
 
 	it('handles item click when menu is opened', async () => {
@@ -67,7 +67,7 @@ describe('MenuBar', () => {
 
 		const { container } = render(MenuBar, { props: { items } })
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 
 	it('handles checkbox items', () => {
@@ -80,7 +80,7 @@ describe('MenuBar', () => {
 
 		const { container } = render(MenuBar, { props: { items } })
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 
 	it('handles submenu items', () => {
@@ -100,7 +100,7 @@ describe('MenuBar', () => {
 
 		const { container } = render(MenuBar, { props: { items } })
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 
 	it('handles separator items', () => {
@@ -117,7 +117,7 @@ describe('MenuBar', () => {
 
 		const { container } = render(MenuBar, { props: { items } })
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 
 	it('handles menu with icon property', () => {
@@ -131,7 +131,7 @@ describe('MenuBar', () => {
 
 		const { container } = render(MenuBar, { props: { items } })
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 
 	it('names an icon-only menu by its label', () => {
@@ -142,8 +142,8 @@ describe('MenuBar', () => {
 
 		render(MenuBar, { props: { items } })
 
-		expect(screen.getByRole('menuitem', { name: 'mixeur' })).toBeTruthy()
-		expect(screen.getByRole('menuitem', { name: 'Tools' })).toBeTruthy()
+		expect(screen.getByRole('menuitem', { name: 'mixeur' })).toBeInTheDocument()
+		expect(screen.getByRole('menuitem', { name: 'Tools' })).toBeInTheDocument()
 	})
 
 	it('renders with empty items', () => {
@@ -151,6 +151,6 @@ describe('MenuBar', () => {
 
 		const { container } = render(MenuBar, { props: { items } })
 
-		expect(container.querySelector('[role="menubar"]')).toBeTruthy()
+		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
 	})
 })

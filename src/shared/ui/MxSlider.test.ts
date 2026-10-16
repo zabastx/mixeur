@@ -11,7 +11,7 @@ describe('MxSlider', () => {
 		})
 
 		const slider = container.querySelector('[role="slider"]')
-		expect(slider).toBeTruthy()
+		expect(slider).toBeInTheDocument()
 	})
 
 	it('renders with default value', () => {
@@ -57,7 +57,7 @@ describe('MxSlider', () => {
 		})
 
 		const slider = container.querySelector('[role="slider"]')
-		expect(slider).toBeTruthy()
+		expect(slider).toBeInTheDocument()
 	})
 
 	it('accepts track props', () => {
@@ -69,7 +69,7 @@ describe('MxSlider', () => {
 		})
 
 		const track = container.querySelector('.bg-ui-slider-inner')
-		expect(track).toBeTruthy()
+		expect(track).toBeInTheDocument()
 	})
 
 	it('renders range styling when provided', () => {
@@ -81,7 +81,7 @@ describe('MxSlider', () => {
 		})
 
 		const range = container.querySelector('.bg-ui-slider-item')
-		expect(range).toBeTruthy()
+		expect(range).toBeInTheDocument()
 	})
 
 	it('renders slot content', () => {
@@ -95,6 +95,6 @@ describe('MxSlider', () => {
 		})
 
 		const slot = container.querySelector('[data-testid="slider-slot"]')
-		expect(slot).toBeTruthy()
+		expect(slot).toBeInTheDocument()
 	})
 })

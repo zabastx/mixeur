@@ -13,7 +13,7 @@ describe('InputColor', () => {
 		})
 
 		const preview = container.querySelector('.checkerboard')
-		expect(preview).toBeTruthy()
+		expect(preview).toBeInTheDocument()
 	})
 
 	it('displays correct color value', () => {
@@ -75,7 +75,7 @@ describe('InputColor', () => {
 		})
 
 		const trigger = container.querySelector('.checkerboard')
-		expect(trigger).toBeTruthy()
+		expect(trigger).toBeInTheDocument()
 
 		if (trigger) {
 			await userEvent.click(trigger)
@@ -90,7 +90,7 @@ describe('InputColor', () => {
 			}
 		})
 
-		expect(container.querySelector('.checkerboard')).toBeTruthy()
+		expect(container.querySelector('.checkerboard')).toBeInTheDocument()
 	})
 
 	it('accepts alpha model', () => {
@@ -126,6 +126,6 @@ describe('InputColor', () => {
 		})
 
 		const preview = container.querySelector('.checkerboard')
-		expect(preview).toBeTruthy()
+		expect(preview).toBeInTheDocument()
 	})
 })

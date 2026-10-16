@@ -22,7 +22,7 @@ describe('InputNumber', () => {
 		await userEvent.type(input, '100')
 		await userEvent.tab()
 
-		expect(emitted('update:modelValue')).toBeTruthy()
+		expect(emitted('update:modelValue')?.at(-1)).toEqual([100])
 	})
 
 	it('respects formatOptions for decimal places', () => {

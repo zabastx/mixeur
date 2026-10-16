@@ -19,7 +19,7 @@ describe('InputSelect', () => {
 			}
 		})
 
-		expect(screen.getByText('Select an option')).toBeTruthy()
+		expect(screen.getByText('Select an option')).toBeInTheDocument()
 	})
 
 	it('displays selected value', () => {
@@ -31,7 +31,7 @@ describe('InputSelect', () => {
 		})
 
 		const combobox = container.querySelector('[role="combobox"]')
-		expect(combobox).toBeTruthy()
+		expect(combobox).toBeInTheDocument()
 	})
 
 	it('displays icon for selected value', () => {
@@ -43,7 +43,7 @@ describe('InputSelect', () => {
 		})
 
 		const icon = container.querySelector('svg')
-		expect(icon).toBeTruthy()
+		expect(icon).toBeInTheDocument()
 	})
 
 	it('opens dropdown on click', async () => {
@@ -54,7 +54,7 @@ describe('InputSelect', () => {
 		})
 
 		const trigger = container.querySelector('[role="combobox"]')
-		expect(trigger).toBeTruthy()
+		expect(trigger).toBeInTheDocument()
 
 		if (trigger) {
 			await userEvent.click(trigger)
@@ -102,7 +102,7 @@ describe('InputSelect', () => {
 			}
 		})
 
-		expect(screen.getByText('No options')).toBeTruthy()
+		expect(screen.getByText('No options')).toBeInTheDocument()
 	})
 
 	it('renders with only icon trigger', () => {
@@ -115,7 +115,7 @@ describe('InputSelect', () => {
 		})
 
 		const icon = container.querySelector('svg')
-		expect(icon).toBeTruthy()
+		expect(icon).toBeInTheDocument()
 	})
 
 	it('passes through class attribute', () => {

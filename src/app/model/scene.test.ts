@@ -168,7 +168,7 @@ describe('useSceneStore graph operations', () => {
 			store.objectToJSON(group.uuid)
 
 			expect(materialOf(await downloadedGraph(), 'Nested')?.name).toBe('Nested Original')
-			expect(materialOf(await downloadedGraph(), 'Nested')?.wireframe).toBeFalsy()
+			expect(materialOf(await downloadedGraph(), 'Nested')?.wireframe).not.toBe(true)
 		})
 
 		it('exports the original material when the object is the mesh itself', async () => {
@@ -205,7 +205,7 @@ describe('useSceneStore graph operations', () => {
 			store.saveProjectFile()
 
 			expect(savedMaterialOf('Nested')?.name).toBe('Nested Original')
-			expect(savedMaterialOf('Nested')?.wireframe).toBeFalsy()
+			expect(savedMaterialOf('Nested')?.wireframe).not.toBe(true)
 		})
 
 		it('saves the original material of a mesh several levels down', () => {
@@ -247,7 +247,7 @@ describe('useSceneStore graph operations', () => {
 			store.saveProjectFile()
 
 			const savedCamera = savedNodeOf('Nested Camera')
-			expect(savedCamera?.uuid).toBeTruthy()
+			expect(savedCamera?.uuid).toEqual(expect.any(String))
 			// The clone carries a fresh uuid, so the saved one has to be remapped.
 			expect(savedCamera?.uuid).not.toBe(camera.uuid)
 			expect(savedRenderCameraUUID()).toBe(savedCamera?.uuid)

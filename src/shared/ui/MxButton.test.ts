@@ -27,7 +27,7 @@ describe('MxButton', () => {
 		})
 
 		const icon = container.querySelector('svg')
-		expect(icon).toBeTruthy()
+		expect(icon).toBeInTheDocument()
 	})
 
 	it('renders with highlighted visual state', () => {
@@ -83,6 +83,6 @@ describe('MxButton', () => {
 			slots: { default: 'Click me' }
 		})
 
-		expect(getByText('Click me')).toBeTruthy()
+		expect(getByText('Click me')).toBeInTheDocument()
 	})
 })

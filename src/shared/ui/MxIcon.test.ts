@@ -10,25 +10,24 @@ describe('MxIcon', () => {
 			}
 		})
 
-		// Component should render without errors
-		expect(container.innerHTML).toBeTruthy()
+		expect(container.querySelector('svg')).toBeInTheDocument()
 	})
 
 	it('accepts name prop with folder/filename format', () => {
 		const { container: container1 } = render(MxIcon, {
 			props: { name: 'base/arrow-right' }
 		})
-		expect(container1.innerHTML).toBeTruthy()
+		expect(container1.querySelector('svg')).toBeInTheDocument()
 
 		const { container: container2 } = render(MxIcon, {
 			props: { name: 'mesh/mesh-cube' }
 		})
-		expect(container2.innerHTML).toBeTruthy()
+		expect(container2.querySelector('svg')).toBeInTheDocument()
 
 		const { container: container3 } = render(MxIcon, {
 			props: { name: 'ui/checkmark' }
 		})
-		expect(container3.innerHTML).toBeTruthy()
+		expect(container3.querySelector('svg')).toBeInTheDocument()
 	})
 
 	it('passes through class attribute', () => {
@@ -42,7 +41,7 @@ describe('MxIcon', () => {
 		})
 
 		const iconElement = container.querySelector('.icon-custom-class')
-		expect(iconElement).toBeTruthy()
+		expect(iconElement).toBeInTheDocument()
 	})
 
 	it('passes through style attribute', () => {
@@ -56,7 +55,7 @@ describe('MxIcon', () => {
 		})
 
 		const iconElement = container.querySelector('[style*="color"]')
-		expect(iconElement).toBeTruthy()
+		expect(iconElement).toBeInTheDocument()
 	})
 
 	it('passes through data attributes', () => {
@@ -70,21 +69,21 @@ describe('MxIcon', () => {
 		})
 
 		const iconElement = container.querySelector('[data-testid="my-icon"]')
-		expect(iconElement).toBeTruthy()
+		expect(iconElement).toBeInTheDocument()
 	})
 
 	it('handles all icon paths', () => {
-		const icons = import.meta.glob('@/assets/icons/**/*.svg', { eager: true })
+		const icons = import.meta.glob('@/app/assets/icons/**/*.svg', { eager: true })
 
 		const validIcons = Object.keys(icons).map((path) =>
-			path.replace('/src/assets/icons/', '').replace('.svg', '')
+			path.replace('/src/app/assets/icons/', '').replace('.svg', '')
 		) as MxIconName[]
 
 		for (const iconPath of validIcons) {
 			const { container } = render(MxIcon, {
 				props: { name: iconPath }
 			})
-			expect(container.innerHTML).toBeTruthy()
+			expect(container.querySelector('svg')).toBeInTheDocument()
 		}
 	})
 })

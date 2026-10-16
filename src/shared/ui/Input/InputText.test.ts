@@ -8,7 +8,7 @@ describe('InputText', () => {
 		render(InputText)
 
 		const input = screen.getByRole('textbox')
-		expect(input).toBeTruthy()
+		expect(input).toBeInTheDocument()
 	})
 
 	it('renders with custom placeholder', () => {
@@ -17,7 +17,7 @@ describe('InputText', () => {
 		})
 
 		const input = screen.getByPlaceholderText('Enter text...')
-		expect(input).toBeTruthy()
+		expect(input).toBeInTheDocument()
 	})
 
 	it('renders with custom input type', () => {
@@ -44,7 +44,7 @@ describe('InputText', () => {
 		})
 
 		const input = document.getElementById('my-input')
-		expect(input).toBeTruthy()
+		expect(input).toBeInTheDocument()
 	})
 
 	it('renders icon when icon prop provided', () => {
@@ -53,14 +53,14 @@ describe('InputText', () => {
 		})
 
 		const icon = container.querySelector('svg')
-		expect(icon).toBeTruthy()
+		expect(icon).toBeInTheDocument()
 	})
 
 	it('does not render icon when icon not provided', () => {
 		const { container } = render(InputText)
 
 		const icon = container.querySelector('svg')
-		expect(icon).toBeFalsy()
+		expect(icon).not.toBeInTheDocument()
 	})
 
 	it('updates modelValue on input', async () => {

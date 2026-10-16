@@ -348,6 +348,6 @@ describe('OutlinerTree', () => {
 			modelValue: item
 		})
 
-		expect(getByText('test-outliner-mesh')).toBeTruthy()
+		expect(getByText('test-outliner-mesh')).toBeInTheDocument()
 	})
 })

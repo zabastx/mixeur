@@ -66,7 +66,16 @@ export default defineConfig(
 		files: ['src/**/*.test.ts'],
 		plugins: { vitest },
 		rules: {
-			'vitest/valid-expect': ['error', { alwaysAwait: true }]
+			'vitest/valid-expect': ['error', { alwaysAwait: true }],
+			// CODING_STANDARDS.md, "Assert the value": these pass for any result that
+			// exists. Pin the value, or use jest-dom's toBeInTheDocument for presence.
+			'vitest/no-restricted-matchers': [
+				'error',
+				{
+					toBeTruthy: 'Pin the value, or use toBeInTheDocument for an element.',
+					toBeFalsy: 'Pin the value, or use not.toBeInTheDocument for an element.'
+				}
+			]
 		}
 	},
 	eslintConfigPrettier

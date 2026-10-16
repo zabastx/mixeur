@@ -29,18 +29,18 @@ describe('InputField', () => {
 			}
 		})
 
-		expect(screen.getByText('Test Label')).toBeTruthy()
-		expect(screen.getByTestId('test-input')).toBeTruthy()
+		expect(screen.getByText('Test Label')).toBeInTheDocument()
+		expect(screen.getByTestId('test-input')).toBeInTheDocument()
 	})
 
 	it('generates id for accessibility', () => {
-		const { container } = render(InputField, {
+		render(InputField, {
 			props: { label: 'Label 1' },
-			slots: { default: TestInput }
+			// A function, so the input receives the slot's `id` as the app's fields do.
+			slots: { default: (slotProps: { id: string }) => h(TestInput, slotProps) }
 		})
 
-		const label = container.querySelector('label')
-		expect(label?.getAttribute('for')).toBeTruthy()
+		expect(screen.getByLabelText('Label 1')).toBe(screen.getByTestId('test-input'))
 	})
 
 	it('shows the tooltip text when a tooltip is provided', () => {
@@ -128,7 +128,7 @@ describe('InputField', () => {
 			slots: { default: CustomSlot }
 		})
 
-		expect(screen.getByTestId('custom-slot')).toBeTruthy()
-		expect(screen.getByText('Custom Content')).toBeTruthy()
+		expect(screen.getByTestId('custom-slot')).toBeInTheDocument()
+		expect(screen.getByText('Custom Content')).toBeInTheDocument()
 	})
 })

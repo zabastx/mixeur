@@ -18,11 +18,11 @@ describe('MxContextMenu', () => {
 	]
 
 	it('renders with items', () => {
-		const { container } = render(MxContextMenu, {
-			props: { items: mockItems }
-		})
-
-		expect(container.innerHTML).toBeTruthy()
+		expect(() =>
+			render(MxContextMenu, {
+				props: { items: mockItems }
+			})
+		).not.toThrow()
 	})
 
 	it('renders with trigger element', () => {
@@ -31,29 +31,29 @@ describe('MxContextMenu', () => {
 			slots: { default: '<div>Trigger</div>' }
 		})
 
-		expect(container.querySelector('div')).toBeTruthy()
+		expect(container.querySelector('div')).toBeInTheDocument()
 	})
 
 	it('renders with custom root props', () => {
-		const { container } = render(MxContextMenu, {
-			props: {
-				items: mockItems,
-				root: { modal: false }
-			}
-		})
-
-		expect(container.innerHTML).toBeTruthy()
+		expect(() =>
+			render(MxContextMenu, {
+				props: {
+					items: mockItems,
+					root: { modal: false }
+				}
+			})
+		).not.toThrow()
 	})
 
 	it('renders with custom subContent props', () => {
-		const { container } = render(MxContextMenu, {
-			props: {
-				items: mockItems,
-				subContent: { alignOffset: -8 }
-			}
-		})
-
-		expect(container.innerHTML).toBeTruthy()
+		expect(() =>
+			render(MxContextMenu, {
+				props: {
+					items: mockItems,
+					subContent: { alignOffset: -8 }
+				}
+			})
+		).not.toThrow()
 	})
 
 	it('renders trigger slot', () => {
@@ -64,17 +64,17 @@ describe('MxContextMenu', () => {
 			}
 		})
 
-		expect(container.querySelector('[data-testid="trigger-btn"]')).toBeTruthy()
+		expect(container.querySelector('[data-testid="trigger-btn"]')).toBeInTheDocument()
 	})
 
 	it('handles items without icons', () => {
 		const items: MxContextMenuItem[] = [{ key: 'item1', label: 'Simple Item' }]
 
-		const { container } = render(MxContextMenu, {
-			props: { items }
-		})
-
-		expect(container.innerHTML).toBeTruthy()
+		expect(() =>
+			render(MxContextMenu, {
+				props: { items }
+			})
+		).not.toThrow()
 	})
 
 	it('handles items with submenu', () => {
@@ -89,10 +89,10 @@ describe('MxContextMenu', () => {
 			}
 		]
 
-		const { container } = render(MxContextMenu, {
-			props: { items }
-		})
-
-		expect(container.innerHTML).toBeTruthy()
+		expect(() =>
+			render(MxContextMenu, {
+				props: { items }
+			})
+		).not.toThrow()
 	})
 })
