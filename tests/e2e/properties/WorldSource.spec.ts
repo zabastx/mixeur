@@ -86,7 +86,6 @@ async function stubPolyHaven(page: Page) {
 	})
 }
 
-
 test.describe('World Source', () => {
 	test.beforeEach(async ({ page }) => {
 		await stubPolyHaven(page)

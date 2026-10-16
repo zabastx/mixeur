@@ -205,8 +205,7 @@ export const useUvStore = defineStore('uv', () => {
 		const target = mesh.value
 		if (!target) return null
 		const material = useShadingStore().shadedMaterial(target) as
-			| THREE.MeshStandardMaterial
-			| undefined
+			THREE.MeshStandardMaterial | undefined
 		return isDrawable(material?.map?.image) ? material.map.image : null
 	})
 

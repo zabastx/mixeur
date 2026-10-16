@@ -37,7 +37,7 @@ export default defineConfig(
 				{
 					selector: "CallExpression[callee.property.name='clone'][arguments.0.value=true]",
 					message:
-						"clone(true) drops children of DirectionalLight, LOD and others, and throws on helpers. Copy scene objects through scene-copy or cloneForSerialization (see the note above it in shared/three/utils.ts)."
+						'clone(true) drops children of DirectionalLight, LOD and others, and throws on helpers. Copy scene objects through scene-copy or cloneForSerialization (see the note above it in shared/three/utils.ts).'
 				}
 			],
 			'vue/require-default-prop': 'off'

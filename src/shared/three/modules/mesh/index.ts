@@ -67,11 +67,4 @@ export function isThreeGeometry(geometry: THREE.BufferGeometry) {
 }
 
 export type GeometryTypes =
-	| 'plane'
-	| 'cube'
-	| 'circle'
-	| 'sphere'
-	| 'icosphere'
-	| 'cylinder'
-	| 'cone'
-	| 'torus'
+	'plane' | 'cube' | 'circle' | 'sphere' | 'icosphere' | 'cylinder' | 'cone' | 'torus'

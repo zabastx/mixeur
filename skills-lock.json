@@ -1,20 +1,20 @@
 {
-  "version": 1,
-  "skills": {
-    "changelog-maintenance": {
-      "source": "supercent-io/skills-template",
-      "sourceType": "github",
-      "computedHash": "ac538e27fdba50d613ce72eb929f4b33ac1d2d8bd25aff266b138cd6fb5529ee"
-    },
-    "vue-best-practices": {
-      "source": "antfu/skills",
-      "sourceType": "github",
-      "computedHash": "b61d50aeced30790f4e8e08d15da4b7148443e312bd3c6fedc38b500baa75f17"
-    },
-    "vue-testing-best-practices": {
-      "source": "antfu/skills",
-      "sourceType": "github",
-      "computedHash": "4fde92de9962e71d4a10694b5f4ba6989b90a328fd3c40c5a9d8982c3d8c008d"
-    }
-  }
+	"version": 1,
+	"skills": {
+		"changelog-maintenance": {
+			"source": "supercent-io/skills-template",
+			"sourceType": "github",
+			"computedHash": "ac538e27fdba50d613ce72eb929f4b33ac1d2d8bd25aff266b138cd6fb5529ee"
+		},
+		"vue-best-practices": {
+			"source": "antfu/skills",
+			"sourceType": "github",
+			"computedHash": "b61d50aeced30790f4e8e08d15da4b7148443e312bd3c6fedc38b500baa75f17"
+		},
+		"vue-testing-best-practices": {
+			"source": "antfu/skills",
+			"sourceType": "github",
+			"computedHash": "4fde92de9962e71d4a10694b5f4ba6989b90a328fd3c40c5a9d8982c3d8c008d"
+		}
+	}
 }

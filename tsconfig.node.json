@@ -18,8 +18,6 @@
 		// does not rewrite `.js` back to `.ts` — so the config files spell out the real
 		// extension and TypeScript has to allow it.
 		"allowImportingTsExtensions": true,
-		"types": [
-			"node"
-		]
+		"types": ["node"]
 	}
 }
