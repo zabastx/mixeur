@@ -139,11 +139,12 @@ describe('useWorldStore', () => {
 			const world = useWorldStore()
 			await world.rebuildEnvironment()
 
+			// Nothing here calls the rebuild again: only the store's own watch on
+			// the Surface can.
 			setColor(world, '#00ff00')
 			await nextTick()
-			await world.rebuildEnvironment()
 
-			expect(envMapCalls).toBeGreaterThan(1)
+			expect(envMapCalls).toBe(2)
 		})
 
 		it('releases the map on dispose, so it cannot outlive its renderer', async () => {
