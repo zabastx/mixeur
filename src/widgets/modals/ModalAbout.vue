@@ -32,7 +32,7 @@
 					<p class="text-xs">Licensed under MIT License</p>
 				</div>
 				<div
-					class="flex w-[200px] flex-col justify-end gap-1 text-sm *:rounded *:p-0.5 *:leading-none
+					class="flex w-50 flex-col justify-end gap-1 text-sm *:rounded *:p-0.5 *:leading-none
 						**:inline-block *:hover:bg-gray-500/50"
 				>
 					<a href="https://www.blender.org/" target="_blank">
@@ -58,7 +58,7 @@
 </template>
 
 <script lang="ts" setup>
-const version = '0.21.0'
+import { version } from '@/../package.json'
 
 const isOpen = defineModel<boolean>({ default: false })
 
