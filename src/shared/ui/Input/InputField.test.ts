@@ -43,27 +43,37 @@ describe('InputField', () => {
 		expect(label?.getAttribute('for')).toBeTruthy()
 	})
 
-	it('renders tooltip icon when tooltip provided', () => {
-		const { container } = render(InputField, {
+	it('shows the tooltip text when a tooltip is provided', () => {
+		render(InputField, {
 			props: {
 				label: 'Test Label',
-				tooltip: { text: 'This is a tooltip' }
+				tooltip: { title: 'Tooltip title', text: 'This is a tooltip', footer: 'Tooltip footer' }
 			},
 			slots: { default: TestInput }
 		})
 
-		const icon = container.querySelector('svg')
-		expect(icon).toBeTruthy()
+		screen.getByText('Tooltip title')
+		screen.getByText('This is a tooltip')
+		screen.getByText('Tooltip footer')
 	})
 
-	it('does not render tooltip icon when tooltip not provided', () => {
+	it('marks a label that has a tooltip with an icon', () => {
 		const { container } = render(InputField, {
+			props: { label: 'Test Label', tooltip: { text: 'This is a tooltip' } },
+			slots: { default: TestInput }
+		})
+
+		expect(container.querySelector('label svg')).not.toBeNull()
+	})
+
+	it('shows no tooltip or icon when none is provided', () => {
+		render(InputField, {
 			props: { label: 'Test Label' },
 			slots: { default: TestInput }
 		})
 
-		const icon = container.querySelector('svg')
-		expect(icon).toBeFalsy()
+		expect(screen.queryByRole('tooltip')).toBeNull()
+		expect(document.querySelector('label svg')).toBeNull()
 	})
 
 	it('applies disabled styling when disabled prop is true', () => {

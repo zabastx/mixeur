@@ -4,9 +4,20 @@ import { cleanup } from '@testing-library/vue'
 
 afterEach(() => cleanup())
 
+// Renders the tooltip's content inline next to its trigger, so a test finds a
+// tooltip by its text, as a user does, without hovering through reka-ui's portal.
 vi.mock('@/shared/ui/MxTooltip.vue', () => ({
 	default: {
-		template: '<slot name="default"></slot>',
+		template: `
+			<slot name="default"></slot>
+			<div v-if="!tooltipDisabled" role="tooltip">
+				<slot name="content">
+					<span v-if="tooltip?.title">{{ tooltip.title }}</span>
+					<p v-if="tooltip?.text">{{ tooltip.text }}</p>
+					<span v-if="tooltip?.footer">{{ tooltip.footer }}</span>
+				</slot>
+			</div>
+		`,
 		props: ['tooltipDisabled', 'tooltip', 'options']
 	}
 }))

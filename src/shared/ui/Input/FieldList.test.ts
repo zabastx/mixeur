@@ -1,5 +1,4 @@
 import { render } from '@testing-library/vue'
-import { mount } from '@vue/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import type { Component } from 'vue'
@@ -7,7 +6,6 @@ import THREE from '@/shared/three'
 import { createObjectTarget } from '@/shared/lib/field-descriptor'
 import type { FieldDescriptor } from '@/shared/lib/field-descriptor'
 import FieldList from './FieldList.vue'
-import InputField from './InputField.vue'
 
 // `FieldList`'s generic parameter is erased when the component is handed to a
 // test renderer, so it is mounted untyped and the descriptors are typed instead.
@@ -141,33 +139,27 @@ describe('FieldList', () => {
 		})
 	})
 
-	// MxTooltip is stubbed out globally in the test setup, so tooltip content never
-	// reaches the DOM — these read it off the InputField that received it instead.
 	describe('tooltips', () => {
-		const field: FieldDescriptor<THREE.PointLight> = {
-			type: 'number',
-			label: 'Intensity',
-			prop: 'intensity'
-		}
-
-		function tooltipOf(fields: FieldDescriptor<THREE.PointLight>[]) {
-			const light = new THREE.PointLight()
-
-			return mount(Fields, {
-				props: { fields, target: createObjectTarget(() => light), tooltips: TOOLTIP_MAP }
-			})
-				.findComponent(InputField)
-				.props('tooltip')
-		}
-
 		const TOOLTIP_MAP = new Map([['intensity', { text: 'From the map' }]])
 
-		it('resolves a field’s tooltip from the map by property name', () => {
-			expect(tooltipOf([field])).toEqual({ text: 'From the map' })
+		function renderWithTooltips(prop: 'intensity' | 'power') {
+			return renderFields(
+				new THREE.PointLight(),
+				[{ type: 'number', label: 'Intensity', prop }],
+				TOOLTIP_MAP
+			)
+		}
+
+		it('shows the tooltip the map holds for a field’s property', () => {
+			const { getByText } = renderWithTooltips('intensity')
+
+			getByText('From the map')
 		})
 
-		it('leaves the tooltip unset for a property the map does not cover', () => {
-			expect(tooltipOf([{ ...field, prop: 'power' }])).toBeUndefined()
+		it('shows no tooltip for a property the map does not cover', () => {
+			const { queryByRole } = renderWithTooltips('power')
+
+			expect(queryByRole('tooltip')).toBeNull()
 		})
 	})
 })
