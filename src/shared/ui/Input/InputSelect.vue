@@ -1,5 +1,7 @@
 <template>
-	<Select.Root v-bind="root" v-model="model">
+	<!-- Never `undefined`: reka keeps its own value when it starts on `undefined`, and
+	the trigger would show a pick the parent never stored. `null` shows the placeholder. -->
+	<Select.Root v-bind="root" :model-value="model ?? null" @update:model-value="model = $event as T">
 		<Select.Trigger
 			v-bind="trigger"
 			class="inline-flex max-w-full items-center justify-between gap-1 rounded-ui-select border

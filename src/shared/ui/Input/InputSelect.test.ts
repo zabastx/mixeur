@@ -79,6 +79,21 @@ describe('InputSelect', () => {
 		expect(combobox.textContent?.trim()).toBe('Option 1')
 	})
 
+	it('shows the bound value, not a pick the parent ignored', async () => {
+		render(InputSelect, {
+			props: {
+				items: mockItems,
+				modelValue: undefined,
+				'onUpdate:modelValue': () => {}
+			}
+		})
+
+		await userEvent.click(screen.getByRole('combobox'))
+		await userEvent.click(screen.getByText('Option 1'))
+
+		expect(screen.getByRole('combobox').textContent?.trim()).toBe('')
+	})
+
 	it('handles empty items list', () => {
 		render(InputSelect, {
 			props: {
