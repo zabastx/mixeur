@@ -10,8 +10,11 @@ const controlsHolder = vi.hoisted(() => ({
 }))
 const composerHolder = vi.hoisted(() => ({ setOutlineObjects: vi.fn() }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./scene', () => ({ useSceneStore: () => sceneHolder }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./controls', () => ({ useControlsStore: () => controlsHolder }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./composer', () => ({
 	useComposerStore: () => ({ setOutlineObjects: composerHolder.setOutlineObjects })
 }))

@@ -23,14 +23,17 @@ const selectionStore = vi.hoisted(() => ({
 	select: vi.fn()
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('@/app/model/scene', () => ({
 	useSceneStore: () => sceneStore
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('@/app/model/camera', () => ({
 	useCameraStore: () => cameraStore
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('@/app/model/selection', () => ({
 	useSelectionStore: () => selectionStore
 }))

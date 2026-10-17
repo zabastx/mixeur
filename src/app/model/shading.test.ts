@@ -8,6 +8,7 @@ const sceneStoreMock = vi.hoisted(() => ({
 	updateScene: vi.fn()
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./scene', () => ({
 	useSceneStore: () => sceneStoreMock
 }))

@@ -12,7 +12,9 @@ const holders = vi.hoisted(() => ({
 	}
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./selection', () => ({ useSelectionStore: () => holders.selection }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./shading', () => ({ useShadingStore: () => holders.shading }))
 
 import { useUvGridStore } from './uv-grid'

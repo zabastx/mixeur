@@ -11,7 +11,9 @@ const sceneHolder = vi.hoisted(() => ({
 	sceneChildren: [] as THREE.Object3D[]
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('@/app/model/scene', () => ({ useSceneStore: () => sceneHolder }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('@/app/model/composer', () => ({ useComposerStore: () => ({ needsResize: false }) }))
 
 import { useCameraStore } from '@/app/model/camera'

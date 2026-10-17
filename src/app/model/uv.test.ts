@@ -15,9 +15,13 @@ const holders = vi.hoisted(() => ({
 	grid: null as unknown as { appliedTo: ReadonlySet<string> }
 }))
 
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./selection', () => ({ useSelectionStore: () => holders.selection }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./shading', () => ({ useShadingStore: () => holders.shading }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./workspace', () => ({ useWorkspaceStore: () => holders.workspace }))
+// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./uv-grid', () => ({ useUvGridStore: () => holders.grid }))
 
 import { useUvStore } from './uv'

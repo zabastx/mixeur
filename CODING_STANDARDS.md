@@ -23,9 +23,10 @@ to, so the test ends up checking the mock: the scene store's tests once mocked t
 modules and stayed green with `deleteFromScene` asking about the wrong object. The
 scene-copy and scene store tests are the model: real stores, and a save checked by
 decoding the bytes with the real project decoder. ESLint rejects a `vi.mock` of a store
-or of the project file module, except in the files `eslint.config.ts` lists as still
-doing so. Review covers what the rule cannot match, such as a pure module mocked by
-another path.
+or of the project file module. The mocks written before the rule carry an
+`eslint-disable-next-line` each, and a directive left with nothing to suppress fails
+lint. Review covers what the rule cannot match, such as a pure module mocked by another
+path.
 
 **A component test renders its real children and drives them as the user does.** Input
 is clicks and typing on elements found by role, label or text; output is the DOM and

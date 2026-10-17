@@ -31,6 +31,9 @@ export default defineConfig(
 	gitignore({ root: true }),
 	// Not gitignored, but never worth linting.
 	{ ignores: ['**/*.d.ts', 'public/**'] },
+	// A disable comment that no longer suppresses anything fails lint, so the store
+	// mocks still waiting for real stores (see noStoreMock) cannot outlive their move.
+	{ linterOptions: { reportUnusedDisableDirectives: 'error' } },
 	{
 		extends: [
 			eslint.configs.recommended,
@@ -88,20 +91,6 @@ export default defineConfig(
 				}
 			]
 		}
-	},
-	// Tests that still mock neighbouring stores. Each leaves this list when it moves
-	// to real stores, as the scene store's tests did in #49; the list only shrinks.
-	{
-		files: [
-			'src/app/model/selection.test.ts',
-			'src/app/model/shading.test.ts',
-			'src/app/model/uv-grid.test.ts',
-			'src/app/model/uv.test.ts',
-			'src/widgets/editor/outliner/DataOutliner.test.ts',
-			'src/widgets/editor/outliner/OutlinerTree.test.ts',
-			'src/widgets/modals/render-image/CameraSettings.test.ts'
-		],
-		rules: { 'no-restricted-syntax': ['error', noCloneTrue] }
 	},
 	eslintConfigPrettier
 )
