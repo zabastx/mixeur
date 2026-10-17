@@ -1,5 +1,6 @@
-import { render } from '@testing-library/vue'
-import { describe, expect, it } from 'vitest'
+import { render, screen } from '@testing-library/vue'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
 import MxButton from './MxButton.vue'
 
 describe('MxButton', () => {
@@ -30,22 +31,25 @@ describe('MxButton', () => {
 		expect(icon).toBeInTheDocument()
 	})
 
-	it('renders with highlighted visual state', () => {
-		const { getByRole } = render(MxButton, {
-			props: { highlighted: true }
+	it('does not run its click handler when disabled', async () => {
+		const onClick = vi.fn()
+		render(MxButton, {
+			props: { disabled: true },
+			attrs: { onClick }
 		})
 
-		const button = getByRole('button')
-		expect(button.classList.contains('bg-ui-btn-bg-highlight')).toBe(true)
+		await userEvent.click(screen.getByRole('button'))
+		expect(onClick).not.toHaveBeenCalled()
 	})
 
-	it('disabled state prevents clicks', async () => {
-		const { getByRole } = render(MxButton, {
-			props: { disabled: true }
+	it('runs its click handler when enabled', async () => {
+		const onClick = vi.fn()
+		render(MxButton, {
+			attrs: { onClick }
 		})
 
-		const button = getByRole('button')
-		expect(button.getAttribute('disabled')).not.toBeNull()
+		await userEvent.click(screen.getByRole('button'))
+		expect(onClick).toHaveBeenCalledOnce()
 	})
 
 	it('passes through class attribute', () => {

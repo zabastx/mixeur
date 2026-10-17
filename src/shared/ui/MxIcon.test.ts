@@ -3,32 +3,9 @@ import { render } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 
 describe('MxIcon', () => {
-	it('renders with name prop', () => {
-		const { container } = render(MxIcon, {
-			props: {
-				name: 'base/arrow-right'
-			}
-		})
-
-		expect(container.querySelector('svg')).toBeInTheDocument()
-	})
-
-	it('accepts name prop with folder/filename format', () => {
-		const { container: container1 } = render(MxIcon, {
-			props: { name: 'base/arrow-right' }
-		})
-		expect(container1.querySelector('svg')).toBeInTheDocument()
-
-		const { container: container2 } = render(MxIcon, {
-			props: { name: 'mesh/mesh-cube' }
-		})
-		expect(container2.querySelector('svg')).toBeInTheDocument()
-
-		const { container: container3 } = render(MxIcon, {
-			props: { name: 'ui/checkmark' }
-		})
-		expect(container3.querySelector('svg')).toBeInTheDocument()
-	})
+	const iconNames = Object.keys(
+		import.meta.glob('@/app/assets/icons/**/*.svg', { query: '?raw', import: 'default' })
+	).map((path) => path.replace('/src/app/assets/icons/', '').replace('.svg', '')) as MxIconName[]
 
 	it('passes through class attribute', () => {
 		const { container } = render(MxIcon, {
@@ -72,18 +49,17 @@ describe('MxIcon', () => {
 		expect(iconElement).toBeInTheDocument()
 	})
 
-	it('handles all icon paths', () => {
-		const icons = import.meta.glob('@/app/assets/icons/**/*.svg', { eager: true })
+	it('finds the icon set', () => {
+		expect(iconNames).toEqual(
+			expect.arrayContaining(['base/arrow-right', 'mesh/mesh-cube', 'ui/checkmark'])
+		)
+	})
 
-		const validIcons = Object.keys(icons).map((path) =>
-			path.replace('/src/app/assets/icons/', '').replace('.svg', '')
-		) as MxIconName[]
+	it.each(iconNames)('renders an SVG for %s', (name) => {
+		const { container } = render(MxIcon, {
+			props: { name }
+		})
 
-		for (const iconPath of validIcons) {
-			const { container } = render(MxIcon, {
-				props: { name: iconPath }
-			})
-			expect(container.querySelector('svg')).toBeInTheDocument()
-		}
+		expect(container.querySelector('svg')).toBeInTheDocument()
 	})
 })
