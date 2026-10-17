@@ -38,6 +38,8 @@ const {
 }))
 
 let envMapCalls = 0
+/** The image the last build filtered, i.e. what the scene is lit from. */
+let envMapSource: THREE.Texture | null = null
 let colorDisposed = false
 let presetDisposed = false
 let hdriDisposed = false
@@ -45,8 +47,9 @@ let hdriEnvMapDisposed = false
 
 vi.mock('@/shared/three/utils', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/shared/three/utils')>()),
-	textureToEnvMap: () => {
+	textureToEnvMap: (texture: THREE.Texture) => {
 		envMapCalls++
+		envMapSource = texture
 		return fakeEnvMap
 	}
 }))
@@ -85,6 +88,13 @@ function setColor(world: World, color: string) {
 	world.surface.color = color
 }
 
+/** The colour of the image the last build lit the scene from. */
+function lightHex(): string {
+	if (!(envMapSource instanceof THREE.DataTexture)) throw new Error('expected a colour image')
+	const [r, g, b] = envMapSource.image.data as Float32Array
+	return new THREE.Color(r, g, b).getHexString()
+}
+
 function backgroundHex(world: World): string {
 	const value = world.background()
 	if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
@@ -95,6 +105,7 @@ describe('useWorldStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		envMapCalls = 0
+		envMapSource = null
 		colorDisposed = false
 		presetDisposed = false
 		hdriDisposed = false
@@ -145,6 +156,7 @@ describe('useWorldStore', () => {
 			await nextTick()
 
 			expect(envMapCalls).toBe(2)
+			expect(lightHex()).toBe('00ff00')
 		})
 
 		it('releases the map on dispose, so it cannot outlive its renderer', async () => {
