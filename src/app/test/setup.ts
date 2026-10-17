@@ -63,8 +63,10 @@ function createContext2DStub(): CanvasRenderingContext2D {
 // that probe for a context at import time from crashing, but NOT enough to
 // build a `WebGLRenderer`: Three.js requires WebGL 2 and calls `texImage3D`
 // while initialising, which WebGL 1 has no equivalent of. Anything needing a
-// live renderer — the composer, the controls, the render loop — has to be
-// covered by the Playwright suite instead of here.
+// live renderer — the composer's passes, the controls, the render loop — has to
+// be covered by the Playwright suite instead of here. The composer and controls
+// stores build without one; only the composer's `init` and `renderImage` and
+// the controls' `initControls` need it.
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
 	value(type: string, attrs?: object) {
 		if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {

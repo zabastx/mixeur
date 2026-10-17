@@ -56,5 +56,8 @@ mutation it would fail, not the message.
 pass for any result that exists; pin what the result should be.
 
 **Behaviour that needs a live renderer is covered end-to-end.** The unit setup provides
-WebGL 1, and three.js needs WebGL 2, so the composer, the controls and the render loop
-cannot be built under Vitest (see `src/app/test/setup.ts`).
+WebGL 1, and three.js needs WebGL 2, so a `WebGLRenderer` cannot be built under Vitest
+(see `src/app/test/setup.ts`): the composer's passes, the controls and the render loop
+are tested in Playwright. The composer and controls stores themselves build without a
+renderer and run for real, as in the camera store tests; only the composer's `init` and
+`renderImage` and the controls' `initControls` need one.
