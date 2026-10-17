@@ -45,50 +45,53 @@ export async function uploadFile(accept?: string) {
 	}>((resolve) => {
 		const input = document.createElement('input')
 		input.type = 'file'
+		input.hidden = true
 		if (accept) {
 			input.accept = accept
 		}
 		document.body.appendChild(input)
 
+		// The picker answers after click() returns, so the input stays on the
+		// page until then, and its errors need their own catch.
+		const settle = (result: Parameters<typeof resolve>[0]) => {
+			input.remove()
+			resolve(result)
+		}
 		const fail = (err: unknown) => {
 			const error = err as Error
 			console.error('Error uploading a file\n', error)
-			resolve({ data: null, error })
+			settle({ data: null, error })
 		}
 
-		try {
-			// The picker reports the choice after click() returns, so its errors
-			// need their own catch.
-			input.addEventListener('change', (e: Event) => {
-				try {
-					const $input = e.target as HTMLInputElement
-					const file = $input.files?.[0]
+		input.addEventListener('cancel', () => settle({ data: null, error: null }))
+		input.addEventListener('change', () => {
+			try {
+				const file = input.files?.[0]
 
-					if (!file) {
-						resolve({ data: null, error: null })
-						return
-					}
-
-					const fileUrl = URL.createObjectURL(file)
-
-					resolve({
-						data: {
-							url: fileUrl,
-							filename: file.name,
-							cleanup: () => URL.revokeObjectURL(fileUrl)
-						},
-						error: null
-					})
-				} catch (err) {
-					fail(err)
+				if (!file) {
+					settle({ data: null, error: null })
+					return
 				}
-			})
 
+				const fileUrl = URL.createObjectURL(file)
+
+				settle({
+					data: {
+						url: fileUrl,
+						filename: file.name,
+						cleanup: () => URL.revokeObjectURL(fileUrl)
+					},
+					error: null
+				})
+			} catch (err) {
+				fail(err)
+			}
+		})
+
+		try {
 			input.click()
 		} catch (err) {
 			fail(err)
-		} finally {
-			input.remove()
 		}
 	})
 }

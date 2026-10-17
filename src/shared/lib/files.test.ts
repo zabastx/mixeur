@@ -90,21 +90,30 @@ describe('downloadFile', () => {
 })
 
 describe('uploadFile', () => {
+	// What the user does in the picker: the files they pick, or null to cancel it.
 	let picked: File[] | null
 	let opened: HTMLInputElement[]
+	let onPageWhilePicking: boolean[]
 
 	beforeEach(() => {
 		picked = null
 		opened = []
+		onPageWhilePicking = []
+		document.body.replaceChildren()
 
 		vi.spyOn(URL, 'createObjectURL').mockReturnValue(BLOB_URL)
 		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
-		// The click opens the file picker; the user picks `picked` after it returns.
+		// The click opens the file picker; the user answers it after click() returns.
 		vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
 			this: HTMLInputElement
 		) {
 			opened.push(this)
 			setTimeout(() => {
+				onPageWhilePicking.push(this.isConnected)
+				if (picked === null) {
+					this.dispatchEvent(new Event('cancel'))
+					return
+				}
 				Object.defineProperty(this, 'files', { value: picked, configurable: true })
 				this.dispatchEvent(new Event('change'))
 			})
@@ -146,6 +155,15 @@ describe('uploadFile', () => {
 		expect(result).toEqual({ data: null, error: null })
 	})
 
+	it('returns no data when the picker is cancelled', async () => {
+		picked = null
+
+		const result = await uploadFile()
+
+		expect(result).toEqual({ data: null, error: null })
+		expect(opened[0]?.isConnected).toBe(false)
+	})
+
 	it('restricts the picker to the accepted types', async () => {
 		picked = [new File([''], 'test.png', { type: 'image/png' })]
 
@@ -162,11 +180,13 @@ describe('uploadFile', () => {
 		expect(opened[0]?.accept).toBe('')
 	})
 
-	it('removes the input from the page', async () => {
+	it('keeps a hidden input on the page until the user answers, then removes it', async () => {
 		picked = [new File([''], 'test.png')]
 
 		await uploadFile()
 
+		expect(onPageWhilePicking).toEqual([true])
+		expect(opened[0]?.hidden).toBe(true)
 		expect(opened[0]?.isConnected).toBe(false)
 	})
 
@@ -179,6 +199,7 @@ describe('uploadFile', () => {
 
 		expect(result.data).toBeNull()
 		expect(result.error?.message).toBe('Picker blocked')
+		expect(document.body.querySelector('input')).toBeNull()
 	})
 
 	it('reports the error when no URL can be made for the picked file', async () => {
