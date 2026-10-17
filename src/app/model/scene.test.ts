@@ -2,58 +2,16 @@ import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import THREE from '@/shared/three'
 import { getUserData } from '@/shared/three/utils'
+import { decodeProject } from '@/shared/lib/project-file'
+import { useCameraStore } from './camera'
+import { useSelectionStore } from './selection'
+import { useShadingStore } from './shading'
+import { useUvGridStore } from './uv-grid'
 
-const shadingHolder = vi.hoisted(() => {
-	const materialCache = new Map()
-	return {
-		shadingMode: 'rendered' as string,
-		cacheNewObjectMaterials: vi.fn(),
-		// The real store answers from the same cache, and callers are expected to
-		// come through here rather than read the Map themselves.
-		getMaterialCache: vi.fn((mesh: { uuid: string }) => materialCache.get(mesh.uuid)),
-		clearMaterialCache: vi.fn(),
-		materialCache
-	}
-})
-const raycastHolder = vi.hoisted(() => ({
-	addToRaycaster: vi.fn(),
-	removeFromRaycaster: vi.fn()
+const downloads = vi.hoisted(() => [] as (Blob | ArrayBuffer)[])
+vi.mock('@/shared/lib/files', () => ({
+	downloadFile: (data: Blob | ArrayBuffer) => downloads.push(data)
 }))
-const composerHolder = vi.hoisted(() => ({ removeFromOutline: vi.fn() }))
-const cameraHolder = vi.hoisted(() => ({
-	renderCamera: null as THREE.Object3D | null,
-	setRenderCamera: vi.fn()
-}))
-const selectionHolder = vi.hoisted(() => ({
-	select: vi.fn(),
-	clear: vi.fn(),
-	isSelectedWithin: vi.fn(() => false),
-	selectedObject: null as THREE.Object3D | null
-}))
-
-vi.mock('./shading', () => ({ useShadingStore: () => shadingHolder }))
-vi.mock('./raycast', () => ({ useRaycastStore: () => raycastHolder }))
-vi.mock('./composer', () => ({ useComposerStore: () => composerHolder }))
-vi.mock('./camera', () => ({ useCameraStore: () => cameraHolder }))
-vi.mock('./selection', () => ({ useSelectionStore: () => selectionHolder }))
-const uvHolder = vi.hoisted(() => ({ forget: vi.fn() }))
-vi.mock('./uv', () => ({ useUvStore: () => uvHolder }))
-const uvGridHolder = vi.hoisted(() => ({
-	forget: vi.fn(),
-	mapWithoutGrid: (_uuid: string, displayed: unknown) => displayed
-}))
-vi.mock('./uv-grid', () => ({ useUvGridStore: () => uvGridHolder }))
-const worldHolder = vi.hoisted(() => ({ snapshot: vi.fn(() => ({})) }))
-vi.mock('./world', () => ({ useWorldStore: () => worldHolder }))
-const projectFileHolder = vi.hoisted(() => ({
-	encodeProject: vi.fn<(data: unknown) => Uint8Array>(() => new Uint8Array([1, 2, 3]))
-}))
-vi.mock('@/shared/lib/project-file', () => ({
-	encodeProject: projectFileHolder.encodeProject,
-	decodeProject: vi.fn()
-}))
-const filesHolder = vi.hoisted(() => ({ downloadFile: vi.fn() }))
-vi.mock('@/shared/lib/files', () => ({ downloadFile: filesHolder.downloadFile }))
 
 import { useSceneStore } from './scene'
 
@@ -95,10 +53,12 @@ function materialOf(graph: SerializedGraph | undefined, meshName: string) {
 	return graph?.materials?.find((mat) => mat.uuid === node?.material)
 }
 
-/** What the last `saveProjectFile` handed to `encodeProject`. */
+/** The project the last `saveProjectFile` downloaded, read back by the real decoder. */
 function savedProject() {
-	return projectFileHolder.encodeProject.mock.calls.at(-1)?.[0] as
-		{ scene: SerializedGraph; renderCameraUUID: string | null } | undefined
+	const bytes = downloads.at(-1)
+	if (!(bytes instanceof ArrayBuffer)) return undefined
+	const { scene, renderCameraUUID } = decodeProject(bytes).data
+	return { scene: scene as SerializedGraph, renderCameraUUID }
 }
 
 /** The node the last `saveProjectFile` wrote out under the given name. */
@@ -118,43 +78,32 @@ function savedRenderCameraUUID() {
 
 /** The graph the last `objectToJSON` put in the downloaded file. */
 async function downloadedGraph() {
-	const blob = filesHolder.downloadFile.mock.calls.at(-1)?.[0] as Blob | undefined
-	if (!blob) return undefined
+	const blob = downloads.at(-1)
+	if (!(blob instanceof Blob)) return undefined
 	return JSON.parse(await blob.text()) as SerializedGraph
 }
 
 /**
- * A mesh whose viewport material is the wireframe stand-in, with the real one
- * only in the cache — what any mesh looks like while shading mode is
- * 'wireframe' or 'solid'.
+ * A mesh whose own material is named `<name> Original`. Added to the scene
+ * while shading is in wireframe, it wears the viewport's wireframe stand-in and
+ * keeps that original only in the shading store.
  */
-function makeShadedMesh(name: string) {
-	const mesh: THREE.Mesh = makeMesh()
+function makeNamedMesh(name: string) {
+	const mesh = makeMesh()
 	mesh.name = name
-
-	const original = new THREE.MeshStandardMaterial({ name: `${name} Original` })
-	shadingHolder.materialCache.set(mesh.uuid, {
-		original,
-		solid: new THREE.MeshLambertMaterial(),
-		wireframe: new THREE.MeshBasicMaterial({ wireframe: true })
-	})
-	mesh.material = new THREE.MeshBasicMaterial({ name: `${name} Wireframe`, wireframe: true })
-
+	mesh.material.name = `${name} Original`
 	return mesh
 }
 
 describe('useSceneStore graph operations', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
-		vi.clearAllMocks()
-		shadingHolder.shadingMode = 'rendered'
-		cameraHolder.renderCamera = null
-		selectionHolder.selectedObject = null
-		selectionHolder.isSelectedWithin.mockReturnValue(false)
-		shadingHolder.materialCache.clear()
+		downloads.length = 0
 	})
 
 	describe('objectToJSON', () => {
+		beforeEach(() => useShadingStore().setMode('wireframe'))
+
 		it('exports the original material of a mesh nested inside the object', async () => {
 			// Exporting a Group is the ordinary case — an imported glTF is one — so
 			// restoring the root alone leaves everything inside it wearing the
@@ -162,7 +111,7 @@ describe('useSceneStore graph operations', () => {
 			const store = useSceneStore()
 			const group = new THREE.Group()
 			group.name = 'Exported'
-			group.add(makeShadedMesh('Nested'))
+			group.add(makeNamedMesh('Nested'))
 			store.addObjectToScene(group)
 
 			store.objectToJSON(group.uuid)
@@ -173,7 +122,7 @@ describe('useSceneStore graph operations', () => {
 
 		it('exports the original material when the object is the mesh itself', async () => {
 			const store = useSceneStore()
-			const mesh = makeShadedMesh('Solo')
+			const mesh = makeNamedMesh('Solo')
 			store.addObjectToScene(mesh)
 
 			store.objectToJSON(mesh.uuid)
@@ -186,11 +135,13 @@ describe('useSceneStore graph operations', () => {
 
 			store.objectToJSON('missing-object')
 
-			expect(filesHolder.downloadFile).not.toHaveBeenCalled()
+			expect(downloads).toEqual([])
 		})
 	})
 
 	describe('saveProjectFile', () => {
+		beforeEach(() => useShadingStore().setMode('wireframe'))
+
 		it('saves the original material of a mesh nested inside a group', () => {
 			// An imported glTF arrives as a Group, so every one of its meshes is
 			// nested — and under wireframe or solid `mesh.material` is the viewport's
@@ -198,7 +149,7 @@ describe('useSceneStore graph operations', () => {
 			// everything below it.
 			const store = useSceneStore()
 			const group = new THREE.Group()
-			const mesh = makeShadedMesh('Nested')
+			const mesh = makeNamedMesh('Nested')
 			group.add(mesh)
 			store.addObjectToScene(group)
 
@@ -212,7 +163,7 @@ describe('useSceneStore graph operations', () => {
 			const store = useSceneStore()
 			const outer = new THREE.Group()
 			const inner = new THREE.Group()
-			const mesh = makeShadedMesh('Deep')
+			const mesh = makeNamedMesh('Deep')
 			inner.add(mesh)
 			outer.add(inner)
 			store.addObjectToScene(outer)
@@ -224,7 +175,7 @@ describe('useSceneStore graph operations', () => {
 
 		it('still saves the original material of a top-level mesh', () => {
 			const store = useSceneStore()
-			const mesh = makeShadedMesh('TopLevel')
+			const mesh = makeNamedMesh('TopLevel')
 			store.addObjectToScene(mesh)
 
 			store.saveProjectFile()
@@ -242,7 +193,7 @@ describe('useSceneStore graph operations', () => {
 			camera.name = 'Nested Camera'
 			group.add(camera)
 			store.addObjectToScene(group)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.saveProjectFile()
 
@@ -258,7 +209,7 @@ describe('useSceneStore graph operations', () => {
 			const camera = new THREE.PerspectiveCamera()
 			camera.name = 'Top Camera'
 			store.addObjectToScene(camera)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.saveProjectFile()
 
@@ -268,7 +219,6 @@ describe('useSceneStore graph operations', () => {
 		it('saves no render camera uuid when nothing is set to render', () => {
 			const store = useSceneStore()
 			store.addObjectToScene(new THREE.PerspectiveCamera())
-			cameraHolder.renderCamera = null
 
 			store.saveProjectFile()
 
@@ -286,7 +236,7 @@ describe('useSceneStore graph operations', () => {
 			target.name = 'Key Target'
 			getUserData(target).isLightTarget = true
 			light.add(target)
-			light.add(makeShadedMesh('On The Light'))
+			light.add(makeNamedMesh('On The Light'))
 			store.addObjectToScene(light)
 
 			store.saveProjectFile()
@@ -301,13 +251,14 @@ describe('useSceneStore graph operations', () => {
 		})
 
 		it('keeps a mesh with no cached original as it is', () => {
-			// Nothing shades it, so `mesh.material` is the only material there is —
-			// writing `undefined` over it would lose it.
+			// Put straight into the scene, so nothing shades it and `mesh.material`
+			// is the only material there is — writing `undefined` over it would
+			// lose it.
 			const store = useSceneStore()
 			const mesh = makeMesh()
 			mesh.name = 'Uncached'
 			mesh.material = new THREE.MeshStandardMaterial({ name: 'Uncached Own' })
-			store.addObjectToScene(mesh)
+			store.scene.add(mesh)
 
 			store.saveProjectFile()
 
@@ -319,23 +270,40 @@ describe('useSceneStore graph operations', () => {
 		it('clears the selection when it lives inside the deleted object', () => {
 			const store = useSceneStore()
 			const group = new THREE.Group()
+			const mesh = makeMesh()
+			group.add(mesh)
 			store.addObjectToScene(group)
-			selectionHolder.isSelectedWithin.mockReturnValue(true)
+			useSelectionStore().select(mesh)
 
 			store.deleteFromScene(group.uuid)
 
-			expect(selectionHolder.clear).toHaveBeenCalled()
+			expect(useSelectionStore().selectedObject).toBeNull()
+		})
+
+		it('clears the selection when it is the deleted object', () => {
+			const store = useSceneStore()
+			const group = new THREE.Group()
+			group.add(makeMesh())
+			store.addObjectToScene(group)
+			useSelectionStore().select(group)
+
+			store.deleteFromScene(group.uuid)
+
+			expect(useSelectionStore().selectedObject).toBeNull()
 		})
 
 		it('leaves the selection alone when it is elsewhere in the scene', () => {
 			const store = useSceneStore()
+			const other = makeMesh()
+			store.addObjectToScene(other)
 			const group = new THREE.Group()
+			group.add(makeMesh())
 			store.addObjectToScene(group)
-			selectionHolder.isSelectedWithin.mockReturnValue(false)
+			useSelectionStore().select(other)
 
 			store.deleteFromScene(group.uuid)
 
-			expect(selectionHolder.clear).not.toHaveBeenCalled()
+			expect(useSelectionStore().selectedObject).toBe(other)
 		})
 
 		it('clears the render camera when it lives inside the deleted object', () => {
@@ -344,11 +312,11 @@ describe('useSceneStore graph operations', () => {
 			const camera = new THREE.PerspectiveCamera()
 			group.add(camera)
 			store.addObjectToScene(group)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.deleteFromScene(group.uuid)
 
-			expect(cameraHolder.renderCamera).toBeNull()
+			expect(useCameraStore().renderCamera).toBeNull()
 		})
 
 		it('clears the render camera nested more than one level down', () => {
@@ -359,22 +327,22 @@ describe('useSceneStore graph operations', () => {
 			inner.add(camera)
 			outer.add(inner)
 			store.addObjectToScene(outer)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.deleteFromScene(outer.uuid)
 
-			expect(cameraHolder.renderCamera).toBeNull()
+			expect(useCameraStore().renderCamera).toBeNull()
 		})
 
 		it('clears the render camera when the camera itself is deleted', () => {
 			const store = useSceneStore()
 			const camera = new THREE.PerspectiveCamera()
 			store.addObjectToScene(camera)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.deleteFromScene(camera.uuid)
 
-			expect(cameraHolder.renderCamera).toBeNull()
+			expect(useCameraStore().renderCamera).toBeNull()
 		})
 
 		it('leaves the render camera alone when it is outside the deleted subtree', () => {
@@ -383,15 +351,15 @@ describe('useSceneStore graph operations', () => {
 			store.addObjectToScene(camera)
 			const group = new THREE.Group()
 			store.addObjectToScene(group)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.deleteFromScene(group.uuid)
 
-			expect(cameraHolder.renderCamera).toBe(camera)
+			expect(useCameraStore().renderCamera).toBe(camera)
 		})
 
-		it('lets the UV stores forget every mesh in the deleted subtree', () => {
-			// They remember a mesh's original UVs and replaced map against its
+		it('takes UV Grid off every mesh in the deleted subtree', () => {
+			// The UV Grid store remembers which meshes wear the grid against their
 			// uuid, and deleting a group takes its meshes with it — so the whole
 			// subtree has to be released, not just the object that was named.
 			const store = useSceneStore()
@@ -399,13 +367,11 @@ describe('useSceneStore graph operations', () => {
 			const mesh = makeMesh()
 			group.add(mesh)
 			store.addObjectToScene(group)
+			useUvGridStore().toggle(mesh)
 
 			store.deleteFromScene(group.uuid)
 
-			expect(uvHolder.forget).toHaveBeenCalledWith(group.uuid)
-			expect(uvHolder.forget).toHaveBeenCalledWith(mesh.uuid)
-			expect(uvGridHolder.forget).toHaveBeenCalledWith(group.uuid)
-			expect(uvGridHolder.forget).toHaveBeenCalledWith(mesh.uuid)
+			expect(useUvGridStore().isApplied(mesh.uuid)).toBe(false)
 		})
 	})
 
@@ -468,20 +434,27 @@ describe('useSceneStore graph operations', () => {
 	})
 
 	describe('addObjectToScene', () => {
-		it('marks the object, registers it with the raycaster, and selects it', () => {
+		it('puts the object in the scene and selects it', () => {
 			const store = useSceneStore()
 			const mesh = makeMesh()
 
 			store.addObjectToScene(mesh)
 
 			expect(store.scene.children).toContain(mesh)
-			expect(getUserData(mesh).userVisible).toBe(true)
-			expect(getUserData(mesh).isShadable).toBe(true)
-			expect(getUserData(mesh).isSelectable).toBe(true)
-			expect(mesh.castShadow).toBe(true)
-			expect(raycastHolder.addToRaycaster).toHaveBeenCalledWith(mesh)
-			expect(shadingHolder.cacheNewObjectMaterials).toHaveBeenCalledWith(mesh)
-			expect(selectionHolder.select).toHaveBeenCalledWith(mesh)
+			expect(useSelectionStore().selectedObject).toBe(mesh)
+		})
+
+		it('shades a nested mesh for the current mode and keeps its own material', () => {
+			const store = useSceneStore()
+			useShadingStore().setMode('wireframe')
+			const group = new THREE.Group()
+			const mesh = makeNamedMesh('Added')
+			group.add(mesh)
+
+			store.addObjectToScene(group)
+
+			expect(mesh.material).toMatchObject({ wireframe: true })
+			expect(useShadingStore().shadedMaterial(mesh)?.name).toBe('Added Original')
 		})
 
 		it('adds the object under an explicit parent when provided', () => {
@@ -499,7 +472,6 @@ describe('useSceneStore graph operations', () => {
 		it('updates userVisible and the live visibility for normal modes', () => {
 			const store = useSceneStore()
 			const group = store.addGroup()
-			shadingHolder.shadingMode = 'rendered'
 
 			store.objectVisibilityUpdate(group.uuid, false)
 
@@ -510,8 +482,7 @@ describe('useSceneStore graph operations', () => {
 		it('does not change live visibility when the object is hidden in the current mode', () => {
 			const store = useSceneStore()
 			const group = store.addGroup()
-			getUserData(group).hideInModes = ['rendered']
-			shadingHolder.shadingMode = 'rendered'
+			getUserData(group).hideInModes = [useShadingStore().shadingMode]
 			group.visible = false
 
 			store.objectVisibilityUpdate(group.uuid, true)
@@ -543,11 +514,21 @@ describe('useSceneStore graph operations', () => {
 			const camera = new THREE.PerspectiveCamera()
 			group.add(camera)
 			store.addObjectToScene(group)
-			cameraHolder.renderCamera = camera
+			useCameraStore().setRenderCamera(camera.uuid)
 
 			store.clearScene()
 
-			expect(cameraHolder.renderCamera).toBeNull()
+			expect(useCameraStore().renderCamera).toBeNull()
+		})
+
+		it('clears the selection along with the objects', () => {
+			const store = useSceneStore()
+			const mesh = makeMesh()
+			store.addObjectToScene(mesh)
+
+			store.clearScene()
+
+			expect(useSelectionStore().selectedObject).toBeNull()
 		})
 	})
 })
