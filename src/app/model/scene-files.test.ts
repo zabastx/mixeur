@@ -69,3 +69,46 @@ describe('opening a project file', () => {
 		expect(scene.scene.getObjectByName('Open Box')).toBe(mesh)
 	})
 })
+
+describe('importing a Three.js JSON file', () => {
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		useToast().clear()
+	})
+
+	/** A group holding a box, as Object3D.toJSON writes it. */
+	function exportedGroup() {
+		const group = new THREE.Group()
+		group.name = 'JSON Group'
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+		mesh.name = 'JSON Box'
+		group.add(mesh)
+		return JSON.stringify(group.toJSON())
+	}
+
+	function objectsNamed(root: THREE.Object3D, name: string) {
+		const found: THREE.Object3D[] = []
+		root.traverse((obj) => {
+			if (obj.name === name) found.push(obj)
+		})
+		return found
+	}
+
+	it('gives a second import of the same file objects of its own', async () => {
+		const scene = useSceneStore()
+		const json = exportedGroup()
+
+		await scene.importJSON(json)
+		await scene.importJSON(json)
+
+		const [first, second] = objectsNamed(scene.scene, 'JSON Group')
+		const [firstBox, secondBox] = objectsNamed(scene.scene, 'JSON Box')
+		expect(second?.uuid).not.toBe(first?.uuid)
+		expect(secondBox?.uuid).not.toBe(firstBox?.uuid)
+
+		scene.deleteFromScene(second!.uuid)
+
+		expect(objectsNamed(scene.scene, 'JSON Group')).toEqual([first])
+		expect(objectsNamed(scene.scene, 'JSON Box')).toEqual([firstBox])
+	})
+})

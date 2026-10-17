@@ -312,6 +312,13 @@ export const useSceneStore = defineStore('scene', () => {
 			const loader = new MxObjectLoader()
 			const loadedObject = await loader.parseAsync(json)
 
+			// The file carries the uuids it was exported with, and the scene finds
+			// objects by uuid, so a second import of the same file would act on the
+			// first. Fresh ones, as a Duplicate gets.
+			loadedObject.traverse((obj) => {
+				obj.uuid = THREE.MathUtils.generateUUID()
+			})
+
 			addObjectToScene(loadedObject)
 		} catch (err) {
 			const error = err as Error
