@@ -115,6 +115,14 @@ export const useSceneStore = defineStore('scene', () => {
 		updateScene()
 	}
 
+	/**
+	 * Bring an object, and everything under it, into the editor: shadow and
+	 * visibility flags, helpers for lights and cameras, raycasting, the shading
+	 * cache, then selection. Every camera in the subtree becomes a render camera.
+	 * Only meshes added here are shadable, and the shading store caches a clone
+	 * of their material: read the original through `getMaterialCache`, not from
+	 * the material the mesh came with.
+	 */
 	function addObjectToScene(object: THREE.Object3D, parent?: THREE.Object3D | null) {
 		const helpers: THREE.Object3D[] = []
 		const { addToRaycaster } = useRaycastStore()
