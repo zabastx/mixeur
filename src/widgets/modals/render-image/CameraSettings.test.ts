@@ -26,10 +26,9 @@ function addCamera(uuid: string, settings: Partial<THREE.PerspectiveCamera>) {
 	return camera
 }
 
-/** The number input sitting beside `label` in the panel. */
+/** The number input that `label` names. */
 function field(label: string): HTMLInputElement {
-	const row = screen.getByText(label).closest('label')!.parentElement!
-	return row.querySelector<HTMLInputElement>('input')!
+	return screen.getByLabelText<HTMLInputElement>(label)
 }
 
 describe('CameraSettings', () => {

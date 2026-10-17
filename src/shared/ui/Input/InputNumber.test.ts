@@ -9,15 +9,15 @@ describe('InputNumber', () => {
 			props: { modelValue: 42 }
 		})
 
-		expect(screen.getByTestId<HTMLInputElement>('number-input').value).toBe('42.000')
+		expect(screen.getByRole<HTMLInputElement>('spinbutton').value).toBe('42.000')
 	})
 
-	it('emits update:modelValue on change', async () => {
+	it('emits the typed number once the field is left', async () => {
 		const { emitted } = render(InputNumber, {
 			props: { modelValue: 0 }
 		})
 
-		const input = screen.getByTestId('number-input')
+		const input = screen.getByRole('spinbutton')
 		await userEvent.clear(input)
 		await userEvent.type(input, '100')
 		await userEvent.tab()
@@ -33,6 +33,6 @@ describe('InputNumber', () => {
 			}
 		})
 
-		expect(screen.getByTestId<HTMLInputElement>('number-input').value).toBe('3.14')
+		expect(screen.getByRole<HTMLInputElement>('spinbutton').value).toBe('3.14')
 	})
 })

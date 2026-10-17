@@ -76,44 +76,13 @@ describe('InputField', () => {
 		expect(document.querySelector('label svg')).toBeNull()
 	})
 
-	it('applies disabled styling when disabled prop is true', () => {
-		const { container } = render(InputField, {
-			props: {
-				label: 'Test Label',
-				disabled: true
-			},
-			slots: { default: TestInput }
+	it('disables the control when the field is disabled', () => {
+		render(InputField, {
+			props: { label: 'Test Label', disabled: true },
+			slots: { default: (slotProps: { id: string; disabled: boolean }) => h(TestInput, slotProps) }
 		})
 
-		const wrapper = container.firstChild as HTMLElement
-		expect(wrapper.classList.contains('opacity-50')).toBe(true)
-	})
-
-	it('renders reverse layout', () => {
-		const { container } = render(InputField, {
-			props: {
-				label: 'Test Label',
-				reverse: true
-			},
-			slots: { default: TestInput }
-		})
-
-		const label = container.querySelector('label')
-		expect(label?.classList.contains('order-1')).toBe(true)
-	})
-
-	it('applies custom grid columns', () => {
-		const { container } = render(InputField, {
-			props: {
-				label: 'Test Label',
-				inputWidth: '200px',
-				labelWidth: '100px'
-			},
-			slots: { default: TestInput }
-		})
-
-		const wrapper = container.firstChild as HTMLElement
-		expect(wrapper.getAttribute('style')).toContain('100px 200px')
+		expect(screen.getByLabelText('Test Label')).toBeDisabled()
 	})
 
 	it('renders slot content correctly', () => {

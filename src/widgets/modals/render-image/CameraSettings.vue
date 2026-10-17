@@ -8,8 +8,9 @@
 			/>
 		</InputField>
 		<template v-if="renderCamera">
-			<InputField v-if="'fov' in renderCamera" label="FOV" label-width="125px">
+			<InputField v-if="'fov' in renderCamera" v-slot="{ id }" label="FOV" label-width="125px">
 				<InputNumber
+					:id
 					:model-value="getValue('number', 'fov')"
 					:format-options="{ unit: 'degree', unitDisplay: 'narrow', style: 'unit' }"
 					:max="180"
@@ -17,24 +18,27 @@
 					@update:model-value="setLens('fov', $event)"
 				/>
 			</InputField>
-			<InputField label="Clip Start" label-width="125px">
+			<InputField v-slot="{ id }" label="Clip Start" label-width="125px">
 				<InputNumber
+					:id
 					:model-value="getValue('number', 'near')"
 					:step="1"
 					:format-options="{ minimumFractionDigits: 1 }"
 					@update:model-value="setLens('near', $event)"
 				/>
 			</InputField>
-			<InputField label="Clip End" label-width="125px">
+			<InputField v-slot="{ id }" label="Clip End" label-width="125px">
 				<InputNumber
+					:id
 					:model-value="getValue('number', 'far')"
 					:step="1"
 					:format-options="{ minimumFractionDigits: 1 }"
 					@update:model-value="setLens('far', $event)"
 				/>
 			</InputField>
-			<InputField label="Zoom" label-width="125px">
+			<InputField v-slot="{ id }" label="Zoom" label-width="125px">
 				<InputNumber
+					:id
 					:model-value="getValue('number', 'zoom')"
 					:step="0.1"
 					:format-options="{ minimumFractionDigits: 2 }"
