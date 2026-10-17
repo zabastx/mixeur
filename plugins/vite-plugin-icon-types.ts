@@ -23,6 +23,8 @@ export function iconTypesPlugin(options: IconTypesPluginOptions = {}): Plugin {
 		},
 
 		buildStart() {
+			// Tests need no types, and vue-tsc runs after `types:generate`.
+			if (process.env.VITEST) return
 			generateIconTypes(resolvedIconsDir, resolvedOutputPath)
 		},
 

@@ -13,6 +13,7 @@ The `codeberg` and `gitverse` remotes are mirrors: they do not host issues. Alwa
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **Back a "Verified:" claim with its reproduction**: name the mutation or command and the commit it ran at (`Verified at a19ce0d: <mutation> leaves every test in <file> green`), so the implementer reruns it instead of rediscovering it. A claim that no longer reproduces means the ticket's diagnosis is stale.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone. If `gh` picks the wrong remote because of the mirrors, pass `--repo zabastx/mixeur`.
 
