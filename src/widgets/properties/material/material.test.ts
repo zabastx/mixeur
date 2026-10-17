@@ -2,33 +2,26 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import THREE from '@/shared/three'
 
-vi.mock('@/app/model/scene', () => ({
-	useSceneStore: () => ({ scene: new THREE.Scene(), updateScene: vi.fn() })
-}))
-
 vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 	loadStudioLight: vi.fn().mockResolvedValue(null)
 }))
 
+import { useSceneStore } from '@/app/model/scene'
 import { useShadingStore } from '@/app/model/shading'
-import { useSelectionStore } from '@/app/model/selection'
 import { useMeshMaterial } from './material'
 
 /**
- * Selects a mesh and seeds the shading cache the way `cacheNewObjectMaterials`
- * would, which is what the material target reads and writes through.
+ * Adds a mesh to the scene, which caches its materials in the shading store and
+ * selects it, and returns the cached original the material target reads and
+ * writes through. The cache holds a clone, not the material the mesh came with.
  */
-function selectMesh(material: THREE.Material) {
+function selectMeshWith<T extends THREE.Material>(material: T) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), material)
+	useSceneStore().addObjectToScene(mesh)
 
-	useShadingStore().materialCache.set(mesh.uuid, {
-		original: material,
-		wireframe: new THREE.MeshBasicMaterial(),
-		solid: new THREE.MeshLambertMaterial()
-	})
-	useSelectionStore().selectedObject = mesh
-
-	return mesh
+	const original = useShadingStore().getMaterialCache(mesh)?.original
+	if (!original) throw new Error('addObjectToScene did not cache the mesh’s materials')
+	return original as T
 }
 
 describe('createMaterialTarget', () => {
@@ -41,13 +34,11 @@ describe('createMaterialTarget', () => {
 	})
 
 	beforeEach(() => {
-		useSelectionStore().selectedObject = null
-		useShadingStore().materialCache.clear()
+		useSceneStore().clearScene()
 	})
 
 	it('reads the selected mesh’s cached original material', () => {
-		const material = new THREE.MeshStandardMaterial({ roughness: 0.25 })
-		selectMesh(material)
+		selectMeshWith(new THREE.MeshStandardMaterial({ roughness: 0.25 }))
 
 		const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
 
@@ -55,8 +46,7 @@ describe('createMaterialTarget', () => {
 	})
 
 	it('writes through the shading store rather than replacing the material', () => {
-		const material = new THREE.MeshStandardMaterial({ roughness: 0.25 })
-		selectMesh(material)
+		const material = selectMeshWith(new THREE.MeshStandardMaterial({ roughness: 0.25 }))
 
 		const version = material.version
 		const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
@@ -68,9 +58,8 @@ describe('createMaterialTarget', () => {
 	})
 
 	it('copies into the existing Color instead of swapping the instance', () => {
-		const material = new THREE.MeshStandardMaterial()
+		const material = selectMeshWith(new THREE.MeshStandardMaterial())
 		const color = material.color
-		selectMesh(material)
 
 		const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
 		target.write('color', new THREE.Color('#ff8800'))
@@ -80,8 +69,7 @@ describe('createMaterialTarget', () => {
 	})
 
 	it('makes a toon gradient ramp sample without interpolation', () => {
-		const material = new THREE.MeshToonMaterial()
-		selectMesh(material)
+		const material = selectMeshWith(new THREE.MeshToonMaterial())
 
 		const target = useMeshMaterial<THREE.MeshToonMaterial>().createMaterialTarget()
 		const gradient = new THREE.Texture()

@@ -1,25 +1,19 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import THREE from '@/shared/three'
-import { getUserData } from '@/shared/three/utils'
-
-const sceneHolder = vi.hoisted(() => ({
-	scene: null as unknown as THREE.Scene,
-	sceneChildren: [] as THREE.Object3D[]
-}))
-const composerHolder = vi.hoisted(() => ({ needsResize: false }))
-
-vi.mock('./scene', () => ({ useSceneStore: () => sceneHolder }))
-vi.mock('./composer', () => ({ useComposerStore: () => composerHolder }))
-
+import { useComposerStore } from './composer'
+import { useSceneStore } from './scene'
 import { useCameraStore } from './camera'
+
+function addMesh(parent?: THREE.Object3D) {
+	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
+	useSceneStore().addObjectToScene(mesh, parent)
+	return mesh
+}
 
 describe('useCameraStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
-		sceneHolder.scene = new THREE.Scene()
-		sceneHolder.sceneChildren = []
-		composerHolder.needsResize = false
 	})
 
 	describe('toggleViewportCamera', () => {
@@ -39,11 +33,9 @@ describe('useCameraStore', () => {
 		it('warns and keeps renderCamera null for a non-camera uuid', () => {
 			const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 			const store = useCameraStore()
-			const mesh = new THREE.Mesh()
-			mesh.uuid = 'mesh-1'
-			sceneHolder.scene.add(mesh)
+			const mesh = addMesh()
 
-			store.setRenderCamera('mesh-1')
+			store.setRenderCamera(mesh.uuid)
 
 			expect(warn).toHaveBeenCalled()
 			expect(store.renderCamera).toBeNull()
@@ -53,10 +45,9 @@ describe('useCameraStore', () => {
 		it('sets a valid camera as the render camera', () => {
 			const store = useCameraStore()
 			const camera = new THREE.PerspectiveCamera()
-			camera.uuid = 'camera-1'
-			sceneHolder.scene.add(camera)
+			useSceneStore().addObjectToScene(camera)
 
-			store.setRenderCamera('camera-1')
+			store.setRenderCamera(camera.uuid)
 
 			expect(store.renderCamera).toBe(camera)
 		})
@@ -65,20 +56,21 @@ describe('useCameraStore', () => {
 	describe('toggleCameraView', () => {
 		it('keeps the viewport camera active and requests a resize when no render camera', () => {
 			const store = useCameraStore()
+			const composerStore = useComposerStore()
+			composerStore.needsResize = false
 
 			store.toggleCameraView()
 
 			// activeCamera is wrapped in a reactive proxy, so compare by stable uuid.
 			expect(store.activeCamera.uuid).toBe(store.viewportCameras[store.viewportCameraType].uuid)
-			expect(composerHolder.needsResize).toBe(true)
+			expect(composerStore.needsResize).toBe(true)
 		})
 
 		it('switches the active camera to the render camera', () => {
 			const store = useCameraStore()
 			const camera = new THREE.PerspectiveCamera()
-			camera.uuid = 'camera-1'
-			sceneHolder.scene.add(camera)
-			store.setRenderCamera('camera-1')
+			useSceneStore().addObjectToScene(camera)
+			store.setRenderCamera(camera.uuid)
 
 			store.toggleCameraView()
 
@@ -87,63 +79,64 @@ describe('useCameraStore', () => {
 	})
 
 	describe('renderCameraList', () => {
-		function makeRenderCamera() {
+		// Every camera added through the scene store becomes a render camera; one
+		// put in the scene graph by other means, as a loader would, does not.
+		function addPlainCamera(parent: THREE.Object3D) {
 			const camera = new THREE.PerspectiveCamera()
-			getUserData(camera).isRenderCamera = true
+			parent.add(camera)
+			useSceneStore().updateScene()
+			return camera
+		}
+
+		function addRenderCamera(parent?: THREE.Object3D) {
+			const camera = new THREE.PerspectiveCamera()
+			useSceneStore().addObjectToScene(camera, parent)
 			return camera
 		}
 
 		it('returns only cameras flagged as render cameras', () => {
 			const store = useCameraStore()
-			const renderCam = makeRenderCamera()
-			const plainCam = new THREE.PerspectiveCamera()
-			const mesh = new THREE.Mesh()
-			sceneHolder.sceneChildren = [renderCam, plainCam, mesh]
+			const renderCam = addRenderCamera()
+			addPlainCamera(useSceneStore().scene)
+			addMesh()
 
 			expect(store.renderCameraList).toEqual([renderCam])
 		})
 
 		it('finds a render camera nested inside a group', () => {
 			const store = useCameraStore()
-			const renderCam = makeRenderCamera()
-			const group = new THREE.Group()
-			group.add(renderCam)
-			sceneHolder.sceneChildren = [group]
+			const group = useSceneStore().addGroup()
+			const renderCam = addRenderCamera(group)
 
 			expect(store.renderCameraList).toEqual([renderCam])
 		})
 
 		it('finds a render camera nested several groups deep', () => {
 			const store = useCameraStore()
-			const renderCam = makeRenderCamera()
-			const inner = new THREE.Group()
-			inner.add(renderCam)
-			const outer = new THREE.Group()
-			outer.add(inner)
-			sceneHolder.sceneChildren = [outer]
+			const sceneStore = useSceneStore()
+			const outer = sceneStore.addGroup()
+			const inner = sceneStore.addGroup()
+			sceneStore.moveObjectToTarget(inner.uuid, outer.uuid)
+			const renderCam = addRenderCamera(inner)
 
 			expect(store.renderCameraList).toEqual([renderCam])
 		})
 
 		it('applies the same filter at depth as it does at the top level', () => {
 			const store = useCameraStore()
-			const renderCam = makeRenderCamera()
-			const plainCam = new THREE.PerspectiveCamera()
-			const mesh = new THREE.Mesh()
-			const group = new THREE.Group()
-			group.add(renderCam, plainCam, mesh)
-			sceneHolder.sceneChildren = [group]
+			const group = useSceneStore().addGroup()
+			const renderCam = addRenderCamera(group)
+			addPlainCamera(group)
+			addMesh(group)
 
 			expect(store.renderCameraList).toEqual([renderCam])
 		})
 
 		it('lists top-level and nested render cameras together', () => {
 			const store = useCameraStore()
-			const topCam = makeRenderCamera()
-			const nestedCam = makeRenderCamera()
-			const group = new THREE.Group()
-			group.add(nestedCam)
-			sceneHolder.sceneChildren = [topCam, group]
+			const topCam = addRenderCamera()
+			const group = useSceneStore().addGroup()
+			const nestedCam = addRenderCamera(group)
 
 			expect(store.renderCameraList).toEqual([topCam, nestedCam])
 		})

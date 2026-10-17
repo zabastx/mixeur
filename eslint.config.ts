@@ -93,15 +93,13 @@ export default defineConfig(
 	// to real stores, as the scene store's tests did in #49; the list only shrinks.
 	{
 		files: [
-			'src/app/model/camera.test.ts',
 			'src/app/model/selection.test.ts',
 			'src/app/model/shading.test.ts',
 			'src/app/model/uv-grid.test.ts',
 			'src/app/model/uv.test.ts',
 			'src/widgets/editor/outliner/DataOutliner.test.ts',
 			'src/widgets/editor/outliner/OutlinerTree.test.ts',
-			'src/widgets/modals/render-image/CameraSettings.test.ts',
-			'src/widgets/properties/material/material.test.ts'
+			'src/widgets/modals/render-image/CameraSettings.test.ts'
 		],
 		rules: { 'no-restricted-syntax': ['error', noCloneTrue] }
 	},
