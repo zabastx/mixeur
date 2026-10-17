@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { version as appVersion } from '@/../package.json'
 import {
 	encodeProject,
 	decodeProject,
@@ -38,29 +39,15 @@ describe('crc32', () => {
 })
 
 describe('encodeProject', () => {
-	it('creates valid binary output', () => {
-		const data = {
-			scene: { object: { uuid: 'test-uuid' } },
-			renderCameraUUID: null
-		}
+	it('lays out magic, version, and a trailing little-endian CRC-32 of the preceding bytes', () => {
+		const result = encodeProject({ scene: {}, renderCameraUUID: null })
 
-		const result = encodeProject(data)
+		const magic = new TextDecoder().decode(result.subarray(0, PROJECT_MAGIC.length))
+		const storedChecksum = new DataView(result.buffer, result.byteLength - 4).getUint32(0, true)
 
-		expect(result.byteLength).toBeGreaterThan(0)
-		// Verify 4-byte checksum is appended at end
-		const checksumIndex = result.length - 4
-		expect(result[checksumIndex]).toBeDefined()
-	})
-
-	it('includes scene data in encoded output', () => {
-		const data = {
-			scene: { geometries: [], materials: [] },
-			renderCameraUUID: 'camera-uuid-123'
-		}
-
-		const result = encodeProject(data)
-
-		expect(result.byteLength).toBeGreaterThan(4)
+		expect(magic).toBe(PROJECT_MAGIC)
+		expect(result[PROJECT_MAGIC.length]).toBe(PROJECT_VERSION)
+		expect(storedChecksum).toBe(crc32(result.buffer as ArrayBuffer, 0, result.byteLength - 4))
 	})
 
 	it('produces different output for different data', () => {
@@ -71,24 +58,6 @@ describe('encodeProject', () => {
 		const result2 = encodeProject(data2)
 
 		expect(result1).not.toEqual(result2)
-	})
-
-	it('produces binary with minimum size', () => {
-		const data = { scene: { geometries: [] }, renderCameraUUID: null }
-
-		const result = encodeProject(data)
-
-		expect(result.byteLength).toBeGreaterThan(50)
-	})
-
-	it('produces output with checksum at end', () => {
-		const data = { scene: {}, renderCameraUUID: null }
-
-		const result = encodeProject(data)
-
-		expect(result.byteLength).toBeGreaterThan(4)
-		const checksumBytes = result.slice(-4)
-		expect(checksumBytes.byteLength).toBe(4)
 	})
 })
 
@@ -130,20 +99,22 @@ describe('decodeProject', () => {
 		const corrupted = new Uint8Array(encoded)
 		corrupted[10] = corrupted[10] ^ 0xff
 
-		expect(() => decodeProject(corrupted.buffer)).toThrow('corrupted')
+		expect(() => decodeProject(corrupted.buffer)).toThrow(
+			/^Project file is corrupted: checksum mismatch/
+		)
 	})
 
-	it('throws error on invalid magic', () => {
-		const data = { scene: {}, renderCameraUUID: null }
-		const encoded = encodeProject(data)
-
-		const decodedBeforeCorruption = decodeProject(encoded.buffer as ArrayBuffer)
-		expect(decodedBeforeCorruption.magic).toBe(PROJECT_MAGIC)
+	it('rejects a bad magic number even when the checksum is valid', () => {
+		const encoded = encodeProject({ scene: {}, renderCameraUUID: null })
 
 		const corrupted = new Uint8Array(encoded)
 		corrupted[1] = corrupted[1] ^ 0xff
+		const checksum = crc32(corrupted.buffer, 0, corrupted.byteLength - 4)
+		new DataView(corrupted.buffer, corrupted.byteLength - 4).setUint32(0, checksum, true)
 
-		expect(() => decodeProject(corrupted.buffer)).toThrow()
+		expect(() => decodeProject(corrupted.buffer)).toThrow(
+			'Invalid project file: not a .mixeur file'
+		)
 	})
 
 	it('includes version in output', () => {
@@ -152,7 +123,6 @@ describe('decodeProject', () => {
 
 		const decoded = decodeProject(encoded.buffer as ArrayBuffer)
 		expect(decoded.version).toBe(PROJECT_VERSION)
-		expect(typeof decoded.version).toBe('number')
 	})
 
 	it('handles null renderCameraUUID', () => {
@@ -172,41 +142,24 @@ describe('decodeProject', () => {
 
 		expect(decoded.data.scene).toEqual({})
 	})
-
-	it('rejects invalid magic via decode', () => {
-		const data = { scene: {}, renderCameraUUID: null }
-		const encoded = encodeProject(data)
-
-		const encodedArray = new Uint8Array(encoded)
-		// Corrupt magic bytes (first 6 bytes) - indices vary due to MessagePack encoding
-		const magicIndex = 0
-		encodedArray[magicIndex] = 0
-		encodedArray[magicIndex + 1] = 0
-		encodedArray[magicIndex + 2] = 0
-		encodedArray[magicIndex + 3] = 0
-		encodedArray[magicIndex + 4] = 0
-		encodedArray[magicIndex + 5] = 0
-
-		// Recompute checksum after corruption
-		const checksum = crc32(encodedArray.buffer, 0, encodedArray.byteLength - 4)
-		const checksumView = new DataView(encodedArray.buffer, encodedArray.byteLength - 4, 4)
-		checksumView.setUint32(0, checksum, true)
-
-		expect(() => decodeProject(encodedArray.buffer)).toThrow()
-	})
 })
 
 describe('getProjectInfo', () => {
+	afterEach(() => {
+		vi.useRealTimers()
+	})
+
 	it('extracts metadata from valid file', () => {
-		const data = { scene: {}, renderCameraUUID: null }
-		const encoded = encodeProject(data)
+		vi.useFakeTimers({ now: new Date('2026-01-02T03:04:05.000Z') })
+		const encoded = encodeProject({ scene: {}, renderCameraUUID: null })
 
 		const info = getProjectInfo(encoded.buffer as ArrayBuffer)
 
-		expect(info).not.toBeNull()
-		expect(info?.version).toBe(PROJECT_VERSION)
-		expect(info?.createdAt).toBeDefined()
-		expect(info?.appVersion).toBeDefined()
+		expect(info).toEqual({
+			version: PROJECT_VERSION,
+			createdAt: '2026-01-02T03:04:05.000Z',
+			appVersion
+		})
 	})
 
 	it('returns null on corrupted file', () => {
