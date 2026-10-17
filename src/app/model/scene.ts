@@ -398,12 +398,14 @@ export const useSceneStore = defineStore('scene', () => {
 
 	async function openProjectFile(): Promise<boolean> {
 		const toast = useToast()
-		const { open, onChange } = useFileDialog({
+		const { open, onChange, onCancel } = useFileDialog({
 			accept: '.mixeur',
 			multiple: false
 		})
 
 		return new Promise((resolve) => {
+			// A dismissed picker fires cancel, not change.
+			onCancel(() => resolve(false))
 			onChange(async (val) => {
 				if (!val) {
 					resolve(false)
