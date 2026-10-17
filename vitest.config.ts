@@ -10,6 +10,7 @@ export default mergeConfig(
 			// every run. Neither hint applies: the setup's native `gl` addon cannot
 			// load twice in one process, so `vmThreads` fails every file but the
 			// first, and `isolate: false` would share `vi.mock` state across files.
+			// Stryker overrides this pool; `vitest.stryker.config.ts` sets it back.
 			pool: 'forks',
 			isolate: true,
 			coverage: {

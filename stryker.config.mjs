@@ -20,7 +20,10 @@ export default {
 	testRunner: 'vitest',
 	vitest: { configFile: 'vitest.stryker.config.ts' },
 	coverageAnalysis: 'perTest',
-	reporters: ['clear-text', 'progress'],
+	// Listing plugins replaces the default `@stryker-mutator/*` glob, so the
+	// runner is named alongside the local guard.
+	plugins: ['@stryker-mutator/vitest-runner', import.meta.resolve('./stryker.guard.mjs')],
+	reporters: ['clear-text', 'progress', 'no-test-survivor-guard'],
 	// Stryker does not read `.gitignore`, so the ignored entries the sandbox copy
 	// must skip are repeated here: the agent and tool directories (`.claude/skills`
 	// is a symlink to a directory, which the copy fails on) and build and test output.

@@ -21,6 +21,7 @@
         "@eslint/js": "^10.0.1",
         "@pinia/testing": "^2.0.2",
         "@playwright/test": "^1.64.1",
+        "@stryker-mutator/api": "10.0.0",
         "@stryker-mutator/core": "10.0.0",
         "@stryker-mutator/vitest-runner": "10.0.0",
         "@testing-library/jest-dom": "^7.0.1",
