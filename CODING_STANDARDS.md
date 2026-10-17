@@ -50,7 +50,8 @@ source file and lists the mutants its tests leave alive. It only knows its own o
 swaps; `bun run test:mutant <file> <original> <mutated>` makes one by hand (ask the wrong
 object, skip a call) and names the tests that kill it. The commit-msg hook checks the
 message names the mutations, so review checks only that each new assertion has a
-mutation it would fail, not the message.
+mutation it would fail, not the message. A review finding that a test would stay green
+under some change is run through `test:mutant` first and reported with the result.
 
 **Assert the value.** `toBeDefined()`, `toBeTruthy()` and a bare `toHaveBeenCalled()`
 pass for any result that exists; pin what the result should be.
