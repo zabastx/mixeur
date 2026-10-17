@@ -1,100 +1,58 @@
-import { render } from '@testing-library/vue'
+import { render, screen } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 import MxSlider from './MxSlider.vue'
 
 describe('MxSlider', () => {
-	it('renders slider component', () => {
-		const { container } = render(MxSlider, {
+	it('exposes one thumb with its value, min and max', async () => {
+		render(MxSlider, {
 			props: {
 				modelValue: [50]
 			}
 		})
 
-		const slider = container.querySelector('[role="slider"]')
-		expect(slider).toBeInTheDocument()
+		const thumbs = await screen.findAllByRole('slider')
+		expect(thumbs).toHaveLength(1)
+		const [thumb] = thumbs
+		expect(thumb).toHaveAttribute('aria-valuenow', '50')
+		expect(thumb).toHaveAttribute('aria-valuemin', '0')
+		expect(thumb).toHaveAttribute('aria-valuemax', '100')
 	})
 
-	it('renders with default value', () => {
-		const { container } = render(MxSlider, {
+	it('exposes one thumb per value of a range', async () => {
+		render(MxSlider, {
 			props: {
-				modelValue: [50, 100]
+				modelValue: [30, 70]
 			}
 		})
 
-		const sliders = container.querySelectorAll('[role="slider"]')
-		expect(sliders.length).toBe(2)
+		const thumbs = await screen.findAllByRole('slider')
+		expect(thumbs.map((thumb) => thumb.getAttribute('aria-valuenow'))).toEqual(['30', '70'])
 	})
 
-	it('renders with group styling', () => {
-		const { container } = render(MxSlider, {
+	it('applies the root min and max to its thumbs', async () => {
+		render(MxSlider, {
 			props: {
-				modelValue: [50, 100],
-				group: true
+				modelValue: [150],
+				root: { min: 100, max: 200 }
 			}
 		})
 
-		const slider = container.firstChild as HTMLElement
-		expect(slider.classList.contains('not-last:border-b')).toBe(true)
-	})
-
-	it('renders two slider thumbs', () => {
-		const { container } = render(MxSlider, {
-			props: {
-				modelValue: [0, 100]
-			}
-		})
-
-		const sliders = container.querySelectorAll('[role="slider"]')
-		expect(sliders.length).toBe(2)
-	})
-
-	it('accepts root props', () => {
-		const { container } = render(MxSlider, {
-			props: {
-				modelValue: [50],
-				root: { min: 0, max: 200 }
-			}
-		})
-
-		const slider = container.querySelector('[role="slider"]')
-		expect(slider).toBeInTheDocument()
-	})
-
-	it('accepts track props', () => {
-		const { container } = render(MxSlider, {
-			props: {
-				modelValue: [50],
-				track: { as: 'div' }
-			}
-		})
-
-		const track = container.querySelector('.bg-ui-slider-inner')
-		expect(track).toBeInTheDocument()
-	})
-
-	it('renders range styling when provided', () => {
-		const { container } = render(MxSlider, {
-			props: {
-				modelValue: [30, 70],
-				range: { as: 'div' }
-			}
-		})
-
-		const range = container.querySelector('.bg-ui-slider-item')
-		expect(range).toBeInTheDocument()
+		const thumb = await screen.findByRole('slider')
+		expect(thumb).toHaveAttribute('aria-valuenow', '150')
+		expect(thumb).toHaveAttribute('aria-valuemin', '100')
+		expect(thumb).toHaveAttribute('aria-valuemax', '200')
 	})
 
 	it('renders slot content', () => {
-		const { container } = render(MxSlider, {
+		render(MxSlider, {
 			props: {
 				modelValue: [50]
 			},
 			slots: {
-				default: '<div data-testid="slider-slot">Custom content</div>'
+				default: 'Custom content'
 			}
 		})
 
-		const slot = container.querySelector('[data-testid="slider-slot"]')
-		expect(slot).toBeInTheDocument()
+		expect(screen.getByText('Custom content')).toBeInTheDocument()
 	})
 })

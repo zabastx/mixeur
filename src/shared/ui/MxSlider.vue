@@ -9,8 +9,7 @@
 			<SliderRange class="bg-ui-slider-item absolute h-full" v-bind="$props.range" />
 			<slot></slot>
 		</SliderTrack>
-		<SliderThumb v-bind="$props.thumb" />
-		<SliderThumb v-bind="$props.thumb" />
+		<SliderThumb v-for="(_, index) in model" :key="index" v-bind="$props.thumb" />
 	</SliderRoot>
 </template>
 
