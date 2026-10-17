@@ -72,6 +72,7 @@ export default defineConfig(
 			'vitest/no-restricted-matchers': [
 				'error',
 				{
+					toBeDefined: 'Pin the value the result should have.',
 					toBeTruthy: 'Pin the value, or use toBeInTheDocument for an element.',
 					toBeFalsy: 'Pin the value, or use not.toBeInTheDocument for an element.'
 				}

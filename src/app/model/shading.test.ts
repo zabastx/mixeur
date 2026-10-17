@@ -83,7 +83,6 @@ describe('useShadingStore', () => {
 			store.cacheNewObjectMaterials(mesh)
 			const cache = store.getMaterialCache(mesh)
 
-			expect(cache).toBeDefined()
 			expect(cache?.wireframe).toBeInstanceOf(THREE.MeshBasicMaterial)
 			expect(cache?.solid).toBeInstanceOf(THREE.MeshLambertMaterial)
 			// default mode is 'solid'

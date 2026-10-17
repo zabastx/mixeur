@@ -327,7 +327,9 @@ describe('scene copying', () => {
 		for (const uuid of copiedHelperUUIDs) {
 			expect(scene.scene.getObjectByProperty('uuid', uuid)).toBeUndefined()
 		}
-		expect(scene.scene.getObjectByProperty('uuid', getUserData(camera).helperUUID)).toBeDefined()
+		expect(scene.scene.getObjectByProperty('uuid', getUserData(camera).helperUUID)).toBeInstanceOf(
+			THREE.CameraHelper
+		)
 	})
 
 	it('refuses a partial rig alone but warns and continues for scene files', async () => {

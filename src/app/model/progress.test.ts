@@ -1,5 +1,5 @@
 import { setActivePinia, createPinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgressStore } from './progress'
 
 describe('useProgressStore', () => {
@@ -7,7 +7,12 @@ describe('useProgressStore', () => {
 		setActivePinia(createPinia())
 	})
 
+	afterEach(() => {
+		vi.useRealTimers()
+	})
+
 	it('should start progress with correct initial state', () => {
+		vi.useFakeTimers({ now: 1_000_000 })
 		const store = useProgressStore()
 		const progress = store.initProgress('model.glb')
 		progress.start(1024)
@@ -18,9 +23,9 @@ describe('useProgressStore', () => {
 			title: 'model.glb',
 			percentage: 0,
 			loaded: 0,
-			total: 1024
+			total: 1024,
+			startTime: 1_000_000
 		})
-		expect(store.progressItems[0].startTime).toBeDefined()
 	})
 
 	it('should calculate percentage correctly on update', () => {
@@ -33,16 +38,16 @@ describe('useProgressStore', () => {
 	})
 
 	it('should calculate ETA based on transfer rate', () => {
+		vi.useFakeTimers({ now: 1_000_000 })
 		const store = useProgressStore()
 		const progress = store.initProgress('model.glb')
 		progress.start(1000)
 
-		// Manually set a startTime in the past to simulate elapsed time
-		store.progressItems[0].startTime = Date.now() - 1000 // 1 second ago
-
+		// Half the bytes in one second leaves the other half one more second.
+		vi.setSystemTime(1_001_000)
 		progress.update(progress.id, 500)
 
-		expect(store.progressItems[0]?.estimatedTimeRemaining).toBeDefined()
+		expect(store.progressItems[0]?.estimatedTimeRemaining).toBe(1000)
 	})
 
 	it('should remove item on stop', () => {
@@ -239,7 +244,7 @@ describe('useProgressStore', () => {
 		progress.update(progress.id, 500)
 
 		// Item should still exist but percentage should not be calculated
-		expect(store.progressItems[0]).toBeDefined()
-		expect(store.progressItems[0]?.percentage).toBe(0)
+		expect(store.progressItems).toHaveLength(1)
+		expect(store.progressItems[0]).toMatchObject({ loaded: 0, percentage: 0 })
 	})
 })
