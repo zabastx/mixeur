@@ -8,6 +8,22 @@ import globals from 'globals'
 import typescriptEslint from 'typescript-eslint'
 import { defineConfig } from 'eslint/config'
 
+const noCloneTrue = {
+	selector: "CallExpression[callee.property.name='clone'][arguments.0.value=true]",
+	message:
+		'clone(true) drops children of DirectionalLight, LOD and others, and throws on helpers. Copy scene objects through scene-copy or cloneForSerialization (see the note above it in shared/three/utils.ts).'
+}
+
+// CODING_STANDARDS.md, "Mock only what the test environment cannot run". Matches
+// a sibling module (`./scene`), a store under `@/app/model/`, and the pure
+// project file module. esquery regexes cannot hold a `/`, hence `\W`.
+const noStoreMock = {
+	selector:
+		"CallExpression[callee.object.name='vi'][callee.property.name=/^(mock|doMock)$/][arguments.0.value=/^(\\.\\W|@\\Wapp\\Wmodel\\W|@\\Wshared\\Wlib\\Wproject-file$)/]",
+	message:
+		'Run neighbouring stores and pure modules for real; mock only the GPU, the network and the file picker or download. A module that truly needs a live WebGLRenderer can disable this line, saying why.'
+}
+
 export default defineConfig(
 	// Flat config does not read .gitignore on its own. Without this, `eslint .` walks
 	// into `.agents/worktrees/*` (full repo copies) and the TS parser fails on multiple
@@ -34,14 +50,7 @@ export default defineConfig(
 			'@typescript-eslint/ban-ts-comment': 'warn',
 			'no-undef': 'off',
 			'no-useless-assignment': 'off',
-			'no-restricted-syntax': [
-				'error',
-				{
-					selector: "CallExpression[callee.property.name='clone'][arguments.0.value=true]",
-					message:
-						'clone(true) drops children of DirectionalLight, LOD and others, and throws on helpers. Copy scene objects through scene-copy or cloneForSerialization (see the note above it in shared/three/utils.ts).'
-				}
-			],
+			'no-restricted-syntax': ['error', noCloneTrue],
 			'vue/require-default-prop': 'off'
 		}
 	},
@@ -66,6 +75,7 @@ export default defineConfig(
 		files: ['src/**/*.test.ts'],
 		plugins: { vitest },
 		rules: {
+			'no-restricted-syntax': ['error', noCloneTrue, noStoreMock],
 			'vitest/valid-expect': ['error', { alwaysAwait: true }],
 			// CODING_STANDARDS.md, "Assert the value": these pass for any result that
 			// exists. Pin the value, or use jest-dom's toBeInTheDocument for presence.
@@ -78,6 +88,22 @@ export default defineConfig(
 				}
 			]
 		}
+	},
+	// Tests that still mock neighbouring stores. Each leaves this list when it moves
+	// to real stores, as the scene store's tests did in #49; the list only shrinks.
+	{
+		files: [
+			'src/app/model/camera.test.ts',
+			'src/app/model/selection.test.ts',
+			'src/app/model/shading.test.ts',
+			'src/app/model/uv-grid.test.ts',
+			'src/app/model/uv.test.ts',
+			'src/widgets/editor/outliner/DataOutliner.test.ts',
+			'src/widgets/editor/outliner/OutlinerTree.test.ts',
+			'src/widgets/modals/render-image/CameraSettings.test.ts',
+			'src/widgets/properties/material/material.test.ts'
+		],
+		rules: { 'no-restricted-syntax': ['error', noCloneTrue] }
 	},
 	eslintConfigPrettier
 )
