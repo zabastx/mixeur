@@ -52,7 +52,10 @@ const { showStatusBar } = storeToRefs(appStore)
 
 const jsonFile = useFileDialog({
 	accept: 'application/json',
-	multiple: false
+	multiple: false,
+	// Clears the reused input's selection, or importing the same file a second
+	// time fires no change event.
+	reset: true
 })
 
 jsonFile.onChange(async (val) => {

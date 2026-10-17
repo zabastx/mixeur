@@ -17,12 +17,14 @@
 		/>
 		<InputTexture
 			v-else-if="field.type === 'map'"
+			:data-testid="`texture-${String(field.prop)}`"
 			:disabled
 			:model-value="getValue(field.type, field.prop)"
 			@update:model-value="setValue(field.type, field.prop, $event)"
 		/>
 		<InputTexture
 			v-else-if="field.type === 'envMap'"
+			:data-testid="`texture-${String(field.prop)}`"
 			:disabled
 			is-env-map
 			:model-value="getValue(field.type, field.prop)"

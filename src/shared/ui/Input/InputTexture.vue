@@ -8,7 +8,13 @@
 			<span class="truncate" :title="model?.name">
 				{{ model?.name ?? 'None' }}
 			</span>
-			<button v-if="model" type="button" class="cursor-pointer px-1" @click="reset">
+			<button
+				v-if="model"
+				type="button"
+				aria-label="Clear"
+				class="cursor-pointer px-1"
+				@click="reset"
+			>
 				<MxIcon name="ui/close" />
 			</button>
 		</div>
@@ -35,7 +41,10 @@ const model = defineModel<THREE.Texture | null>()
 
 const { open, onChange } = useFileDialog({
 	multiple: false,
-	accept: 'image/*, .exr'
+	accept: 'image/*, .exr',
+	// Clears the reused input's selection, or re-picking the same file after
+	// clearing the texture fires no change event.
+	reset: true
 })
 
 onChange(async (files) => {
