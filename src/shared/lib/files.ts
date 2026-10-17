@@ -50,33 +50,43 @@ export async function uploadFile(accept?: string) {
 		}
 		document.body.appendChild(input)
 
+		const fail = (err: unknown) => {
+			const error = err as Error
+			console.error('Error uploading a file\n', error)
+			resolve({ data: null, error })
+		}
+
 		try {
+			// The picker reports the choice after click() returns, so its errors
+			// need their own catch.
 			input.addEventListener('change', (e: Event) => {
-				const $input = e.target as HTMLInputElement
-				const file = $input.files?.[0]
+				try {
+					const $input = e.target as HTMLInputElement
+					const file = $input.files?.[0]
 
-				if (!file) {
-					resolve({ data: null, error: null })
-					return
+					if (!file) {
+						resolve({ data: null, error: null })
+						return
+					}
+
+					const fileUrl = URL.createObjectURL(file)
+
+					resolve({
+						data: {
+							url: fileUrl,
+							filename: file.name,
+							cleanup: () => URL.revokeObjectURL(fileUrl)
+						},
+						error: null
+					})
+				} catch (err) {
+					fail(err)
 				}
-
-				const fileUrl = URL.createObjectURL(file)
-
-				resolve({
-					data: {
-						url: fileUrl,
-						filename: file.name,
-						cleanup: () => URL.revokeObjectURL(fileUrl)
-					},
-					error: null
-				})
 			})
 
 			input.click()
 		} catch (err) {
-			const error = err as Error
-			console.error('Error uploading a file\n', error)
-			resolve({ data: null, error })
+			fail(err)
 		} finally {
 			input.remove()
 		}

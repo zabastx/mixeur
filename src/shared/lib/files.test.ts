@@ -1,32 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { downloadFile, uploadFile } from './files'
 
+const BLOB_URL = 'blob:http://test/blob-url'
+
 describe('downloadFile', () => {
-	let mockAnchor: HTMLAnchorElement
-	let createElementSpy: ReturnType<typeof vi.spyOn>
-	let createObjectURLSpy: ReturnType<typeof vi.spyOn>
-	let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>
-	let appendChildSpy: ReturnType<typeof vi.spyOn>
-	let removeChildSpy: ReturnType<typeof vi.spyOn>
+	let urlBlobs: Blob[]
+	let revoked: string[]
+	let clicked: HTMLAnchorElement[]
 
 	beforeEach(() => {
 		vi.useFakeTimers()
+		urlBlobs = []
+		revoked = []
+		clicked = []
 
-		mockAnchor = {
-			click: vi.fn(),
-			href: '',
-			download: '',
-			style: { display: '' },
-			remove: vi.fn()
-		} as unknown as HTMLAnchorElement
-
-		createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor)
-		createObjectURLSpy = vi
-			.spyOn(URL, 'createObjectURL')
-			.mockReturnValue('blob:http://test/blob-url')
-		revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
-		appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockAnchor)
-		removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockAnchor)
+		vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+			urlBlobs.push(blob as Blob)
+			return BLOB_URL
+		})
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => {
+			revoked.push(url)
+		})
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+			this: HTMLAnchorElement
+		) {
+			clicked.push(this)
+		})
 	})
 
 	afterEach(() => {
@@ -34,209 +33,163 @@ describe('downloadFile', () => {
 		vi.restoreAllMocks()
 	})
 
-	it('should download Blob successfully', () => {
+	it('clicks a link that downloads the given Blob under the filename', () => {
 		const blob = new Blob(['test content'], { type: 'text/plain' })
+
 		const result = downloadFile(blob, 'test.txt')
 
-		expect(result.success).toBe(true)
-		expect(result.error).toBeNull()
-		expect(createElementSpy).toHaveBeenCalledWith('a')
-		expect(createObjectURLSpy).toHaveBeenCalled()
-		expect(mockAnchor.download).toBe('test.txt')
-		expect(mockAnchor.href).toBe('blob:http://test/blob-url')
-		expect(mockAnchor.style.display).toBe('none')
-		expect(appendChildSpy).toHaveBeenCalled()
-		expect(mockAnchor.click).toHaveBeenCalled()
-
-		// Need to advance timers for revokeObjectURL to be called
-		vi.advanceTimersByTime(100)
-		expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:http://test/blob-url')
+		expect(result).toEqual({ success: true, error: null })
+		expect(clicked).toHaveLength(1)
+		expect(clicked[0]?.download).toBe('test.txt')
+		expect(clicked[0]?.href).toBe(BLOB_URL)
+		expect(urlBlobs).toEqual([blob])
 	})
 
-	it('should download ArrayBuffer successfully', () => {
-		const arrayBuffer = new ArrayBuffer(8)
-		const result = downloadFile(arrayBuffer, 'data.bin')
+	it('wraps an ArrayBuffer in a Blob of the given mimeType', async () => {
+		const bytes = new Uint8Array([1, 2, 3])
 
-		expect(result.success).toBe(true)
-		expect(result.error).toBeNull()
-		expect(createObjectURLSpy).toHaveBeenCalled()
+		downloadFile(bytes.buffer, 'model.glb', { mimeType: 'model/gltf-binary' })
 
-		vi.advanceTimersByTime(100)
-		expect(revokeObjectURLSpy).toHaveBeenCalled()
+		expect(urlBlobs).toHaveLength(1)
+		expect(urlBlobs[0]?.type).toBe('model/gltf-binary')
+		expect(new Uint8Array(await urlBlobs[0]!.arrayBuffer())).toEqual(bytes)
+		expect(clicked[0]?.download).toBe('model.glb')
 	})
 
-	it('should use custom mimeType when provided', () => {
-		const blob = new Blob(['test'], { type: 'text/plain' })
-		downloadFile(blob, 'test.pdf', { mimeType: 'application/pdf' })
+	it('wraps an ArrayBuffer in an octet-stream Blob when no mimeType is given', () => {
+		downloadFile(new ArrayBuffer(8), 'data.bin')
 
-		expect(createObjectURLSpy).toHaveBeenCalled()
+		expect(urlBlobs).toHaveLength(1)
+		expect(urlBlobs[0]?.type).toBe('application/octet-stream')
 	})
 
-	it('should use default mimeType when not provided', () => {
-		const arrayBuffer = new ArrayBuffer(8)
-		downloadFile(arrayBuffer, 'test.dat')
+	it('revokes the URL and removes the link once the download has started', () => {
+		downloadFile(new Blob(['test']), 'test.txt')
+		const link = clicked[0]
 
-		expect(createObjectURLSpy).toHaveBeenCalled()
-	})
-
-	it('should clean up anchor element after download', () => {
-		const blob = new Blob(['test'], { type: 'text/plain' })
-		downloadFile(blob, 'test.txt')
+		expect(revoked).toEqual([])
+		expect(link?.isConnected).toBe(true)
 
 		vi.advanceTimersByTime(100)
 
-		expect(removeChildSpy).toHaveBeenCalledWith(mockAnchor)
-		expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:http://test/blob-url')
+		expect(revoked).toEqual([BLOB_URL])
+		expect(link?.isConnected).toBe(false)
 	})
 
-	it('should handle errors gracefully', () => {
-		createObjectURLSpy.mockImplementation(() => {
+	it('reports the error when the URL cannot be created', () => {
+		vi.mocked(URL.createObjectURL).mockImplementation(() => {
 			throw new Error('URL creation failed')
 		})
 
-		const blob = new Blob(['test'], { type: 'text/plain' })
-		const result = downloadFile(blob, 'test.txt')
+		const result = downloadFile(new Blob(['test']), 'test.txt')
 
 		expect(result.success).toBe(false)
-		expect(result.error).not.toBeNull()
 		expect(result.error?.message).toBe('URL creation failed')
+		expect(clicked).toEqual([])
 	})
 })
 
 describe('uploadFile', () => {
-	let createElementSpy: ReturnType<typeof vi.spyOn>
-	let createObjectURLSpy: ReturnType<typeof vi.spyOn>
+	let picked: File[] | null
+	let opened: HTMLInputElement[]
 
 	beforeEach(() => {
-		vi.useFakeTimers()
+		picked = null
+		opened = []
 
-		createObjectURLSpy = vi
-			.spyOn(URL, 'createObjectURL')
-			.mockReturnValue('blob:http://test/blob-url')
-
-		createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue({
-			type: 'file',
-			accept: '',
-			style: { display: '' },
-			click: vi.fn(),
-			remove: vi.fn()
-		} as unknown as HTMLInputElement)
-
-		vi.spyOn(document.body, 'appendChild').mockReturnValue(document.createElement('div'))
-		vi.spyOn(document.body, 'removeChild').mockReturnValue(document.createElement('div'))
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue(BLOB_URL)
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+		// The click opens the file picker; the user picks `picked` after it returns.
+		vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
+			this: HTMLInputElement
+		) {
+			opened.push(this)
+			setTimeout(() => {
+				Object.defineProperty(this, 'files', { value: picked, configurable: true })
+				this.dispatchEvent(new Event('change'))
+			})
+		})
 	})
 
 	afterEach(() => {
-		vi.useRealTimers()
 		vi.restoreAllMocks()
 	})
 
-	it('should upload file successfully when file is selected', async () => {
-		const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' })
-
-		const input = {
-			type: 'file',
-			accept: '',
-			style: { display: '' },
-			click: vi.fn(),
-			remove: vi.fn(),
-			files: [mockFile] as unknown as FileList,
-			addEventListener: vi.fn((event, handler) => {
-				if (event === 'change') {
-					handler({ target: { files: [mockFile] } })
-				}
-			})
-		} as unknown as HTMLInputElement
-
-		createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(input)
+	it('returns a URL and the name of the picked file', async () => {
+		const file = new File(['test content'], 'test.txt', { type: 'text/plain' })
+		picked = [file]
 
 		const result = await uploadFile()
 
 		expect(result.error).toBeNull()
-		expect(result.data).not.toBeNull()
 		expect(result.data?.filename).toBe('test.txt')
-		expect(result.data?.url).toBe('blob:http://test/blob-url')
-		expect(typeof result.data?.cleanup).toBe('function')
-		expect(createElementSpy).toHaveBeenCalledWith('input')
-		if (result.data) {
-			result.data.cleanup()
-		}
+		expect(result.data?.url).toBe(BLOB_URL)
+		expect(URL.createObjectURL).toHaveBeenCalledWith(file)
+		expect(opened[0]?.type).toBe('file')
 	})
 
-	it('should return null data when no file is selected', async () => {
-		const input = {
-			type: 'file',
-			accept: '',
-			style: { display: '' },
-			click: vi.fn(),
-			remove: vi.fn(),
-			files: null,
-			addEventListener: vi.fn((event, handler) => {
-				if (event === 'change') {
-					handler({ target: { files: null } })
-				}
-			})
-		} as unknown as HTMLInputElement
+	it('revokes the URL on cleanup', async () => {
+		picked = [new File(['x'], 'x.txt')]
 
-		createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(input)
+		const result = await uploadFile()
+		expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+		result.data?.cleanup()
+
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith(BLOB_URL)
+	})
+
+	it('returns no data when no file is picked', async () => {
+		picked = []
 
 		const result = await uploadFile()
 
-		expect(result.data).toBeNull()
-		expect(result.error).toBeNull()
+		expect(result).toEqual({ data: null, error: null })
 	})
 
-	it('should set accept attribute when provided', async () => {
-		const mockFile = new File([''], 'test.png', { type: 'image/png' })
-
-		const input = {
-			type: 'file',
-			accept: '',
-			style: { display: '' },
-			click: vi.fn(),
-			remove: vi.fn(),
-			files: [mockFile] as unknown as FileList,
-			addEventListener: vi.fn((event, handler) => {
-				if (event === 'change') {
-					handler({ target: { files: [mockFile] } })
-				}
-			})
-		} as unknown as HTMLInputElement
-
-		createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(input)
+	it('restricts the picker to the accepted types', async () => {
+		picked = [new File([''], 'test.png', { type: 'image/png' })]
 
 		await uploadFile('image/*')
 
-		expect(createElementSpy).toHaveBeenCalledWith('input')
+		expect(opened[0]?.accept).toBe('image/*')
 	})
 
-	it('should handle errors gracefully', async () => {
-		createObjectURLSpy.mockImplementation(() => {
-			throw new Error('URL creation failed')
+	it('leaves the picker unrestricted when no types are given', async () => {
+		picked = [new File([''], 'test.png', { type: 'image/png' })]
+
+		await uploadFile()
+
+		expect(opened[0]?.accept).toBe('')
+	})
+
+	it('removes the input from the page', async () => {
+		picked = [new File([''], 'test.png')]
+
+		await uploadFile()
+
+		expect(opened[0]?.isConnected).toBe(false)
+	})
+
+	it('reports the error when the picker cannot be opened', async () => {
+		vi.mocked(HTMLInputElement.prototype.click).mockImplementation(() => {
+			throw new Error('Picker blocked')
 		})
-
-		const mockFile = new File(['test'], 'test.txt', { type: 'text/plain' })
-
-		const input = {
-			type: 'file',
-			accept: '',
-			style: { display: '' },
-			click: vi.fn(),
-			remove: vi.fn(),
-			files: [mockFile] as unknown as FileList,
-			addEventListener: vi.fn((event, handler) => {
-				if (event === 'change') {
-					handler({ target: { files: [mockFile] } })
-				}
-			})
-		} as unknown as HTMLInputElement
-
-		createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(input)
 
 		const result = await uploadFile()
 
 		expect(result.data).toBeNull()
-		expect(result.error).not.toBeNull()
+		expect(result.error?.message).toBe('Picker blocked')
+	})
+
+	it('reports the error when no URL can be made for the picked file', async () => {
+		vi.mocked(URL.createObjectURL).mockImplementation(() => {
+			throw new Error('URL creation failed')
+		})
+		picked = [new File(['test'], 'test.txt')]
+
+		const result = await uploadFile()
+
+		expect(result.data).toBeNull()
 		expect(result.error?.message).toBe('URL creation failed')
 	})
 })
