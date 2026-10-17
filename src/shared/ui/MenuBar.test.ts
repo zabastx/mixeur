@@ -1,156 +1,208 @@
-import { render, screen } from '@testing-library/vue'
+import { render, screen, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import MenuBar from './MenuBar.vue'
 import type { IMenubarMenu } from './MenuBar.vue'
 
+async function openMenu(label: string) {
+	const user = userEvent.setup()
+	await user.click(screen.getByRole('menuitem', { name: label }))
+	return { user, menu: await screen.findByRole('menu') }
+}
+
 describe('MenuBar', () => {
-	it('renders menu bar', () => {
-		const items = [
-			{
-				label: 'File',
-				items: [{ type: 'item' as const, key: 'new', label: 'New', onClick: vi.fn() }]
-			}
-		]
-
-		const { container } = render(MenuBar, {
-			props: { items }
-		})
-
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
-	})
-
-	it('renders menu labels', () => {
-		const items = [
-			{ label: 'File', items: [{ type: 'item' as const, key: 'a', label: 'A', onClick: vi.fn() }] },
-			{ label: 'Edit', items: [{ type: 'item' as const, key: 'b', label: 'B', onClick: vi.fn() }] }
+	it('shows a trigger for each menu', () => {
+		const items: IMenubarMenu[] = [
+			{ label: 'File', items: [{ type: 'item', key: 'a', label: 'A', onClick: vi.fn() }] },
+			{ label: 'Edit', items: [{ type: 'item', key: 'b', label: 'B', onClick: vi.fn() }] }
 		]
 
 		render(MenuBar, { props: { items } })
 
-		expect(screen.getByText('File')).toBeInTheDocument()
-		expect(screen.getByText('Edit')).toBeInTheDocument()
+		const menubar = screen.getByRole('menubar')
+		expect(within(menubar).getByRole('menuitem', { name: 'File' })).toBeInTheDocument()
+		expect(within(menubar).getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument()
 	})
 
-	it('handles item click when menu is opened', async () => {
-		const onClick = vi.fn()
-		const items = [
-			{
-				label: 'Menu',
-				items: [{ type: 'item' as const, key: 'item', label: 'Item', onClick }]
-			}
-		]
-
-		render(MenuBar, { props: { items } })
-
-		const menuLabel = screen.getByText('Menu')
-		await userEvent.click(menuLabel)
-
-		const itemLabel = screen.getByText('Item')
-		await userEvent.click(itemLabel)
-
-		expect(onClick).toHaveBeenCalled()
-	})
-
-	it('renders menu with multiple items', () => {
-		const items = [
+	it('opens a menu on its label and lists its items in order', async () => {
+		const items: IMenubarMenu[] = [
 			{
 				label: 'File',
 				items: [
-					{ type: 'item' as const, key: 'new', label: 'New', onClick: vi.fn() },
-					{ type: 'item' as const, key: 'open', label: 'Open', onClick: vi.fn() },
-					{ type: 'item' as const, key: 'save', label: 'Save', onClick: vi.fn() }
+					{ type: 'item', key: 'new', label: 'New', onClick: vi.fn() },
+					{ type: 'item', key: 'open', label: 'Open', onClick: vi.fn() },
+					{ type: 'item', key: 'save', label: 'Save', onClick: vi.fn() }
 				]
 			}
 		]
+		render(MenuBar, { props: { items } })
 
-		const { container } = render(MenuBar, { props: { items } })
+		expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+		const { menu } = await openMenu('File')
 
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
+		expect(
+			within(menu)
+				.getAllByRole('menuitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['New', 'Open', 'Save'])
 	})
 
-	it('handles checkbox items', () => {
-		const items = [
+	it('runs the chosen item and closes the menu', async () => {
+		const onNew = vi.fn()
+		const onOpen = vi.fn()
+		const items: IMenubarMenu[] = [
 			{
-				label: 'Menu',
-				items: [{ type: 'checkbox' as const, key: 'bold', label: 'Bold', model: ref(true) }]
+				label: 'File',
+				items: [
+					{ type: 'item', key: 'new', label: 'New', onClick: onNew },
+					{ type: 'item', key: 'open', label: 'Open', onClick: onOpen }
+				]
 			}
 		]
+		render(MenuBar, { props: { items } })
 
-		const { container } = render(MenuBar, { props: { items } })
+		const { user, menu } = await openMenu('File')
+		await user.click(within(menu).getByRole('menuitem', { name: 'Open' }))
 
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
+		expect(onOpen).toHaveBeenCalledOnce()
+		expect(onNew).not.toHaveBeenCalled()
+		expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 	})
 
-	it('handles submenu items', () => {
-		const items = [
+	it('shows a shortcut beside its item', async () => {
+		const items: IMenubarMenu[] = [
 			{
-				label: 'Menu',
+				label: 'File',
+				items: [
+					{ type: 'item', key: 'save', label: 'Save', shortcut: 'Ctrl+S', onClick: vi.fn() },
+					{ type: 'item', key: 'close', label: 'Close', onClick: vi.fn() }
+				]
+			}
+		]
+		render(MenuBar, { props: { items } })
+
+		const { menu } = await openMenu('File')
+
+		expect(within(menu).getByRole('menuitem', { name: /Save/ })).toHaveTextContent('Ctrl+S')
+		expect(within(menu).getByRole('menuitem', { name: 'Close' })).not.toHaveTextContent('Ctrl')
+	})
+
+	it('toggles a checkbox item’s model when chosen', async () => {
+		const wireframe = ref(false)
+		const items: IMenubarMenu[] = [
+			{
+				label: 'View',
+				items: [{ type: 'checkbox', key: 'wire', label: 'Wireframe', model: wireframe }]
+			}
+		]
+		render(MenuBar, { props: { items } })
+
+		let { user, menu } = await openMenu('View')
+		const checkbox = within(menu).getByRole('menuitemcheckbox', { name: 'Wireframe' })
+		expect(checkbox).toHaveAttribute('aria-checked', 'false')
+		await user.click(checkbox)
+
+		expect(wireframe.value).toBe(true)
+		;({ user, menu } = await openMenu('View'))
+		const reopened = within(menu).getByRole('menuitemcheckbox', { name: 'Wireframe' })
+		expect(reopened).toHaveAttribute('aria-checked', 'true')
+		await user.click(reopened)
+
+		expect(wireframe.value).toBe(false)
+	})
+
+	// Pointing from the submenu's trigger to its items closes the submenu in
+	// happy-dom, which gives every element an empty box, so the submenu is
+	// walked with the keyboard.
+	it('reaches and runs an item in a submenu', async () => {
+		const onRecent = vi.fn()
+		const items: IMenubarMenu[] = [
+			{
+				label: 'File',
 				items: [
 					{
-						type: 'sub' as const,
-						key: 'sub',
-						label: 'Submenu',
-						items: [{ type: 'item' as const, key: 'sub1', label: 'Sub 1', onClick: vi.fn() }]
+						type: 'sub',
+						key: 'recent',
+						label: 'Open Recent',
+						items: [
+							{
+								type: 'item',
+								key: 'scene',
+								label: 'scene.mxr',
+								shortcut: 'Ctrl+1',
+								onClick: onRecent
+							}
+						]
 					}
 				]
 			}
 		]
+		render(MenuBar, { props: { items } })
 
-		const { container } = render(MenuBar, { props: { items } })
+		const { user, menu } = await openMenu('File')
+		within(menu).getByRole('menuitem', { name: 'Open Recent' }).focus()
+		await user.keyboard('{ArrowRight}')
+		const submenu = (await screen.findAllByRole('menu')).find((m) => m !== menu)!
+		const recent = within(submenu).getByRole('menuitem', { name: /scene\.mxr/ })
+		expect(recent).toHaveTextContent('Ctrl+1')
+		expect(recent).toHaveFocus()
+		await user.keyboard('{Enter}')
 
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
+		expect(onRecent).toHaveBeenCalledOnce()
 	})
 
-	it('handles separator items', () => {
-		const items = [
+	it('skips a separator: it is not an item, clicking it keeps the menu open, and the arrow keys pass over it', async () => {
+		const onUndo = vi.fn()
+		const onDelete = vi.fn()
+		const items: IMenubarMenu[] = [
 			{
-				label: 'Menu',
+				label: 'Edit',
 				items: [
-					{ type: 'item' as const, key: 'a', label: 'A', onClick: vi.fn() },
-					{ type: 'separator' as const, key: 'sep' },
-					{ type: 'item' as const, key: 'b', label: 'B', onClick: vi.fn() }
+					{ type: 'item', key: 'undo', label: 'Undo', onClick: onUndo },
+					{ type: 'separator', key: 'sep' },
+					{ type: 'item', key: 'delete', label: 'Delete', onClick: onDelete }
 				]
 			}
 		]
-
-		const { container } = render(MenuBar, { props: { items } })
-
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
-	})
-
-	it('handles menu with icon property', () => {
-		const items: IMenubarMenu[] = [
-			{
-				label: 'Menu',
-				icon: 'base/folder' as unknown as IMenubarMenu['icon'],
-				items: [{ type: 'item' as const, key: 'new', label: 'New', onClick: vi.fn() }]
-			}
-		]
-
-		const { container } = render(MenuBar, { props: { items } })
-
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
-	})
-
-	it('names an icon-only menu by its label', () => {
-		const items: IMenubarMenu[] = [
-			{ label: 'mixeur', icon: 'mixeur', items: [] },
-			{ label: 'Tools', icon: 'base/folder' as unknown as IMenubarMenu['icon'], items: [] }
-		]
-
 		render(MenuBar, { props: { items } })
 
-		expect(screen.getByRole('menuitem', { name: 'mixeur' })).toBeInTheDocument()
-		expect(screen.getByRole('menuitem', { name: 'Tools' })).toBeInTheDocument()
+		const { user, menu } = await openMenu('Edit')
+
+		expect(within(menu).getAllByRole('menuitem')).toHaveLength(2)
+		await user.click(within(menu).getByRole('separator'))
+		expect(menu).toBeInTheDocument()
+		expect(onUndo).not.toHaveBeenCalled()
+		expect(onDelete).not.toHaveBeenCalled()
+		within(menu).getByRole('menuitem', { name: 'Undo' }).focus()
+		await user.keyboard('{ArrowDown}')
+		expect(within(menu).getByRole('menuitem', { name: 'Delete' })).toHaveFocus()
 	})
 
-	it('renders with empty items', () => {
-		const items = [{ label: 'Empty Menu', items: [] }]
+	it('names an icon-only menu by its label and opens it', async () => {
+		const onAbout = vi.fn()
+		const items: IMenubarMenu[] = [
+			{
+				label: 'mixeur',
+				icon: 'mixeur',
+				items: [{ type: 'item', key: 'about', label: 'About', onClick: onAbout }]
+			},
+			{ label: 'Tools', icon: 'base/arrow-right', items: [] }
+		]
+		render(MenuBar, { props: { items } })
 
-		const { container } = render(MenuBar, { props: { items } })
+		expect(screen.getByRole('menuitem', { name: 'Tools' })).toBeInTheDocument()
+		const { user, menu } = await openMenu('mixeur')
+		await user.click(within(menu).getByRole('menuitem', { name: 'About' }))
 
-		expect(container.querySelector('[role="menubar"]')).toBeInTheDocument()
+		expect(onAbout).toHaveBeenCalledOnce()
+	})
+
+	it('opens an empty menu with no items', async () => {
+		render(MenuBar, { props: { items: [{ label: 'Empty Menu', items: [] }] } })
+
+		const { menu } = await openMenu('Empty Menu')
+
+		expect(within(menu).queryAllByRole('menuitem')).toHaveLength(0)
 	})
 })
