@@ -9,14 +9,15 @@
 <template>
 	<MxPopover>
 		<template #trigger>
-			<div
+			<button
+				type="button"
 				class="inline-grid rounded grid-cols-2 grid-rows-1 w-full checkerboard h-full
 					overflow-hidden border border-current/30"
 				:style="{ '--color-value': displayColor, '--alpha': modelAlpha }"
 			>
-				<div class="bg-(--color-value)"></div>
-				<div class="bg-(--color-value) opacity-(--alpha)"></div>
-			</div>
+				<span class="bg-(--color-value)"></span>
+				<span class="bg-(--color-value) opacity-(--alpha)"></span>
+			</button>
 		</template>
 		<template #content>
 			<ColorPicker v-model="modelHex" v-model:alpha="modelAlpha" :transparency />

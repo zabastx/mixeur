@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/vue'
+import { render, screen, waitFor, within, type RenderResult } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import InputSelect from './InputSelect.vue'
@@ -11,7 +11,15 @@ describe('InputSelect', () => {
 		{ label: 'Option 3', value: 'opt3', tooltip: { text: 'This is option 3' } }
 	]
 
-	it('renders with placeholder', () => {
+	// The trigger always draws its chevron; a value's icon comes on top of it.
+	const iconsIn = (element: HTMLElement) => element.querySelectorAll('svg').length
+
+	// A closed select mounts its options off-document one tick after the trigger,
+	// and the trigger reads the chosen label from them.
+	const expectLabel = (label: RegExp) =>
+		waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent(label))
+
+	it('shows the placeholder while nothing is chosen', () => {
 		render(InputSelect, {
 			props: {
 				items: mockItems,
@@ -19,64 +27,83 @@ describe('InputSelect', () => {
 			}
 		})
 
-		expect(screen.getByText('Select an option')).toBeInTheDocument()
+		expect(screen.getByRole('combobox')).toHaveTextContent('Select an option')
 	})
 
-	it('displays selected value', () => {
-		const { container } = render(InputSelect, {
+	it("shows the selected option's label", async () => {
+		render(InputSelect, {
 			props: {
 				items: mockItems,
-				modelValue: 'opt2'
+				modelValue: 'opt3'
 			}
 		})
 
-		const combobox = container.querySelector('[role="combobox"]')
-		expect(combobox).toBeInTheDocument()
+		await expectLabel(/^Option 3$/)
 	})
 
-	it('displays icon for selected value', () => {
-		const { container } = render(InputSelect, {
+	it("shows the selected option's icon", async () => {
+		const { rerender } = render(InputSelect, {
 			props: {
 				items: mockItems,
-				modelValue: 'opt2'
+				modelValue: 'opt1'
 			}
 		})
+		expect(iconsIn(screen.getByRole('combobox'))).toBe(1)
 
-		const icon = container.querySelector('svg')
-		expect(icon).toBeInTheDocument()
+		await rerender({ items: mockItems, modelValue: 'opt2' })
+
+		expect(iconsIn(screen.getByRole('combobox'))).toBe(2)
 	})
 
-	it('opens dropdown on click', async () => {
-		const { container } = render(InputSelect, {
+	it('lists the options when opened', async () => {
+		render(InputSelect, {
 			props: {
 				items: mockItems
 			}
 		})
 
-		const trigger = container.querySelector('[role="combobox"]')
-		expect(trigger).toBeInTheDocument()
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+		await userEvent.click(screen.getByRole('combobox'))
 
-		if (trigger) {
-			await userEvent.click(trigger)
-		}
+		const listbox = await screen.findByRole('listbox')
+		expect(
+			within(listbox)
+				.getAllByRole('option')
+				.map((option) => within(option).getByText(/^Option/).textContent)
+		).toEqual(['Option 1', 'Option 2', 'Option 3'])
 	})
 
-	it('updates modelValue on selection', async () => {
-		const { container } = render(InputSelect, {
+	it("shows an option's tooltip in the list", async () => {
+		render(InputSelect, {
 			props: {
-				items: mockItems,
-				modelValue: undefined
+				items: mockItems
 			}
 		})
 
-		const trigger = screen.getByRole('combobox')
-		await userEvent.click(trigger)
+		await userEvent.click(screen.getByRole('combobox'))
 
-		const option = screen.getByText('Option 1')
-		await userEvent.click(option)
+		const option = screen.getByRole('option', { name: /Option 3/ })
+		expect(within(option).getByRole('tooltip')).toHaveTextContent('This is option 3')
+	})
 
-		const combobox = container.querySelector('[role="combobox"]') as HTMLElement
-		expect(combobox.textContent?.trim()).toBe('Option 1')
+	it('shows and emits the chosen option', async () => {
+		// Bound like `v-model`: the parent stores what the select emits.
+		const view: RenderResult = render(InputSelect, {
+			props: {
+				items: mockItems,
+				modelValue: 'opt1',
+				'onUpdate:modelValue': (value: unknown) =>
+					view.rerender({ items: mockItems, modelValue: value })
+			}
+		})
+		const { emitted } = view
+
+		await userEvent.click(screen.getByRole('combobox'))
+		await userEvent.click(screen.getByRole('option', { name: /Option 3/ }))
+
+		expect(emitted('update:modelValue')).toEqual([['opt3']])
+		await expectLabel(/^Option 3$/)
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
 	})
 
 	it('shows the bound value, not a pick the parent ignored', async () => {
@@ -89,12 +116,12 @@ describe('InputSelect', () => {
 		})
 
 		await userEvent.click(screen.getByRole('combobox'))
-		await userEvent.click(screen.getByText('Option 1'))
+		await userEvent.click(screen.getByRole('option', { name: /Option 1/ }))
 
-		expect(screen.getByRole('combobox').textContent?.trim()).toBe('')
+		expect(screen.getByRole('combobox')).toHaveTextContent(/^$/)
 	})
 
-	it('handles empty items list', () => {
+	it('opens with no options when given none', async () => {
 		render(InputSelect, {
 			props: {
 				items: [],
@@ -102,11 +129,14 @@ describe('InputSelect', () => {
 			}
 		})
 
-		expect(screen.getByText('No options')).toBeInTheDocument()
+		expect(screen.getByRole('combobox')).toHaveTextContent('No options')
+		await userEvent.click(screen.getByRole('combobox'))
+
+		expect(within(await screen.findByRole('listbox')).queryAllByRole('option')).toEqual([])
 	})
 
-	it('renders with only icon trigger', () => {
-		const { container } = render(InputSelect, {
+	it("shows only the value's icon when the trigger is icon-only", async () => {
+		render(InputSelect, {
 			props: {
 				items: mockItems,
 				modelValue: 'opt2',
@@ -114,19 +144,23 @@ describe('InputSelect', () => {
 			}
 		})
 
-		const icon = container.querySelector('svg')
-		expect(icon).toBeInTheDocument()
+		// Opened, so the options the label is read from are certainly mounted.
+		const combobox = screen.getByRole('combobox')
+		await userEvent.click(combobox)
+		await screen.findByRole('listbox')
+
+		expect(combobox).toHaveTextContent(/^$/)
+		expect(iconsIn(combobox)).toBe(2)
 	})
 
 	it('passes through class attribute', () => {
-		const { getByRole } = render(InputSelect, {
+		render(InputSelect, {
 			props: {
 				items: mockItems
 			},
 			attrs: { class: 'custom-select' }
 		})
 
-		const trigger = getByRole('combobox')
-		expect(trigger.classList.contains('custom-select')).toBe(true)
+		expect(screen.getByRole('combobox')).toHaveClass('custom-select')
 	})
 })

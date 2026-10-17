@@ -1,131 +1,57 @@
-import { render } from '@testing-library/vue'
+import { render, screen, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import InputColor from './InputColor.vue'
 
+async function openPicker() {
+	const user = userEvent.setup()
+	expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+	await user.click(screen.getByRole('button'))
+	const picker = await screen.findByRole('dialog')
+	return { user, picker, hex: within(picker).getByRole('textbox') }
+}
+
+async function enterHex(user: ReturnType<typeof userEvent.setup>, input: HTMLElement, hex: string) {
+	await user.clear(input)
+	await user.type(input, hex)
+	await user.tab()
+}
+
 describe('InputColor', () => {
-	it('renders color preview', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#ff0000',
-				alpha: 1
-			}
-		})
+	it('opens a picker holding its colour', async () => {
+		render(InputColor, { props: { hex: '#00ff00', alpha: 1 } })
 
-		const preview = container.querySelector('.checkerboard')
-		expect(preview).toBeInTheDocument()
+		const { hex } = await openPicker()
+
+		expect(hex).toHaveValue('#00ff00')
 	})
 
-	it('displays correct color value', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#00ff00',
-				alpha: 1
-			}
-		})
+	it('opens a picker holding its 8-digit colour in transparency mode', async () => {
+		render(InputColor, { props: { transparency: true, hex: '#ff000080' } })
 
-		const wrapper = container.querySelector('.checkerboard') as HTMLElement
-		expect(wrapper?.style.getPropertyValue('--color-value')).toBe('#00ff00')
+		const { hex } = await openPicker()
+
+		expect(hex).toHaveValue('#ff000080')
 	})
 
-	it('displays correct alpha value', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#0000ff',
-				alpha: 0.5
-			}
-		})
+	it('emits the colour entered in the picker', async () => {
+		const { emitted } = render(InputColor, { props: { hex: '#ff0000', alpha: 1 } })
+		const { user, hex } = await openPicker()
 
-		const wrapper = container.querySelector('.checkerboard') as HTMLElement
-		expect(wrapper?.style.getPropertyValue('--alpha')).toBe('0.5')
+		await enterHex(user, hex, '#0000ff')
+
+		expect(emitted<[string]>('update:hex').at(-1)).toEqual(['#0000ff'])
 	})
 
-	it('handles transparency mode with 8-digit hex', () => {
-		const { container } = render(InputColor, {
-			props: {
-				transparency: true,
-				hex: '#ff000080',
-				alpha: 0.5
-			}
+	it('emits the colour and alpha entered in the picker in transparency mode', async () => {
+		const { emitted } = render(InputColor, {
+			props: { transparency: true, hex: '#ff0000ff', alpha: 1 }
 		})
+		const { user, hex } = await openPicker()
 
-		const wrapper = container.querySelector('.checkerboard') as HTMLElement
-		expect(wrapper?.style.getPropertyValue('--color-value')).toBe('#ff0000')
-	})
+		await enterHex(user, hex, '#0000ff80')
 
-	it('handles transparency mode with 6-digit hex', () => {
-		const { container } = render(InputColor, {
-			props: {
-				transparency: true,
-				hex: '#ff0000',
-				alpha: 0.5
-			}
-		})
-
-		const wrapper = container.querySelector('.checkerboard') as HTMLElement
-		expect(wrapper?.style.getPropertyValue('--color-value')).toBe('#ff0000')
-	})
-
-	it('opens popover on click', async () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#ff0000',
-				alpha: 1
-			}
-		})
-
-		const trigger = container.querySelector('.checkerboard')
-		expect(trigger).toBeInTheDocument()
-
-		if (trigger) {
-			await userEvent.click(trigger)
-		}
-	})
-
-	it('accepts hex model', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#ff0000',
-				alpha: 1
-			}
-		})
-
-		expect(container.querySelector('.checkerboard')).toBeInTheDocument()
-	})
-
-	it('accepts alpha model', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#ff0000',
-				alpha: 0.5
-			}
-		})
-
-		const wrapper = container.querySelector('.checkerboard') as HTMLElement
-		expect(wrapper?.style.getPropertyValue('--alpha')).toBe('0.5')
-	})
-
-	it('renders without transparency by default', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '#ff0000',
-				alpha: 1
-			}
-		})
-
-		const wrapper = container.querySelector('.checkerboard') as HTMLElement
-		expect(wrapper?.style.getPropertyValue('--color-value')).toBe('#ff0000')
-	})
-
-	it('handles empty hex value', () => {
-		const { container } = render(InputColor, {
-			props: {
-				hex: '',
-				alpha: 1
-			}
-		})
-
-		const preview = container.querySelector('.checkerboard')
-		expect(preview).toBeInTheDocument()
+		expect(emitted<[string]>('update:hex').at(-1)).toEqual(['#0000ff80'])
+		expect(emitted<[number]>('update:alpha').at(-1)?.[0]).toBeCloseTo(128 / 255)
 	})
 })

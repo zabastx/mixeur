@@ -1,46 +1,56 @@
-import { render } from '@testing-library/vue'
+import { render, screen } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import InputCheckbox from './InputCheckbox.vue'
 
 describe('InputCheckbox', () => {
-	it('renders unchecked', () => {
-		const { getByRole, getByTestId } = render(InputCheckbox, {
+	it('shows a false model unchecked', () => {
+		render(InputCheckbox, {
 			props: {
 				modelValue: false
 			}
 		})
 
-		getByRole('checkbox')
-
-		expect(() => getByTestId('checkbox-indicator')).toThrow()
+		expect(screen.getByRole('checkbox')).not.toBeChecked()
 	})
 
-	it('renders checked', () => {
-		const { getByTestId } = render(InputCheckbox, {
+	it('shows a true model checked', () => {
+		render(InputCheckbox, {
 			props: {
 				modelValue: true
 			}
 		})
 
-		getByTestId('checkbox-indicator')
+		expect(screen.getByRole('checkbox')).toBeChecked()
 	})
 
-	it('emits update', async () => {
-		const { getByRole, emitted } = render(InputCheckbox, {
+	it('emits checked when an unchecked box is clicked', async () => {
+		const { emitted } = render(InputCheckbox, {
 			props: { modelValue: false }
 		})
 
-		const checkbox = getByRole('checkbox')
+		await userEvent.click(screen.getByRole('checkbox'))
 
-		expect(checkbox.getAttribute('data-state')).toBe('unchecked')
+		expect(emitted('update:modelValue')).toEqual([[true]])
+	})
 
-		await userEvent.click(checkbox)
+	it('emits unchecked when a checked box is clicked', async () => {
+		const { emitted } = render(InputCheckbox, {
+			props: { modelValue: true }
+		})
 
-		const updateValue = emitted<[boolean]>('update:modelValue')
+		await userEvent.click(screen.getByRole('checkbox'))
 
-		expect(updateValue).toHaveLength(1)
+		expect(emitted('update:modelValue')).toEqual([[false]])
+	})
 
-		expect(updateValue[0]?.[0]).toBe(true)
+	it('follows its model when the parent changes it', async () => {
+		const { rerender } = render(InputCheckbox, {
+			props: { modelValue: false }
+		})
+
+		await rerender({ modelValue: true })
+
+		expect(screen.getByRole('checkbox')).toBeChecked()
 	})
 })

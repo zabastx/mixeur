@@ -6,7 +6,6 @@
 		<CheckboxIndicator
 			class="h-full text-xs w-full rounded flex items-center justify-center
 				bg-ui-option-inner-selected"
-			data-testid="checkbox-indicator"
 		>
 			<MxIcon name="ui/checkmark" />
 		</CheckboxIndicator>
