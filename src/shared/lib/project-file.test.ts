@@ -9,49 +9,31 @@ import {
 } from './project-file'
 
 describe('crc32', () => {
-	it('uses buffer length when length param not provided', () => {
-		const data = new ArrayBuffer(10) as ArrayBuffer
-		const view = new Uint8Array(data)
-		view[0] = 1
-		view[5] = 2
+	const bytes = (...values: number[]) => new Uint8Array(values).buffer as ArrayBuffer
+	const ascii = (text: string) => new TextEncoder().encode(text).buffer as ArrayBuffer
 
-		const checksum = crc32(data)
-
-		expect(checksum).toBeGreaterThan(0)
+	it('matches the standard CRC-32 check value', () => {
+		expect(crc32(ascii('123456789'))).toBe(0xcbf43926)
 	})
 
-	it('uses offset and length when provided', () => {
-		const data = new ArrayBuffer(20) as ArrayBuffer
-		const view = new Uint8Array(data)
-		view[5] = 42
-		view[15] = 99
-
-		const checksum = crc32(data, 5, 10)
-
-		expect(checksum).toBeGreaterThan(0)
+	it('checksums an empty buffer to 0', () => {
+		expect(crc32(bytes())).toBe(0)
 	})
 
-	it('produces different checksums for different data', () => {
-		const data1 = new ArrayBuffer(10) as ArrayBuffer
-		const data2 = new ArrayBuffer(10) as ArrayBuffer
-
-		const view1 = new Uint8Array(data1)
-		const view2 = new Uint8Array(data2)
-		view1[0] = 1
-		view2[0] = 2
-
-		const c1 = crc32(data1)
-		const c2 = crc32(data2)
-
-		expect(c1).not.toBe(c2)
+	it('matches the zlib checksum of bytes 1 to 5', () => {
+		expect(crc32(bytes(1, 2, 3, 4, 5))).toBe(1191942644)
 	})
 
-	it('produces correct known checksum', () => {
-		// Known CRC32 value computed from input [1,2,3,4,5]
-		const data = new Uint8Array([1, 2, 3, 4, 5]).buffer as ArrayBuffer
-		const expectedChecksum = 1191942644
+	it('checksums a slice the same as the slice alone', () => {
+		const buffer = ascii('xx123456789yy')
 
-		expect(crc32(data)).toBe(expectedChecksum)
+		expect(crc32(buffer, 2, 9)).toBe(0xcbf43926)
+	})
+
+	it('checksums from the offset to the end when no length is given', () => {
+		const buffer = ascii('xx123456789')
+
+		expect(crc32(buffer, 2)).toBe(0xcbf43926)
 	})
 })
 

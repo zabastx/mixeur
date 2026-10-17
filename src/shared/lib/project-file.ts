@@ -89,7 +89,7 @@ const _crc32Table: number[] = (() => {
  */
 export function crc32(buffer: ArrayBuffer, offset = 0, length?: number): number {
 	const view = new Uint8Array(buffer)
-	const len = length ?? view.length
+	const len = length ?? view.length - offset
 	let crc = 0xffffffff
 	for (let i = offset; i < offset + len; i++) {
 		crc = (crc >>> 8) ^ _crc32Table[(crc ^ view[i]) & 0xff]
