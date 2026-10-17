@@ -41,7 +41,9 @@ the mutation it was run against and saw fail; reading the test alone cannot tell
 `bun run assertions:staged` lists those tests, and the commit-msg hook rejects a message
 that leaves one out. One audit found five tests that stayed green with their behaviour
 gone (the World's Surface watcher, icon rendering, the download's MIME type, `crc32`'s
-offset, delete's selection check).
+offset, delete's selection check). `bun run test:mutation <file>` runs Stryker on one
+source file and lists the mutants its tests leave alive. It only knows its own operator
+swaps, so a mutation such as ignoring an argument may still need making by hand.
 
 **Assert the value.** `toBeDefined()`, `toBeTruthy()` and a bare `toHaveBeenCalled()`
 pass for any result that exists; pin what the result should be.

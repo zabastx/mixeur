@@ -13,6 +13,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
+		"test:mutation": "stryker run --mutate",
 		"test:e2e": "playwright test",
 		"test:e2e:all": "E2E_ALL_BROWSERS=1 playwright test",
 		"test:e2e:ui": "playwright test --ui",
@@ -46,6 +47,8 @@
 		"@eslint/js": "^10.0.1",
 		"@pinia/testing": "^2.0.2",
 		"@playwright/test": "^1.64.1",
+		"@stryker-mutator/core": "10.0.0",
+		"@stryker-mutator/vitest-runner": "10.0.0",
 		"@testing-library/jest-dom": "^7.0.1",
 		"@testing-library/user-event": "^14.6.8",
 		"@testing-library/vue": "^8.1.0",
@@ -86,5 +89,8 @@
 		"esbuild",
 		"gl",
 		"vue-demi"
-	]
+	],
+	"patchedDependencies": {
+		"@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch"
+	}
 }

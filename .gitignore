@@ -17,6 +17,10 @@ coverage
 # Vitest
 /vitest.config.ts.timestamp-*
 
+# Stryker (`bun run test:mutation`)
+/.stryker-tmp/
+/reports/
+
 # Playwright
 /test-results/
 /playwright-report/

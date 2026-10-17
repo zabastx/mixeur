@@ -1,0 +1,20 @@
+diff --git a/dist/src/vitest-test-runner.js b/dist/src/vitest-test-runner.js
+index 10e69b0c5391f9cf920beecb77ebc40ee822351d..07cda7b5c69051d19012501326f137059b5b720a 100644
+--- a/dist/src/vitest-test-runner.js
++++ b/dist/src/vitest-test-runner.js
+@@ -143,10 +143,13 @@ export class VitestTestRunner {
+         let testFilesToRun = explicitTestFiles;
+         if (testIds.length > 0) {
+             const parsedTests = testIds.map(fromTestId);
++            // Backport of stryker-js#6247 (issue #6210): Vitest 5 joins nested test
++            // names with " > ", the test ids use a space, so accept both. Anchor the
++            // end so a filter for "calc add" does not also select "calc add negative".
+             const regexTestNameFilter = parsedTests
+-                .map(({ test: name }) => escapeRegExp(name))
++                .map(({ test: name }) => escapeRegExp(name).replace(/ /g, '(?: > | )'))
+                 .join('|');
+-            const regex = new RegExp(regexTestNameFilter);
++            const regex = new RegExp(`(?:${regexTestNameFilter})\\s*$`);
+             testFilesToRun = parsedTests.map(({ file }) => file);
+             this.ctx.projects.forEach((project) => {
+                 project.config.testNamePattern = regex;
