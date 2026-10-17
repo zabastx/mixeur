@@ -3,41 +3,34 @@
 # check runs here rather than in review.
 git rev-parse -q --verify MERGE_HEAD >/dev/null && exit 0
 
-assertion='expect[(]|(get|query|find)(All)?By'
+tests=$(sh "$(dirname "$0")/assertion-tests.sh")
+[ -z "$tests" ] && exit 0
 
-added=$(git diff --cached -U0 -- '*.test.ts' | grep -E "^\+[^+].*($assertion)" || true)
-[ -z "$added" ] && exit 0
+grep -qiE '^no new assertions' "$1" && exit 0
 
-# Name each test that gained an assertion, so the message can account for every
-# one: a single Mutation line covering one test of three still passes the check.
-tests=$(git diff --cached -U0 -- '*.test.ts' | awk -v re="$assertion" '
-	/^\+\+\+ / { file = substr($0, 7); next }
-	/^@@/ { split($3, h, ","); line = substr(h[1], 2) + 0; next }
-	/^\+/ { if ($0 ~ re) lines[file] = lines[file] "," line; line++ }
-	END { for (f in lines) print f "\t" substr(lines[f], 2) }
-' | while IFS='	' read -r file lines; do
-	git show ":$file" | awk -v file="$file" -v lines="$lines" '
-		BEGIN { n = split(lines, l, ","); for (i = 1; i <= n; i++) want[l[i]] = 1 }
-		pending { name = $0; pending = 0 }
-		/^[[:space:]]*(it|test)(\.[a-z]+)?\(/ { name = $0; if ($0 ~ /\($/) pending = 1 }
-		NR in want && name != "" {
-			label = name
-			sub(/^[[:space:]]*((it|test)(\.[a-z]+)?\()?/, "", label)
-			sub(/,[[:space:]]*(async[[:space:]]*)?(\(|function).*$/, "", label)
-			sub(/,$/, "", label)
-			print "  " file ": " label
-		}
-	' | sort -u
-done)
-
-if grep -qiE '^(mutation|no new assertions)' "$1"; then
-	echo "commit-msg: check the Mutation lines cover each test with new assertions:" >&2
-	echo "$tests" >&2
-	exit 0
+if ! grep -qiE '^mutation' "$1"; then
+	echo "commit-msg: this commit adds test assertions in:" >&2
+	printf '%s\n' "$tests" | sed 's/	/: /; s/^/  /' >&2
+	echo "Add a line starting with 'Mutation' naming the mutation each new assertion" >&2
+	echo "was run against and saw fail, or 'No new assertions' if it only moves tests." >&2
+	exit 1
 fi
 
-echo "commit-msg: this commit adds test assertions in:" >&2
-echo "$tests" >&2
-echo "Add a line starting with 'Mutation' naming the mutation each new assertion" >&2
-echo "was run against and saw fail, or 'No new assertions' if it only moves tests." >&2
+# Each test must be named in the message, so a Mutation line covering one test
+# of three fails. Whitespace is folded so a name may wrap across lines; a
+# parametrised name is matched up to its first %s or $ placeholder.
+message=$(grep -v '^#' "$1" | tr -s ' \t\n' ' ')
+missing=$(printf '%s\n' "$tests" | while IFS='	' read -r file name; do
+	stem=$(printf '%s' "$name" | sed 's/[%$].*//; s/[[:space:]]*$//')
+	case "$message" in
+		*"$stem"*) ;;
+		*) echo "  $file: $name" ;;
+	esac
+done)
+
+[ -z "$missing" ] && exit 0
+
+echo "commit-msg: the Mutation lines do not name these tests, which gained assertions:" >&2
+echo "$missing" >&2
+echo "Name each test with the mutation it was run against and saw fail." >&2
 exit 1

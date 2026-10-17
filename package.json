@@ -18,7 +18,8 @@
 		"test:e2e:ui": "playwright test --ui",
 		"test:e2e:debug": "playwright test --debug",
 		"types:generate": "bun run plugins/run-gen.ts",
-		"types:check": "vue-tsc --build"
+		"types:check": "vue-tsc --build",
+		"assertions:staged": "sh .husky/assertion-tests.sh"
 	},
 	"lint-staged": {
 		"{src,tests}/**/*.{js,ts,vue}": [
