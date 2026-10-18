@@ -47,8 +47,10 @@ that leaves one out. One audit found five tests that stayed green with their beh
 gone (the World's Surface watcher, icon rendering, the download's MIME type, `crc32`'s
 offset, delete's selection check). `bun run test:mutation <file>` runs Stryker on one
 source file and lists the mutants its tests leave alive. It only knows its own operator
-swaps; `bun run test:mutant <file> <original> <mutated>` makes one by hand (ask the wrong
-object, skip a call) and names the tests that kill it. The commit-msg hook checks the
+swaps; `bun run test:mutant <file> <original> <mutated> [tests…]` makes one by hand (ask
+the wrong object, skip a call) and names the tests that kill it. Stryker runs Vitest
+alone, so for Playwright specs `test:mutant` with the specs named is the whole of it. The
+commit-msg hook checks the
 message names the mutations, so review checks only that each new assertion has a
 mutation it would fail, not the message. A review finding that a test would stay green
 under some change is run through `test:mutant` first and reported with the result. A

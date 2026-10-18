@@ -2,12 +2,15 @@
 # an assertion. commit-msg checks its message names every one; run it yourself
 # (`bun run assertions:staged`) before writing the message.
 
+# A Testing Library query asserts the element is there; a Playwright locator
+# (`page.getByRole`) only finds something to act on, so a spec counts `expect(`.
 assertion='expect[(]|(get|query|find)(All)?By'
+spec_assertion='expect[(]'
 
-git diff --cached -U0 -- '*.test.ts' | awk -v re="$assertion" '
+git diff --cached -U0 -- '*.test.ts' '*.spec.ts' | awk -v re="$assertion" -v spec_re="$spec_assertion" '
 	/^\+\+\+ / { file = substr($0, 7); next }
 	/^@@/ { split($3, h, ","); line = substr(h[1], 2) + 0; next }
-	/^\+/ { if ($0 ~ re) lines[file] = lines[file] "," line; line++ }
+	/^\+/ { if ($0 ~ (file ~ /\.spec\.ts$/ ? spec_re : re)) lines[file] = lines[file] "," line; line++ }
 	END { for (f in lines) print f "\t" substr(lines[f], 2) }
 ' | while IFS='	' read -r file lines; do
 	git show ":$file" | awk -v file="$file" -v lines="$lines" '
