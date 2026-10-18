@@ -44,7 +44,12 @@ export const useShadingStore = defineStore('shading', () => {
 	function cacheOriginalMaterials() {
 		const { scene } = useSceneStore()
 		scene.traverse((object) => {
-			if (object instanceof THREE.Mesh && object.material && shouldShadeObject(object)) {
+			if (
+				object instanceof THREE.Mesh &&
+				object.material &&
+				!materialCache.has(object.uuid) &&
+				shouldShadeObject(object)
+			) {
 				cacheMeshMaterials(object)
 			}
 		})
