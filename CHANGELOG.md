@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.3] - 2026-10-18
+
+### Fixed
+
+- The About window always said Version 0.21.0. It shows the version you are running now
+- Picking the same file again did nothing: clearing a texture and choosing the same image, or importing the same JSON file a second time, left the scene as it was. The texture and Import JSON pickers take the same file again now
+- Importing the same JSON file twice left the two copies tied together, so deleting, selecting or hiding the second one acted on the first. Each import is its own object now
+- Single-value sliders, such as the colour picker channels, carried a second empty thumb that Tab stopped on. A slider has one thumb per value now
+- A dropdown with nothing chosen, such as a slot in Manual asset mapping, could show a pick that had not been applied. It shows the placeholder until a value is actually set
+
 ## [0.32.2] - 2026-10-15
 
 ### Changed
@@ -76,7 +86,8 @@ Released versions are archived once the current file grows past a `0.x0` boundar
 - [0.21.0 – 0.30.2](changelogs/CHANGELOG-0.30.2.md)
 - [0.1.0 – 0.20.0](changelogs/CHANGELOG-0.20.0.md)
 
-[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.2...HEAD
+[Unreleased]: https://github.com/zabastx/mixeur/compare/v0.32.3...HEAD
+[0.32.3]: https://github.com/zabastx/mixeur/compare/v0.32.2...v0.32.3
 [0.32.2]: https://github.com/zabastx/mixeur/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/zabastx/mixeur/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/zabastx/mixeur/compare/v0.31.0...v0.32.0
