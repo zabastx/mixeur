@@ -1,5 +1,6 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import THREE from '@/shared/three'
 
 vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
@@ -9,6 +10,8 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 import { useSceneStore } from './scene'
 import { useShadingStore } from './shading'
 import { useUvGridStore } from './uv-grid'
+import { useUvStore } from './uv'
+import { useWorkspaceStore } from './workspace'
 
 /** Adds a textured mesh to the scene, which caches its Material for shading. */
 function addMesh() {
@@ -16,6 +19,14 @@ function addMesh() {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ map }))
 	useSceneStore().addObjectToScene(mesh)
 	return { mesh, map }
+}
+
+/** Calls back each time the material is released. */
+function onDispose(material: THREE.Material | THREE.Material[]) {
+	if (Array.isArray(material)) throw new Error('expected a single material')
+	const released: THREE.Material[] = []
+	material.addEventListener('dispose', () => released.push(material))
+	return released
 }
 
 /** The map the viewport is showing on a mesh, whatever stand-in it wears. */
@@ -145,5 +156,51 @@ describe('useUvGridStore', () => {
 		store.toggle(second.mesh)
 
 		expect(shading.shadingMode).toBe('preview')
+	})
+
+	it('releases the grid’s stand-in when the grid comes off', () => {
+		const store = useUvGridStore()
+		const { mesh } = addMesh()
+		store.toggle(mesh)
+		const released = onDispose(mesh.material)
+
+		store.toggle(mesh)
+
+		expect(released).toHaveLength(1)
+	})
+
+	it('releases the grid’s stand-in with a mesh deleted while it shows Solid', () => {
+		// Deleting a mesh releases what it displays, which in Solid is not the
+		// grid's stand-in; the shading cache has to release that one itself.
+		const store = useUvGridStore()
+		const { mesh } = addMesh()
+		store.toggle(mesh)
+		const released = onDispose(mesh.material)
+		useShadingStore().setMode('solid')
+
+		useSceneStore().deleteFromScene(mesh.uuid)
+
+		expect(released).toHaveLength(1)
+	})
+
+	describe('in the UV editor', () => {
+		it('shows the grid while the mesh wears it, and the Material’s map once it is off', async () => {
+			const uv = useUvStore()
+			const store = useUvGridStore()
+			const image = document.createElement('canvas')
+			const mesh = new THREE.Mesh(
+				new THREE.BoxGeometry(),
+				new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(image) })
+			)
+			useSceneStore().addObjectToScene(mesh)
+			useWorkspaceStore().setWorkspace('uv')
+			await nextTick()
+
+			store.toggle(mesh)
+			expect(uv.mapImage).toBe(store.gridTexture().image)
+
+			store.toggle(mesh)
+			expect(uv.mapImage).toBe(image)
+		})
 	})
 })

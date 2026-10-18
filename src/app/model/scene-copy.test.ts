@@ -253,6 +253,21 @@ describe('scene copying', () => {
 		expect(shading.shadingMode).toBe('preview')
 	})
 
+	it('saves the Material’s own map, not UV Grid', () => {
+		const scene = useSceneStore()
+		const map = new THREE.Texture()
+		map.name = 'Painted'
+		const mesh = new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshStandardMaterial({ map }))
+		scene.addObjectToScene(mesh)
+		useUvGridStore().toggle(mesh)
+
+		scene.saveProjectFile()
+
+		const project = decodeProject(downloads[0] as ArrayBuffer)
+		const { textures } = project.data.scene as { textures: { name: string }[] }
+		expect(textures.map((texture) => texture.name)).toEqual(['Painted'])
+	})
+
 	it.each(['original', 'duplicate'])(
 		"deleting the %s does not dispose the other object's texture",
 		(remove) => {

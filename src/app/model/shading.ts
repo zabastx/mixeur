@@ -381,16 +381,11 @@ export const useShadingStore = defineStore('shading', () => {
 		const cache = materialCache.get(mesh.uuid)
 		if (!cache) return
 		// The stand-ins are built from the Material, so they go with it.
-		disposeMaterials(cache.original)
-		disposeMaterials(cache.solid)
-		disposeMaterials(cache.wireframe)
+		disposeCache(cache)
 		cache.original = newMaterial
 		cache.solid = createSolidMaterial(newMaterial)
 		cache.wireframe = createWireframeMaterial(newMaterial)
-		if (cache.uvGrid) {
-			cache.uvGrid.material.dispose()
-			cache.uvGrid.material = withUvGrid(newMaterial, cache.uvGrid.texture)
-		}
+		if (cache.uvGrid) cache.uvGrid.material = withUvGrid(newMaterial, cache.uvGrid.texture)
 		applyModeToMesh(mesh, currentMode.value)
 	}
 
@@ -415,11 +410,7 @@ export const useShadingStore = defineStore('shading', () => {
 		const cache = materialCache.get(uuid)
 		if (!cache) return false
 
-		disposeMaterials(cache.original)
-		disposeMaterials(cache.solid)
-		disposeMaterials(cache.wireframe)
-		cache.uvGrid?.material.dispose()
-
+		disposeCache(cache)
 		return materialCache.delete(uuid)
 	}
 
@@ -439,6 +430,14 @@ export const useShadingStore = defineStore('shading', () => {
 		clearMaterialCache
 	}
 })
+
+/** Releases a mesh's Material and every stand-in built from it. */
+function disposeCache(cache: MaterialCache) {
+	disposeMaterials(cache.original)
+	disposeMaterials(cache.solid)
+	disposeMaterials(cache.wireframe)
+	cache.uvGrid?.material.dispose()
+}
 
 function disposeMaterials(materials: THREE.Material | THREE.Material[]) {
 	if (Array.isArray(materials)) {
