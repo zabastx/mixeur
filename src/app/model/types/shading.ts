@@ -12,4 +12,6 @@ export interface MaterialCache {
 	original: THREE.Material | THREE.Material[]
 	solid: THREE.MeshLambertMaterial | THREE.MeshLambertMaterial[]
 	wireframe: THREE.MeshBasicMaterial | THREE.MeshBasicMaterial[]
+	/** The stand-in shown in Preview and Rendered while the mesh wears UV Grid. */
+	uvGrid?: { texture: THREE.Texture; material: THREE.Material }
 }

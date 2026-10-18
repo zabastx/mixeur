@@ -12,7 +12,11 @@ const holders = vi.hoisted(() => ({
 	selection: null as unknown as { selectedObject: THREE.Object3D | null; refresh: () => void },
 	shading: null as unknown as { materialOf: ReturnType<typeof vi.fn> },
 	workspace: null as unknown as { current: string },
-	grid: null as unknown as { appliedTo: ReadonlySet<string> }
+	grid: null as unknown as {
+		appliedTo: ReadonlySet<string>
+		isApplied: (uuid: string) => boolean
+		gridTexture: () => THREE.Texture
+	}
 }))
 
 // eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
@@ -38,7 +42,11 @@ describe('useUvStore', () => {
 		holders.selection = shallowReactive({ selectedObject: null, refresh: vi.fn() })
 		holders.shading = shallowReactive({ materialOf: vi.fn() })
 		holders.workspace = shallowReactive({ current: 'uv' })
-		holders.grid = shallowReactive({ appliedTo: new Set<string>() })
+		holders.grid = shallowReactive({
+			appliedTo: new Set<string>(),
+			isApplied: () => false,
+			gridTexture: () => new THREE.Texture()
+		})
 	})
 
 	describe('mapImage', () => {

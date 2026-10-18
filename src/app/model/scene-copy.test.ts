@@ -241,8 +241,6 @@ describe('scene copying', () => {
 		mesh.name = 'Body'
 		scene.addObjectToScene(mesh)
 		grid.toggle(mesh)
-		const displayed = materialOf(mesh)
-		const gridMap = displayed.map
 		scene.saveProjectFile()
 		const project = decodeProject(downloads[0] as ArrayBuffer)
 		const loaded = new THREE.ObjectLoader().parse(project.data.scene)
@@ -250,7 +248,7 @@ describe('scene copying', () => {
 
 		expect(material.map).toBeNull()
 		expect(material.color.getHex()).toBe(0x123456)
-		expect(displayed.map).toBe(gridMap)
+		expect((mesh.material as THREE.MeshStandardMaterial).map).toBe(grid.gridTexture())
 		expect(grid.isApplied(mesh.uuid)).toBe(true)
 		expect(shading.shadingMode).toBe('preview')
 	})
@@ -295,14 +293,15 @@ describe('scene copying', () => {
 		)
 		scene.addObjectToScene(mesh)
 		grid.toggle(mesh)
-		const shown = materialOf(mesh).map
+		const shown = mesh.material
 		const copy = duplicate(mesh) as THREE.Mesh
 		const material = materialOf(copy)
 
 		expect(material.map?.image).toBe(image)
 		expect(grid.isApplied(mesh.uuid)).toBe(true)
 		expect(grid.isApplied(copy.uuid)).toBe(false)
-		expect(materialOf(mesh).map).toBe(shown)
+		expect(mesh.material).toBe(shown)
+		expect((mesh.material as THREE.MeshStandardMaterial).map).toBe(grid.gridTexture())
 		grid.toggle(mesh)
 		expect(materialOf(mesh).map).toBe(texture)
 	})

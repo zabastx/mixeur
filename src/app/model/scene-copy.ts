@@ -7,7 +7,6 @@ import {
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { useCameraStore } from './camera'
 import { useShadingStore } from './shading'
-import { useUvGridStore } from './uv-grid'
 import { useWorldStore } from './world'
 
 /** Copy the objects the scene is made of, independently of viewport shading. */
@@ -158,10 +157,6 @@ function prepareCopies(
 		copy.material = Array.isArray(materials)
 			? materials.map((material) => material.clone())
 			: materials.clone()
-		if (!Array.isArray(copy.material) && 'map' in copy.material) {
-			const material = copy.material as THREE.MeshStandardMaterial
-			material.map = useUvGridStore().mapWithoutGrid(original.uuid, material.map)
-		}
 		if (policy === 'snapshot') continue
 		for (const material of materialsOf(copy)) {
 			for (const [key, value] of Object.entries(material)) {

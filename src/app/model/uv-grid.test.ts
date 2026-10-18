@@ -1,120 +1,149 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { shallowReactive } from 'vue'
 import THREE from '@/shared/three'
 
-const holders = vi.hoisted(() => ({
-	selection: null as unknown as { refresh: () => void },
-	shading: null as unknown as {
-		shadingMode: string
-		materialOf: ReturnType<typeof vi.fn>
-		setMode: ReturnType<typeof vi.fn>
-	}
+vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
+	loadStudioLight: () => Promise.resolve({ ok: false, error: new Error('not loaded in tests') })
 }))
 
-// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
-vi.mock('./selection', () => ({ useSelectionStore: () => holders.selection }))
-// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
-vi.mock('./shading', () => ({ useShadingStore: () => holders.shading }))
-
+import { useSceneStore } from './scene'
+import { useShadingStore } from './shading'
 import { useUvGridStore } from './uv-grid'
 
-function makeMesh() {
-	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
-	holders.shading.materialOf.mockReturnValue(mesh.material)
-	return mesh
+/** Adds a textured mesh to the scene, which caches its Material for shading. */
+function addMesh() {
+	const map = new THREE.Texture()
+	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ map }))
+	useSceneStore().addObjectToScene(mesh)
+	return { mesh, map }
+}
+
+/** The map the viewport is showing on a mesh, whatever stand-in it wears. */
+function displayedMap(mesh: THREE.Mesh) {
+	if (Array.isArray(mesh.material)) throw new Error('expected a single material')
+	return (mesh.material as THREE.MeshStandardMaterial).map
 }
 
 describe('useUvGridStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
-		holders.selection = shallowReactive({ refresh: vi.fn() })
-		holders.shading = shallowReactive({
-			shadingMode: 'solid',
-			materialOf: vi.fn(),
-			setMode: vi.fn((mode: string) => {
-				holders.shading.shadingMode = mode
-			})
-		})
 	})
 
-	it('puts the material back the way it was', () => {
+	it('shows the grid on the mesh and takes it off again', () => {
 		const store = useUvGridStore()
-		const mesh = makeMesh()
-		const original = (mesh.material as THREE.MeshStandardMaterial).map
+		useShadingStore().setMode('rendered')
+		const { mesh, map } = addMesh()
 
 		store.toggle(mesh)
 		expect(store.isApplied(mesh.uuid)).toBe(true)
-		expect((mesh.material as THREE.MeshStandardMaterial).map).not.toBe(original)
+		expect(displayedMap(mesh)).toBe(store.gridTexture())
 
 		store.toggle(mesh)
 		expect(store.isApplied(mesh.uuid)).toBe(false)
-		expect((mesh.material as THREE.MeshStandardMaterial).map).toBe(original)
+		expect(mesh.material).toBe(useShadingStore().materialOf(mesh))
+		expect(displayedMap(mesh)).toBe(map)
 	})
 
-	it('borrows a shading mode that hides maps, and hands it back', () => {
-		// Solid shading ignores maps, so the grid would appear to do nothing.
-		// Switching for it is fine; keeping the switch after the grid is gone
-		// leaves the viewport somewhere the user never put it.
+	it('leaves the Material’s own map in place while the grid is on', () => {
 		const store = useUvGridStore()
-		const mesh = makeMesh()
+		const { mesh, map } = addMesh()
 
 		store.toggle(mesh)
-		expect(holders.shading.shadingMode).toBe('preview')
 
-		store.toggle(mesh)
-		expect(holders.shading.shadingMode).toBe('solid')
+		expect(useShadingStore().materialOf(mesh)).toMatchObject({ map })
 	})
+
+	it.each(['solid', 'wireframe'] as const)(
+		'borrows %s shading, which hides maps, and hands it back',
+		(mode) => {
+			// Flat shading ignores maps, so the grid would appear to do nothing.
+			// Switching for it is fine; keeping the switch after the grid is gone
+			// leaves the viewport somewhere the user never put it.
+			const store = useUvGridStore()
+			const shading = useShadingStore()
+			shading.setMode(mode)
+			const { mesh } = addMesh()
+
+			store.toggle(mesh)
+			expect(shading.shadingMode).toBe('preview')
+			expect(displayedMap(mesh)).toBe(store.gridTexture())
+
+			store.toggle(mesh)
+			expect(shading.shadingMode).toBe(mode)
+		}
+	)
 
 	it('leaves a mode the user chose while the grid was on', () => {
 		const store = useUvGridStore()
-		const mesh = makeMesh()
+		const shading = useShadingStore()
+		const { mesh } = addMesh()
 
 		store.toggle(mesh)
-		holders.shading.shadingMode = 'rendered'
+		shading.setMode('rendered')
 		store.toggle(mesh)
 
-		expect(holders.shading.shadingMode).toBe('rendered')
+		expect(shading.shadingMode).toBe('rendered')
 	})
 
 	it('does not touch a mode that already shows maps', () => {
 		const store = useUvGridStore()
-		holders.shading.shadingMode = 'rendered'
-		const mesh = makeMesh()
+		const shading = useShadingStore()
+		shading.setMode('rendered')
+		const { mesh } = addMesh()
+		const modes: string[] = []
+		const stop = shading.$onAction(({ name, args }) => {
+			if (name === 'setMode') modes.push(args[0])
+		})
 
 		store.toggle(mesh)
 		store.toggle(mesh)
+		stop()
 
-		expect(holders.shading.setMode).not.toHaveBeenCalled()
+		expect(modes).toEqual([])
 	})
 
 	it('tracks each mesh separately', () => {
 		const store = useUvGridStore()
-		const one = makeMesh()
-		store.toggle(one)
-		const two = makeMesh()
-		store.toggle(two)
+		useShadingStore().setMode('rendered')
+		const one = addMesh()
+		store.toggle(one.mesh)
+		const two = addMesh()
+		store.toggle(two.mesh)
 
-		expect(store.isApplied(one.uuid)).toBe(true)
-		expect(store.isApplied(two.uuid)).toBe(true)
+		expect(store.isApplied(one.mesh.uuid)).toBe(true)
+		expect(store.isApplied(two.mesh.uuid)).toBe(true)
 
-		store.toggle(one)
+		store.toggle(one.mesh)
 
-		expect(store.isApplied(one.uuid)).toBe(false)
-		expect(store.isApplied(two.uuid)).toBe(true)
+		expect(store.isApplied(one.mesh.uuid)).toBe(false)
+		expect(displayedMap(one.mesh)).toBe(one.map)
+		expect(store.isApplied(two.mesh.uuid)).toBe(true)
+		expect(displayedMap(two.mesh)).toBe(store.gridTexture())
 	})
 
 	it('releases a mesh that has been deleted', () => {
 		const store = useUvGridStore()
-		const mesh = makeMesh()
+		const { mesh } = addMesh()
 		store.toggle(mesh)
 
-		store.forget(mesh.uuid)
+		useSceneStore().deleteFromScene(mesh.uuid)
 
 		expect(store.isApplied(mesh.uuid)).toBe(false)
-		// Toggling again treats it as new rather than restoring a map that
-		// belonged to an object no longer in the scene.
-		store.toggle(mesh)
-		expect(store.isApplied(mesh.uuid)).toBe(true)
+	})
+
+	it('forgets the borrowed mode with the last mesh that wore the grid', () => {
+		// The deleted mesh borrowed Solid; a later grid, put on in Preview,
+		// borrowed nothing and has nothing to hand back.
+		const store = useUvGridStore()
+		const shading = useShadingStore()
+		const first = addMesh()
+		store.toggle(first.mesh)
+		useSceneStore().deleteFromScene(first.mesh.uuid)
+		const second = addMesh()
+
+		store.toggle(second.mesh)
+		store.toggle(second.mesh)
+
+		expect(shading.shadingMode).toBe('preview')
 	})
 })
