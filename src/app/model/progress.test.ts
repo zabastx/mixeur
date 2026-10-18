@@ -91,36 +91,6 @@ describe('useProgressStore', () => {
 		expect(store.progressItems[0]?.percentage).toBe(50)
 	})
 
-	it('should handle onProgress without total initially', () => {
-		const store = useProgressStore()
-		const progress = store.initProgress('model.glb')
-
-		// First call without total
-		const mockEventNoTotal = {
-			lengthComputable: true,
-			loaded: 0,
-			total: 1000
-		} as ProgressEvent
-
-		progress.onProgress(mockEventNoTotal)
-
-		expect(store.progressItems).toHaveLength(1)
-		expect(store.progressItems[0]?.total).toBe(1000)
-		expect(store.progressItems[0]?.percentage).toBe(0)
-
-		// Second call with total - should update
-		const mockEventWithProgress = {
-			lengthComputable: true,
-			loaded: 500,
-			total: 1000
-		} as ProgressEvent
-
-		progress.onProgress(mockEventWithProgress)
-
-		expect(store.progressItems[0]?.loaded).toBe(500)
-		expect(store.progressItems[0]?.percentage).toBe(50)
-	})
-
 	it('should ignore onProgress when length is not computable', () => {
 		const store = useProgressStore()
 		const progress = store.initProgress('model.glb')

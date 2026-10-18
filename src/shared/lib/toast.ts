@@ -41,7 +41,6 @@ export const useToast = () => {
 
 	const clear = () => {
 		toasts.value = []
-		toastIdCounter = 0
 	}
 
 	return {
