@@ -1,15 +1,29 @@
 import { test, expect } from '@playwright/test'
-import { chooseOption, equirectFixture, importGlb, openApp, saveAndReopenProject } from '../helpers'
+import {
+	chooseOption,
+	equirectFixture,
+	importGlb,
+	openApp,
+	outlinerRows,
+	saveAndReopenProject
+} from '../helpers'
 
 test.describe('Project file', () => {
 	test('saves a .mixeur file and reopens it', async ({ page }) => {
 		await importGlb(page)
-		const items = page.getByTestId('outliner-item')
-		expect(await items.count()).toBeGreaterThan(0)
+		const rows = page.getByRole('treeitem')
+		const saved = ['Point Light', 'Camera', 'cube.001', 'test-gltf.glb']
+		await expect(rows).toHaveText(saved)
 
-		await saveAndReopenProject(page)
+		await saveAndReopenProject(page, async () => {
+			// Changed after saving, so an Open that loads nothing leaves it showing.
+			await outlinerRows(page, 'test-gltf.glb').click({ button: 'right' })
+			await page.getByRole('menuitem', { name: 'Delete' }).click()
+			await page.getByTestId('outliner-add-group').click()
+			await expect(rows).toHaveText(['Point Light', 'Camera', 'cube.001', 'Group'])
+		})
 
-		await expect(items.first()).toBeVisible()
+		await expect(rows).toHaveText(saved)
 	})
 
 	test('an imported World reopens asking for its file again', async ({ page }) => {

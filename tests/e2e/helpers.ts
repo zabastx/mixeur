@@ -103,8 +103,11 @@ export async function chooseOption(page: Page, testId: string, option: string) {
 /**
  * Saves the project to a file and opens it again, returning once the load has
  * been confirmed. The round trip every "does this survive a save" test needs.
+ *
+ * `afterSave` runs between the two, for a test that has to tell the reopened
+ * scene apart from the one still on screen.
  */
-export async function saveAndReopenProject(page: Page) {
+export async function saveAndReopenProject(page: Page, afterSave?: () => Promise<void>) {
 	await openMenu(page, 'File')
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
@@ -112,6 +115,8 @@ export async function saveAndReopenProject(page: Page) {
 	])
 	const downloadPath = await download.path()
 	expect(downloadPath).toBeTruthy()
+
+	await afterSave?.()
 
 	await openMenu(page, 'File')
 	const [fileChooser] = await Promise.all([
