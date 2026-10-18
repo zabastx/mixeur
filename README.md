@@ -1,8 +1,8 @@
 # Mixeur
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Vue](https://img.shields.io/badge/Vue-3.5.41-4FC08D.svg)](https://vuejs.org/)
-[![Three.js](https://img.shields.io/badge/Three.js-0.185.1-049EF4.svg)](https://threejs.org/)
+[![Vue](https://img.shields.io/badge/Vue-3.5.44-4FC08D.svg)](https://vuejs.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.186.1-049EF4.svg)](https://threejs.org/)
 
 A Blender-like web-based 3D editor built with Vue.js and Three.js. Mixeur provides an interface for 3D modeling, UV editing, object manipulation, and scene management directly in the browser.
 
@@ -23,7 +23,7 @@ Try the live demo at [mixeur.zabastx.ru](https://mixeur.zabastx.ru)
 
 - **Viewport Shading Modes**: Wireframe, solid (flat grey), material preview (with HDRI), and rendered views
 - **Studio Light**: 8 built-in environments (city, courtyard, forest, interior, night, studio, sunrise, sunset) lighting the material preview — viewport furniture that never reaches a render
-- **Image Rendering**: Export scenes to PNG, JPEG, or WebP from a chosen camera, with optional transparent background. Requests larger than the graphics card supports are scaled to a size it can hold, keeping their proportions
+- **Image Rendering**: Export scenes to PNG, JPEG, or WebP through the Render Camera, framed at the size you ask for, with optional transparent background. Pick the Render Camera in the Camera dropdown or with the camera button in the outliner. Requests larger than the graphics card supports are scaled to a size it can hold, keeping their proportions
 
 ### World
 
@@ -52,7 +52,7 @@ Try the live demo at [mixeur.zabastx.ru](https://mixeur.zabastx.ru)
 ### Asset Management
 
 - **Model Import**: GLTF/GLB (with Draco, KTX2 and Meshopt support), OBJ (with MTL), and FBX formats
-- **Model Export**: Export scenes to GLB format excluding helper objects
+- **Model Export**: Export scenes to GLB format excluding helper objects, keeping skeletal rigs intact
 - **Three.js JSON**: Save any object to Three.js JSON from the outliner's context menu, and import one back into the scene
 - **Models Library**: Browse and import free CC0 3D models from Poly Haven with category filtering and resolution selection
 - **Texture Library**: Import textures by type (AO, diffuse, normal, roughness, etc.) for material assignment
@@ -62,8 +62,9 @@ Try the live demo at [mixeur.zabastx.ru](https://mixeur.zabastx.ru)
 
 - **Workspaces**: Layout and UV Editing, swapped from the tabs beside the menus
 - **Outliner**: Hierarchical tree view with visibility toggles, and grouping and re-parenting from the context menu
+- **Duplicate**: Copy any object, group or imported model from the outliner. The copy gets its own geometry, UVs, materials and rig, so editing or deleting it leaves the original untouched
 - **Properties**: Edit transforms, geometry parameters, materials, lights, camera, and world properties
-- **Project Files**: Save and load scenes in `.mixeur` format using MessagePack serialization, carrying the scene's World with it
+- **Project Files**: Save and load scenes in `.mixeur` format using MessagePack serialization, carrying the scene's World, the Render Camera and rigged models with it
 
 ## Core Dependencies
 
