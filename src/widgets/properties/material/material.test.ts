@@ -8,6 +8,7 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 
 import { useSceneStore } from '@/app/model/scene'
 import { useShadingStore } from '@/app/model/shading'
+import { useUvGridStore } from '@/app/model/uv-grid'
 import { useMeshMaterial } from './material'
 
 /**
@@ -16,12 +17,23 @@ import { useMeshMaterial } from './material'
  * writes through. The cache holds a clone, not the material the mesh came with.
  */
 function selectMeshWith<T extends THREE.Material>(material: T) {
+	return selectMesh(material).original
+}
+
+/** As `selectMeshWith`, and the mesh itself, for tests that act on it too. */
+function selectMesh<T extends THREE.Material>(material: T) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), material)
 	useSceneStore().addObjectToScene(mesh)
 
 	const original = useShadingStore().materialOf(mesh)
 	if (!original) throw new Error('addObjectToScene did not cache the mesh’s materials')
-	return original as T
+	return { mesh, original: original as T }
+}
+
+/** The map the viewport is showing on a mesh, whatever stand-in it wears. */
+function displayedMap(mesh: THREE.Mesh) {
+	if (Array.isArray(mesh.material)) throw new Error('expected a single material')
+	return (mesh.material as THREE.MeshStandardMaterial).map
 }
 
 describe('createMaterialTarget', () => {
@@ -85,5 +97,46 @@ describe('createMaterialTarget', () => {
 
 		expect(target.read('roughness')).toBeUndefined()
 		expect(() => target.write('roughness', 0.5)).not.toThrow()
+	})
+
+	describe('while UV Grid is on', () => {
+		it('reads the Material’s own map, not the grid', () => {
+			const map = new THREE.Texture()
+			const { mesh } = selectMesh(new THREE.MeshStandardMaterial({ map }))
+			useUvGridStore().toggle(mesh)
+
+			const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
+
+			expect(displayedMap(mesh)).not.toBe(map)
+			expect(target.read('map')).toBe(map)
+		})
+
+		it('keeps a map chosen while the grid is on once the grid comes off', () => {
+			const { mesh } = selectMesh(new THREE.MeshStandardMaterial({ map: new THREE.Texture() }))
+			useShadingStore().setMode('rendered')
+			const grid = useUvGridStore()
+			grid.toggle(mesh)
+			const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
+			const chosen = new THREE.Texture()
+
+			target.write('map', chosen)
+			grid.toggle(mesh)
+
+			expect(target.read('map')).toBe(chosen)
+			expect(displayedMap(mesh)).toBe(chosen)
+		})
+
+		it('shows an edit at once and keeps the grid over it', () => {
+			const { mesh } = selectMesh(new THREE.MeshStandardMaterial())
+			const grid = useUvGridStore()
+			grid.toggle(mesh)
+			const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
+
+			target.write('color', new THREE.Color('#ff8800'))
+			target.write('map', new THREE.Texture())
+
+			expect(mesh.material).toMatchObject({ color: new THREE.Color('#ff8800') })
+			expect(displayedMap(mesh)).toBe(grid.gridTexture())
+		})
 	})
 })

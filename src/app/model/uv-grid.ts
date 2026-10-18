@@ -1,8 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { ref } from 'vue'
-import THREE from '@/shared/three'
+import type THREE from '@/shared/three'
 import { createUvGridTexture } from '@/shared/three/modules/mesh'
-import { useSelectionStore } from './selection'
 import { useShadingStore } from './shading'
 import type { ShadingMode } from './types/shading'
 
@@ -11,48 +10,45 @@ import type { ShadingMode } from './types/shading'
  *
  * Separate from `useUvStore` because it changes for entirely different reasons:
  * that store is about a layout — islands, selection, transforms — and this one
- * texturing a mesh. Nothing here reads a UV coordinate, and the only thing the
- * UV editor wants from it is a checkbox.
+ * about which meshes wear the grid. Nothing here reads a UV coordinate, and the
+ * only thing the UV editor wants from it is a checkbox and the grid's image.
  *
- * What is borrowed is put back. The mesh's previous map returns when the grid
- * comes off, and so does the shading mode, if one had to be changed to make the
- * grid visible at all.
+ * The grid goes on the mesh, never into its Material: the shading store shows it
+ * on a stand-in, so the Material tab, a save and a Render see the Material as
+ * authored. What is borrowed is the shading mode, if one had to be changed to
+ * make the grid visible at all, and it is put back when the grid comes off.
  */
 export const useUvGridStore = defineStore('uv-grid', () => {
 	/**
 	 * The meshes currently wearing the grid.
 	 *
 	 * A ref rather than a plain Set so that views re-read when it changes —
-	 * swapping a material's map is invisible to Vue, and this is the only signal
-	 * that it happened.
+	 * swapping the material a mesh displays is invisible to Vue, and this is the
+	 * only signal that it happened.
 	 */
 	const appliedTo = ref<ReadonlySet<string>>(new Set())
 
-	/** What each mesh's map was before the grid replaced it. */
-	const replaced = new Map<string, THREE.Texture | null>()
-
-	let gridTexture: THREE.Texture | null = null
+	let texture: THREE.Texture | null = null
 	/** The shading mode the grid displaced, so taking it off can put it back. */
 	let shadingBefore: ShadingMode | null = null
 
 	const isApplied = (uuid: string) => appliedTo.value.has(uuid)
 
-	/** The scene's map, even while the editor is showing UV Grid over it. */
-	function mapWithoutGrid(uuid: string, displayed: THREE.Texture | null): THREE.Texture | null {
-		return replaced.has(uuid) ? replaced.get(uuid)! : displayed
+	/** The checker texture every mesh wearing the grid shares. */
+	function gridTexture() {
+		return (texture ??= createUvGridTexture())
 	}
 
 	function toggle(mesh: THREE.Mesh | null) {
-		if (!mesh || Array.isArray(mesh.material)) return
+		if (!mesh) return
 
 		const shadingStore = useShadingStore()
-		const material = shadingStore.materialOf(mesh) as THREE.MeshStandardMaterial | undefined
-		if (!material) return
+		const material = shadingStore.materialOf(mesh)
+		if (!material || Array.isArray(material)) return
 
 		const next = new Set(appliedTo.value)
 		if (next.delete(mesh.uuid)) {
-			material.map = replaced.get(mesh.uuid) ?? null
-			replaced.delete(mesh.uuid)
+			shadingStore.setUvGrid(mesh, null)
 			// Only if nothing has changed the mode since — the user switching
 			// shading deliberately outranks anything this borrowed.
 			if (shadingBefore && shadingStore.shadingMode === 'preview') {
@@ -60,9 +56,7 @@ export const useUvGridStore = defineStore('uv-grid', () => {
 			}
 			shadingBefore = null
 		} else {
-			gridTexture ??= createUvGridTexture()
-			replaced.set(mesh.uuid, material.map)
-			material.map = gridTexture
+			shadingStore.setUvGrid(mesh, gridTexture())
 			next.add(mesh.uuid)
 			// Flat shading modes ignore maps, so the grid would appear to do
 			// nothing at all.
@@ -72,14 +66,11 @@ export const useUvGridStore = defineStore('uv-grid', () => {
 			}
 		}
 
-		material.needsUpdate = true
 		appliedTo.value = next
-		useSelectionStore().refresh()
 	}
 
-	/** Drop a removed mesh's remembered map so this doesn't grow forever. */
+	/** Drop a removed mesh so this doesn't grow forever. */
 	function forget(uuid: string) {
-		replaced.delete(uuid)
 		if (!appliedTo.value.has(uuid)) return
 		const next = new Set(appliedTo.value)
 		next.delete(uuid)
@@ -89,7 +80,7 @@ export const useUvGridStore = defineStore('uv-grid', () => {
 		if (!next.size) shadingBefore = null
 	}
 
-	return { appliedTo, isApplied, toggle, forget, mapWithoutGrid }
+	return { appliedTo, isApplied, gridTexture, toggle, forget }
 })
 
 if (import.meta.hot) {

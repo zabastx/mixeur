@@ -216,10 +216,8 @@ export const useShadingStore = defineStore('shading', () => {
 				mesh.material = cache.solid
 				break
 			case 'preview':
-				mesh.material = cache.original
-				break
 			case 'rendered':
-				mesh.material = cache.original
+				mesh.material = cache.uvGrid?.material ?? cache.original
 				break
 		}
 	}
@@ -336,6 +334,14 @@ export const useShadingStore = defineStore('shading', () => {
 		const originalMaterial = cache.original as unknown as T
 		updateMaterialProperty<T>(originalMaterial, data.prop, data.value)
 		originalMaterial.needsUpdate = true
+
+		// The grid's stand-in is a copy, so it takes every edit but the one to the
+		// slot the grid occupies.
+		if (cache.uvGrid && data.prop !== 'map') {
+			const shown = cache.uvGrid.material as unknown as T
+			updateMaterialProperty<T>(shown, data.prop, data.value)
+			shown.needsUpdate = true
+		}
 	}
 
 	/**
@@ -369,6 +375,23 @@ export const useShadingStore = defineStore('shading', () => {
 		applyModeToMesh(mesh, currentMode.value)
 	}
 
+	/**
+	 * Puts UV Grid on a mesh, or takes it off with `null`.
+	 *
+	 * The grid is shown on a stand-in, a copy of the Material wearing the grid as
+	 * its map, the way Solid and Wireframe have stand-ins of their own. Swapping
+	 * the Material's own map would be cheaper, but then the panel, a save and a
+	 * Render would each have to know to look past it; this way the Material never
+	 * holds the grid and every reader gets it as authored.
+	 */
+	function setUvGrid(mesh: THREE.Mesh, texture: THREE.Texture | null) {
+		const cache = materialCache.get(mesh.uuid)
+		if (!cache || Array.isArray(cache.original)) return
+		cache.uvGrid?.material.dispose()
+		cache.uvGrid = texture ? { texture, material: withUvGrid(cache.original, texture) } : undefined
+		applyModeToMesh(mesh, currentMode.value)
+	}
+
 	function clearMaterialCache(uuid: string) {
 		const cache = materialCache.get(uuid)
 		if (!cache) return false
@@ -376,6 +399,7 @@ export const useShadingStore = defineStore('shading', () => {
 		disposeMaterials(cache.original)
 		disposeMaterials(cache.solid)
 		disposeMaterials(cache.wireframe)
+		cache.uvGrid?.material.dispose()
 
 		function disposeMaterials(materials: THREE.Material | THREE.Material[]) {
 			if (Array.isArray(materials)) {
@@ -400,9 +424,20 @@ export const useShadingStore = defineStore('shading', () => {
 		materialOf,
 		updateMaterial,
 		changeMaterial,
+		setUvGrid,
 		clearMaterialCache
 	}
 })
+
+/**
+ * A copy of a Material wearing UV Grid as its map. A Material with no map slot
+ * (Normal) is copied as it is: there is nowhere for the grid to go.
+ */
+function withUvGrid(material: THREE.Material, texture: THREE.Texture) {
+	const shown = material.clone()
+	if ('map' in shown) shown.map = texture
+	return shown
+}
 
 /** Creates the editor lighting rig, visible only in Solid viewport shading. */
 function getSolidShadingLights() {

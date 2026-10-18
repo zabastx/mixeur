@@ -26,6 +26,11 @@ import { useWorkspaceStore } from './workspace'
  */
 export type UvStatus = 'ready' | 'no-selection' | 'not-a-mesh' | 'no-uvs'
 
+/** The texture's image, if a canvas can draw it. */
+function drawable(texture: THREE.Texture | null | undefined): CanvasImageSource | null {
+	return isDrawable(texture?.image) ? texture.image : null
+}
+
 /** Whether a texture's `image` is something `drawImage` will accept. */
 function isDrawable(image: unknown): image is CanvasImageSource {
 	return (
@@ -194,21 +199,25 @@ export const useUvStore = defineStore('uv', () => {
 	 * over. Editing against the real texture rather than a stand-in is the whole
 	 * point of a UV editor — a grid only helps when there is nothing else.
 	 *
+	 * While the mesh wears UV Grid this is the grid, as the viewport shows it;
+	 * the grid never enters the Material, so it is asked for separately.
+	 *
 	 * Null when the material has no map, or when the map is something a canvas
 	 * cannot draw (a compressed KTX2 texture holds no decodable image).
 	 */
 	const mapImage = computed<CanvasImageSource | null>(() => {
 		void revision.value
-		// Swapping the map is a plain Three.js mutation; which meshes wear the
-		// grid is the only reactive trace it leaves.
-		void useUvGridStore().appliedTo
 		const target = mesh.value
 		if (!target) return null
+		// Reactive through `appliedTo`: putting the grid on swaps the material the
+		// mesh displays, which Vue cannot see.
+		const grid = useUvGridStore()
+		if (grid.isApplied(target.uuid)) return drawable(grid.gridTexture())
 		const material = useShadingStore().materialOf(target)
 		// Multi-material meshes show their first slot, as the UV editor always has.
 		const first = (Array.isArray(material) ? material[0] : material) as
 			THREE.MeshStandardMaterial | undefined
-		return isDrawable(first?.map?.image) ? first.map.image : null
+		return drawable(first?.map)
 	})
 
 	/** Drop a removed mesh's remembered UVs so the map doesn't grow forever. */
