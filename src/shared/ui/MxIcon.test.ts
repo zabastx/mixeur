@@ -17,8 +17,7 @@ describe('MxIcon', () => {
 			}
 		})
 
-		const iconElement = container.querySelector('.icon-custom-class')
-		expect(iconElement).toBeInTheDocument()
+		expect(container.firstElementChild).toHaveClass('icon-custom-class')
 	})
 
 	it('passes through style attribute', () => {

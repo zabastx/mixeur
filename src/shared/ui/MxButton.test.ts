@@ -58,8 +58,7 @@ describe('MxButton', () => {
 			attrs: { class: 'custom-class' }
 		})
 
-		const button = getByRole('button')
-		expect(button.classList.contains('custom-class')).toBe(true)
+		expect(getByRole('button')).toHaveClass('custom-class')
 	})
 
 	it('passes through style attribute', () => {

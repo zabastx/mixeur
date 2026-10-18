@@ -33,6 +33,31 @@ const noUndefinedInToEqual = {
 		'toEqual ignores undefined properties. Use toStrictEqual to pin the key as undefined, or drop it.'
 }
 
+// CODING_STANDARDS.md, "A component test renders its real children and drives
+// them as the user does": a class name and a raw innerHTML string are markup, so
+// a test that reads them breaks on a rename and passes on the wrong element.
+// Find the element by role, label or an aria-* attribute and assert on what it
+// shows instead. `toHaveClass` still covers a class the consumer passes through.
+const noMarkupLookup = [
+	{
+		selector:
+			"CallExpression[callee.object.property.name='classList'][callee.property.name='contains']",
+		message:
+			'Look the element up by role, label or an aria-* attribute, and use toHaveClass when the class itself is the prop under test.'
+	},
+	{
+		selector: "CallExpression[callee.name='expect'] MemberExpression[property.name='innerHTML']",
+		message: 'Assert on the rendered text, role or aria-* attribute instead of reading innerHTML.'
+	},
+	{
+		// A class selector anywhere in the string — `.foo` or `div.foo` — but not a
+		// dotted attribute value such as `[href$=".pdf"]`, hence the lookbehind.
+		selector:
+			'CallExpression[callee.property.name=/^(querySelector|querySelectorAll)$/][arguments.0.value=/(?<!["\'])\\.[A-Za-z_-]/]',
+		message: 'Find the element by role, label or an aria-* attribute instead of a class selector.'
+	}
+]
+
 export default defineConfig(
 	// Flat config does not read .gitignore on its own. Without this, `eslint .` walks
 	// into `.agents/worktrees/*` (full repo copies) and the TS parser fails on multiple
@@ -67,12 +92,12 @@ export default defineConfig(
 		}
 	},
 	// An unawaited assertion can settle after the test has ended, so the test passes
-	// whatever the app does. The plugins' other test-smell rules come in once the
-	// tests they would flag are fixed.
+	// whatever the app does.
 	{
 		files: ['tests/e2e/**/*.ts'],
 		plugins: { playwright },
 		rules: {
+			'playwright/expect-expect': 'error',
 			'playwright/missing-playwright-await': 'error',
 			// Locate by role, label, text or test id, and wait on a condition: a raw
 			// selector couples the test to markup, a fixed sleep to the machine's speed.
@@ -87,7 +112,32 @@ export default defineConfig(
 		files: ['src/**/*.test.ts'],
 		plugins: { vitest },
 		rules: {
-			'no-restricted-syntax': ['error', noCloneTrue, noStoreMock, noUndefinedInToEqual],
+			'no-restricted-syntax': [
+				'error',
+				noCloneTrue,
+				noStoreMock,
+				noUndefinedInToEqual,
+				...noMarkupLookup
+			],
+			'vitest/expect-expect': [
+				'error',
+				{
+					// A get-or-throw query is an assertion on its own: `getBy*` and
+					// `getAllBy*` fail when nothing matches, so a query-only check still
+					// reads the DOM. The dotted forms cover the same queries taken off an
+					// object — `screen.getBy*`, or `within(scope).getBy*`. `expect*` lets a
+					// test name its own assertion helper (see expectLabel) and still pass.
+					assertFunctionNames: [
+						'expect*',
+						'assert',
+						'getBy*',
+						'getAllBy*',
+						'*.getBy*',
+						'*.getAllBy*'
+					]
+				}
+			],
+			'vitest/no-conditional-in-test': 'error',
 			'vitest/valid-expect': ['error', { alwaysAwait: true }],
 			// CODING_STANDARDS.md, "Assert the value": these pass for any result that
 			// exists. Pin the value, or use jest-dom's toBeInTheDocument for presence.

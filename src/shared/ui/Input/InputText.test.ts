@@ -85,7 +85,6 @@ describe('InputText', () => {
 			attrs: { class: 'custom-class' }
 		})
 
-		const wrapper = container.firstChild as HTMLElement
-		expect(wrapper.classList.contains('custom-class')).toBe(true)
+		expect(container.firstElementChild).toHaveClass('custom-class')
 	})
 })

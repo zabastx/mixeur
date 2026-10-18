@@ -95,10 +95,27 @@ function lightHex(): string {
 	return new THREE.Color(r, g, b).getHexString()
 }
 
-function backgroundHex(world: World): string {
+/** The colour the World asks the renderer to clear to. */
+function backgroundColor(world: World): THREE.Color {
 	const value = world.background()
 	if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
-	return value.getHexString()
+	return value
+}
+
+function backgroundHex(world: World): string {
+	return backgroundColor(world).getHexString()
+}
+
+/** The World's fog, narrowed to the linear kind the test just chose. */
+function linearFog(world: World) {
+	if (world.fog.kind !== 'linear') throw new Error('expected linear fog')
+	return world.fog
+}
+
+/** The World's fog, narrowed to the exponential kind the test just chose. */
+function exp2Fog(world: World) {
+	if (world.fog.kind !== 'exp2') throw new Error('expected exp2 fog')
+	return world.fog
 }
 
 describe('useWorldStore', () => {
@@ -437,9 +454,7 @@ describe('useWorldStore', () => {
 			// Three.js clears a colour background straight to the framebuffer and
 			// ignores `backgroundIntensity`, so strength has to be baked in here or
 			// the Surface lights at strength while showing at 1.
-			const value = world.background()
-			if (!(value instanceof THREE.Color)) throw new Error('expected a colour background')
-			expect(value.r).toBeCloseTo(new THREE.Color('#808080').r * 0.5)
+			expect(backgroundColor(world).r).toBeCloseTo(new THREE.Color('#808080').r * 0.5)
 		})
 	})
 
@@ -455,9 +470,9 @@ describe('useWorldStore', () => {
 			const world = useWorldStore()
 
 			world.setFogKind('linear')
-			if (world.fog.kind !== 'linear') throw new Error('expected linear fog')
-			world.fog.near = 5
-			world.fog.far = 50
+			const chosen = linearFog(world)
+			chosen.near = 5
+			chosen.far = 50
 
 			const fog = world.sceneFog()
 			expect(fog).toBeInstanceOf(THREE.Fog)
@@ -469,8 +484,8 @@ describe('useWorldStore', () => {
 			const world = useWorldStore()
 
 			world.setFogKind('exp2')
-			if (world.fog.kind !== 'exp2') throw new Error('expected exp2 fog')
-			world.fog.density = 0.5
+			const chosen = exp2Fog(world)
+			chosen.density = 0.5
 
 			const fog = world.sceneFog()
 			expect(fog).toBeInstanceOf(THREE.FogExp2)
@@ -480,8 +495,7 @@ describe('useWorldStore', () => {
 		it('leaves the fog alone when set to the kind it already is', () => {
 			const world = useWorldStore()
 			world.setFogKind('linear')
-			if (world.fog.kind !== 'linear') throw new Error('expected linear fog')
-			world.fog.near = 42
+			linearFog(world).near = 42
 
 			world.setFogKind('linear')
 

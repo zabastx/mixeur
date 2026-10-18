@@ -42,6 +42,13 @@ function addRenderCamera<T extends THREE.Camera>(camera: T): T {
 	return camera
 }
 
+/** Sets the World to a colour Surface, narrowing the union the way the panel does. */
+function setSurfaceColor(world: ReturnType<typeof useWorldStore>, color: string) {
+	world.setSurfaceKind('color')
+	if (world.surface.kind !== 'color') throw new Error('expected a colour Surface')
+	world.surface.color = color
+}
+
 /** What a Render would draw and see it through, kept past its release for inspection. */
 function assembleRender(requested = size) {
 	if (!useCameraStore().renderCamera) addRenderCamera(new THREE.PerspectiveCamera())
@@ -587,9 +594,7 @@ describe('scene copying', () => {
 
 		it('is lit and backed by the World', () => {
 			const world = useWorldStore()
-			world.setSurfaceKind('color')
-			if (world.surface.kind !== 'color') throw new Error('expected a colour Surface')
-			world.surface.color = '#336699'
+			setSurfaceColor(world, '#336699')
 			world.strength = 2.5
 			world.blurriness = 0.3
 			world.rotation.set(0, 0.75, 0)
