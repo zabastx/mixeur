@@ -55,6 +55,26 @@ describe('useUvGridStore', () => {
 		expect(displayedMap(mesh)).toBe(map)
 	})
 
+	it.each(['preview', 'rendered'] as const)(
+		'restores the authored material after shading reinitializes with UV Grid on in %s',
+		(mode) => {
+			const store = useUvGridStore()
+			const shading = useShadingStore()
+			shading.init()
+			shading.setMode(mode)
+			const { mesh, map } = addMesh()
+			const original = shading.materialOf(mesh)
+			store.toggle(mesh)
+
+			shading.init()
+			store.toggle(mesh)
+
+			expect(shading.materialOf(mesh)).toBe(original)
+			expect(mesh.material).toBe(original)
+			expect(displayedMap(mesh)).toBe(map)
+		}
+	)
+
 	it('leaves the Material’s own map in place while the grid is on', () => {
 		const store = useUvGridStore()
 		const { mesh, map } = addMesh()
