@@ -53,6 +53,7 @@
 							v-if="item.value.isCamera"
 							type="button"
 							class="p-0.5 hover:brightness-125 rounded border-ui-radio-outline cursor-pointer ml-5"
+							:aria-pressed="renderCameraId === item.value.uuid"
 							:class="{
 								'border bg-ui-radio-inner': renderCameraId === item.value.uuid
 							}"

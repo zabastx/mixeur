@@ -10,8 +10,8 @@ Judgement calls for review. Anything a linter or the type-checker can enforce li
 traverses every descendant rather than iterating `scene.children`. The outliner
 re-parents freely and Duplicate places copies (and their helpers) beside the original,
 so any flagged object can sit at any depth. A top-level-only filter has been written four
-times: the render camera list (since fixed), `clearScene`, the outliner's root filter
-and the render's helper filter (since fixed). Iterating `children` is right when the hierarchy itself is the
+times: the render camera list (since fixed), `clearScene`, the outliner's root filter (since
+fixed) and the render's helper filter (since fixed). Iterating `children` is right when the hierarchy itself is the
 subject, as in the outliner tree rendering one level at a time.
 
 ## Tests

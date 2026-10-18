@@ -1,8 +1,11 @@
-import { type Page, expect } from '@playwright/test'
+import { type FileChooser, type Page, expect } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
 /** The GLB fixture `importGlb` brings in. */
 export const glbFixture = fileURLToPath(new URL('./files/test-gltf.glb', import.meta.url))
+
+/** A Box mesh named "JSON Box", as Object3D.toJSON writes it. */
+export const jsonFixture = fileURLToPath(new URL('./files/box.json', import.meta.url))
 
 /** Opens the app and waits for the viewport's canvas to be in the page. */
 export async function openApp(page: Page) {
@@ -45,6 +48,15 @@ export async function importModel(page: Page, path: string, name: string) {
 	await page.getByText(name).click()
 	await page.getByRole('button', { name: 'Import' }).click()
 	await expect(page.getByTestId('import-scene')).toBeHidden()
+}
+
+/** Imports a Three.js JSON file through File › Import › Import Three.js JSON. */
+export async function importThreeJson(page: Page, file: Parameters<FileChooser['setFiles']>[0]) {
+	await openMenu(page, 'File')
+	await openSubmenu(page, 'Import')
+	const chooser = page.waitForEvent('filechooser')
+	await page.getByRole('menuitem', { name: 'Import Three.js JSON' }).click()
+	await (await chooser).setFiles(file)
 }
 
 /**

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { importModel, openApp, openMenu, openSubmenu, saveAndReopenProject } from '../helpers'
+import { importModel, importThreeJson, openApp, saveAndReopenProject } from '../helpers'
 
 /**
  * A rigged model has to come back from a file the same shape it went in.
@@ -134,13 +134,7 @@ test.describe('Skinned models survive a round trip', () => {
 		await page.getByRole('menuitem', { name: 'Delete' }).click()
 		expect(await rigCoverage(page)).toBeLessThan(0.001)
 
-		await openMenu(page, 'File')
-		await openSubmenu(page, 'Import')
-		const [chooser] = await Promise.all([
-			page.waitForEvent('filechooser'),
-			page.getByRole('menuitem', { name: 'Import Three.js JSON' }).click()
-		])
-		await chooser.setFiles(saved!)
+		await importThreeJson(page, saved!)
 
 		await expect(
 			page.getByTestId('outliner-item').filter({ hasText: 'rigged.glb' }).first()

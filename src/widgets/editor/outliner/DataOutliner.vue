@@ -55,20 +55,25 @@ const selectedObject = computed<OutlinerItem | undefined>({
 	}
 })
 
-const outlinerItems = computed(() => {
-	return sceneStore.sceneChildren
-		.filter((item) => !getUserData(item).hideInOutliner)
-		.map(parseObject)
-})
+const outlinerItems = computed(() => parseChildren(sceneStore.sceneChildren))
+
+/**
+ * Filtered at every level, not just the scene's own: a camera's or light's
+ * helper is added beside it, so one inside a group sits among the group's children.
+ */
+function parseChildren(objects: THREE.Object3D[]): OutlinerItem[] {
+	return objects.filter((item) => !getUserData(item).hideInOutliner).map(parseObject)
+}
 
 function parseObject(obj: THREE.Object3D): OutlinerItem {
+	const children = parseChildren(obj.children)
 	return {
 		uuid: obj.uuid,
 		type: obj.type,
 		name: obj.name || obj.type,
 		userData: getUserData(obj),
 		isCamera: obj instanceof THREE.Camera,
-		children: obj.children.length > 0 ? obj.children.map(parseObject) : undefined
+		children: children.length > 0 ? children : undefined
 	}
 }
 </script>
