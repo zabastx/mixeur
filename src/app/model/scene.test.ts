@@ -521,6 +521,27 @@ describe('useSceneStore graph operations', () => {
 			expect(useCameraStore().renderCamera).toBeNull()
 		})
 
+		it('removes lights and cameras with their helpers without deleting anything twice', () => {
+			const store = useSceneStore()
+			const light = new THREE.PointLight()
+			const camera = new THREE.PerspectiveCamera()
+			store.addObjectToScene(light)
+			store.addObjectToScene(camera)
+			const helpers = [light, camera].map((owner) =>
+				store.scene.getObjectByProperty('uuid', getUserData(owner).helperUUID)
+			)
+			expect(helpers.every(Boolean)).toBe(true)
+			const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+			store.clearScene()
+
+			for (const obj of [light, camera, ...helpers]) {
+				expect(store.scene.children).not.toContain(obj)
+			}
+			expect(warn).not.toHaveBeenCalledWith('deleteFromScene: object is undefined')
+			warn.mockRestore()
+		})
+
 		it('clears the selection along with the objects', () => {
 			const store = useSceneStore()
 			const mesh = makeMesh()

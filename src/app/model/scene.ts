@@ -507,7 +507,10 @@ export const useSceneStore = defineStore('scene', () => {
 		const idsToDelete: string[] = []
 
 		scene.value.children.forEach((child) => {
-			if (getUserData(child).isSystemObj) return
+			const userData = getUserData(child)
+			// A helper goes with its owner through `helperUUID`; deleting it again
+			// would ask `deleteFromScene` for an object that is already gone.
+			if (userData.isSystemObj || userData.isHelper) return
 			idsToDelete.push(child.uuid)
 		})
 
