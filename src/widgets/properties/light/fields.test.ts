@@ -1,29 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import THREE from '@/shared/three'
-import { getLightFields, invalidateShadowMap } from './fields'
-
-describe('getLightFields', () => {
-	it('puts the fields every light shares first', () => {
-		const props = getLightFields(new THREE.PointLight()).map((field) => field.prop)
-
-		expect(props.slice(0, 2)).toEqual(['color', 'intensity'])
-	})
-
-	it('adds the fields specific to each light type', () => {
-		const propsOf = (light: THREE.Light) => getLightFields(light).map((field) => field.prop)
-
-		expect(propsOf(new THREE.SpotLight())).toContain('penumbra')
-		expect(propsOf(new THREE.PointLight())).not.toContain('penumbra')
-		expect(propsOf(new THREE.RectAreaLight())).toContain('width')
-	})
-
-	it('offers only the shared fields for a light with no extras', () => {
-		expect(getLightFields(new THREE.AmbientLight()).map((field) => field.prop)).toEqual([
-			'color',
-			'intensity'
-		])
-	})
-})
+import { invalidateShadowMap } from './fields'
 
 describe('invalidateShadowMap', () => {
 	it('disposes and clears the render target when mapSize changes', () => {

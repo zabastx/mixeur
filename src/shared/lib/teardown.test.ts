@@ -47,7 +47,7 @@ describe('createTeardown', () => {
 		consoleError.mockRestore()
 	})
 
-	it('runs a release added while it is running', () => {
+	it('defers a release added while it is running to the next run', () => {
 		const late = vi.fn()
 		const teardown = createTeardown()
 		teardown.add(() => teardown.add(late))

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { bytesToSize } from './format'
 
 describe('bytesToSize', () => {
-	it('returns "n/a" for 0 or negative bytes', () => {
+	it('reports zero as "0 Bytes" and negative bytes as "n/a"', () => {
 		expect(bytesToSize(0)).toBe('0 Bytes')
 		expect(bytesToSize(-10000)).toBe('n/a')
 	})
