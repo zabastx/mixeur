@@ -33,6 +33,13 @@ async function viewportShot(page: Page) {
 }
 
 /**
+ * How long to poll `viewportChange`. CI has no GPU, so a frame is drawn in
+ * software and one settled shot (at least two screenshots) takes around nine
+ * seconds there, past `expect.poll`'s five-second default.
+ */
+const viewportPoll = { timeout: 30_000 }
+
+/**
  * The fraction of the viewport's pixels that differ from `baseline`, a shot
  * taken by `viewportShot`. Near zero when the viewport shows what it showed
  * then; well above it when something has left or entered the view.
@@ -195,10 +202,10 @@ test.describe('Outliner', () => {
 
 		// The default cube covers about 1.4% of the viewport.
 		await toggle.click()
-		await expect.poll(() => viewportChange(page, shown)).toBeGreaterThan(0.005)
+		await expect.poll(() => viewportChange(page, shown), viewportPoll).toBeGreaterThan(0.005)
 
 		await toggle.click()
-		await expect.poll(() => viewportChange(page, shown)).toBeLessThan(0.001)
+		await expect.poll(() => viewportChange(page, shown), viewportPoll).toBeLessThan(0.001)
 	})
 })
 
