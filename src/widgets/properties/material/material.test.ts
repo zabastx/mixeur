@@ -193,5 +193,34 @@ describe('createMaterialTarget', () => {
 			grid.toggle(mesh)
 			expect(displayedMap(mesh)).toBeNull()
 		})
+
+		it('keeps the grid on through a Surface with no map', () => {
+			const { mesh } = selectMesh(new THREE.MeshStandardMaterial())
+			useShadingStore().setMode('rendered')
+			const grid = useUvGridStore()
+			grid.toggle(mesh)
+			const { changeMaterial } = useMeshMaterial()
+
+			changeMaterial(new THREE.MeshNormalMaterial())
+			expect(grid.isApplied(mesh.uuid)).toBe(true)
+			changeMaterial(new THREE.MeshStandardMaterial())
+
+			expect(displayedMap(mesh)).toBe(grid.gridTexture())
+		})
+
+		it('releases the grid’s stand-in for the Material it replaces', () => {
+			const { mesh } = selectMesh(new THREE.MeshStandardMaterial())
+			useShadingStore().setMode('rendered')
+			useUvGridStore().toggle(mesh)
+			const standIn = mesh.material as THREE.Material
+			let released = false
+			standIn.addEventListener('dispose', () => {
+				released = true
+			})
+
+			useMeshMaterial().changeMaterial(new THREE.MeshPhongMaterial())
+
+			expect(released).toBe(true)
+		})
 	})
 })
