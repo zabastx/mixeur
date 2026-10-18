@@ -99,6 +99,48 @@ describe('createMaterialTarget', () => {
 		expect(() => target.write('roughness', 0.5)).not.toThrow()
 	})
 
+	describe('changeMaterial', () => {
+		it('releases the Material it replaces', () => {
+			const old = selectMeshWith(new THREE.MeshStandardMaterial())
+			let released = false
+			old.addEventListener('dispose', () => {
+				released = true
+			})
+
+			useMeshMaterial().changeMaterial(new THREE.MeshPhongMaterial())
+
+			expect(released).toBe(true)
+		})
+
+		it('shades the new Material in Solid with its own transparency', () => {
+			const mesh = selectMesh(new THREE.MeshStandardMaterial()).mesh
+			useShadingStore().setMode('solid')
+
+			useMeshMaterial().changeMaterial(
+				new THREE.MeshPhongMaterial({ transparent: true, opacity: 0.5 })
+			)
+
+			expect(mesh.material).toBeInstanceOf(THREE.MeshLambertMaterial)
+			expect(mesh.material).toMatchObject({ transparent: true, opacity: 0.5 })
+		})
+	})
+
+	describe('in Solid and Wireframe', () => {
+		it.each(['solid', 'wireframe'] as const)(
+			'shows a transparency edit on the %s stand-in',
+			(mode) => {
+				const { mesh } = selectMesh(new THREE.MeshStandardMaterial())
+				useShadingStore().setMode(mode)
+				const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
+
+				target.write('transparent', true)
+				target.write('opacity', 0.25)
+
+				expect(mesh.material).toMatchObject({ transparent: true, opacity: 0.25 })
+			}
+		)
+	})
+
 	describe('while UV Grid is on', () => {
 		it('reads the Material’s own map, not the grid', () => {
 			const map = new THREE.Texture()
@@ -137,6 +179,19 @@ describe('createMaterialTarget', () => {
 
 			expect(mesh.material).toMatchObject({ color: new THREE.Color('#ff8800') })
 			expect(displayedMap(mesh)).toBe(grid.gridTexture())
+		})
+		it('puts a changed Surface under the grid, without the old map', () => {
+			const { mesh } = selectMesh(new THREE.MeshStandardMaterial({ map: new THREE.Texture() }))
+			useShadingStore().setMode('rendered')
+			const grid = useUvGridStore()
+			grid.toggle(mesh)
+
+			useMeshMaterial().changeMaterial(new THREE.MeshPhongMaterial())
+
+			expect(mesh.material).toBeInstanceOf(THREE.MeshPhongMaterial)
+			expect(displayedMap(mesh)).toBe(grid.gridTexture())
+			grid.toggle(mesh)
+			expect(displayedMap(mesh)).toBeNull()
 		})
 	})
 })

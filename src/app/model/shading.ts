@@ -335,6 +335,15 @@ export const useShadingStore = defineStore('shading', () => {
 		updateMaterialProperty<T>(originalMaterial, data.prop, data.value)
 		originalMaterial.needsUpdate = true
 
+		// Solid and Wireframe draw in flat colours of their own, but see-through
+		// the way the Material is.
+		if (data.prop === 'transparent' || data.prop === 'opacity') {
+			for (const standIn of [cache.solid, cache.wireframe] as unknown as T[]) {
+				updateMaterialProperty<T>(standIn, data.prop, data.value)
+				standIn.needsUpdate = true
+			}
+		}
+
 		// The grid's stand-in is a copy, so it takes every edit but the one to the
 		// slot the grid occupies.
 		if (cache.uvGrid && data.prop !== 'map') {
@@ -371,7 +380,17 @@ export const useShadingStore = defineStore('shading', () => {
 	function changeMaterial(mesh: THREE.Mesh, newMaterial: THREE.Material) {
 		const cache = materialCache.get(mesh.uuid)
 		if (!cache) return
+		// The stand-ins are built from the Material, so they go with it.
+		disposeMaterials(cache.original)
+		disposeMaterials(cache.solid)
+		disposeMaterials(cache.wireframe)
 		cache.original = newMaterial
+		cache.solid = createSolidMaterial(newMaterial)
+		cache.wireframe = createWireframeMaterial(newMaterial)
+		if (cache.uvGrid) {
+			cache.uvGrid.material.dispose()
+			cache.uvGrid.material = withUvGrid(newMaterial, cache.uvGrid.texture)
+		}
 		applyModeToMesh(mesh, currentMode.value)
 	}
 
@@ -401,14 +420,6 @@ export const useShadingStore = defineStore('shading', () => {
 		disposeMaterials(cache.wireframe)
 		cache.uvGrid?.material.dispose()
 
-		function disposeMaterials(materials: THREE.Material | THREE.Material[]) {
-			if (Array.isArray(materials)) {
-				materials.forEach((mat) => mat.dispose())
-			} else {
-				materials.dispose()
-			}
-		}
-
 		return materialCache.delete(uuid)
 	}
 
@@ -428,6 +439,14 @@ export const useShadingStore = defineStore('shading', () => {
 		clearMaterialCache
 	}
 })
+
+function disposeMaterials(materials: THREE.Material | THREE.Material[]) {
+	if (Array.isArray(materials)) {
+		materials.forEach((mat) => mat.dispose())
+	} else {
+		materials.dispose()
+	}
+}
 
 /**
  * A copy of a Material wearing UV Grid as its map. A Material with no map slot
