@@ -4,8 +4,10 @@ import {
 	importGlb,
 	importThreeJson,
 	jsonFixture,
+	moveTo,
 	moveToNewGroup,
 	openApp,
+	openRenderModal,
 	outlinerRows
 } from '../helpers'
 
@@ -66,6 +68,23 @@ async function viewportChange(page: Page, baseline: string) {
 		},
 		[baseline, current]
 	)
+}
+
+/**
+ * Checks the Render Image modal will render through the camera named `name`, as
+ * its Camera dropdown shows it. Opens the modal to read it and closes it again,
+ * so the outliner is free to click afterwards.
+ */
+async function expectRenderCamera(page: Page, name: string) {
+	await openRenderModal(page)
+	const modal = page.getByTestId('modal-render-image')
+	// Collapsed while there is a Render Camera.
+	await modal.getByRole('button', { name: 'Render Camera' }).click()
+	await expect(
+		modal.getByRole('region', { name: 'Render Camera' }).getByRole('combobox')
+	).toHaveText(name)
+	await modal.getByRole('button', { name: 'Cancel' }).click()
+	await expect(modal).toBeHidden()
 }
 
 test.describe('Outliner', () => {
@@ -139,17 +158,25 @@ test.describe('Outliner', () => {
 		const cameras = outlinerRows(page, 'Camera')
 		await cameras.click({ button: 'right' })
 		await page.getByRole('menuitem', { name: /Duplicate Object/ }).click()
-		await expect(cameras).toHaveCount(2)
-		const [original, duplicate] = [cameras.first(), cameras.last()]
+		// Renamed, so the Render Image modal can tell the two apart.
+		await cameras.last().click()
+		await page.getByTestId('properties-tab-object').click()
+		const name = page.getByLabel('Name', { exact: true })
+		await name.fill('Second Camera')
+		await name.press('Enter')
+		const original = outlinerRows(page, 'Camera')
+		const duplicate = outlinerRows(page, 'Second Camera')
 
 		// The default scene's camera is its Render Camera; a Duplicate is not.
 		await expect(original.getByRole('button', { pressed: true })).toBeVisible()
 		await expect(duplicate.getByRole('button', { pressed: false })).toBeVisible()
+		await expectRenderCamera(page, 'Camera')
 
 		await duplicate.getByRole('button').click()
 
 		await expect(duplicate.getByRole('button', { pressed: true })).toBeVisible()
 		await expect(original.getByRole('button', { pressed: false })).toBeVisible()
+		await expectRenderCamera(page, 'Second Camera')
 	})
 
 	test('Add Group adds a Group row', async ({ page }) => {
@@ -173,15 +200,104 @@ test.describe('Outliner', () => {
 		await toggle.click()
 		await expect.poll(() => viewportChange(page, shown)).toBeLessThan(0.001)
 	})
+})
 
-	test('delete removes an object through the context menu', async ({ page }) => {
-		await importGlb(page)
-		const items = page.getByRole('treeitem')
-		const before = await items.count()
+// The default scene starts with cube.001 selected, so these tests right-click
+// other rows: an action that ran on the selection, not the row clicked, fails them.
+test.describe('Outliner context menu', () => {
+	test('Move to › New Group puts the object in a new group', async ({ page }) => {
+		await openApp(page)
+		const light = outlinerRows(page, 'Point Light')
+		await expect(light).toHaveAttribute('aria-level', '1')
 
-		await items.first().click({ button: 'right' })
+		await moveToNewGroup(page, 'Point Light')
+
+		await expect(light).toHaveAttribute('aria-level', '2')
+		// Under the group, not merely indented: collapsing it hides the light.
+		await outlinerRows(page, 'Group').getByTestId('outliner-toggle').click()
+		await expect(light).toHaveCount(0)
+	})
+
+	test('Move to › a group puts the object in that group', async ({ page }) => {
+		await openApp(page)
+		await page.getByTestId('outliner-add-group').click()
+		const light = outlinerRows(page, 'Point Light')
+
+		await moveTo(page, 'Point Light', 'Group')
+
+		// A group is added collapsed, so the light's row goes with it.
+		await expect(light).toHaveCount(0)
+		await outlinerRows(page, 'Group').getByTestId('outliner-toggle').click()
+		await expect(light).toHaveAttribute('aria-level', '2')
+	})
+
+	test('Move to › Scene takes the object out of its group', async ({ page }) => {
+		await openApp(page)
+		await moveToNewGroup(page, 'Point Light')
+		const light = outlinerRows(page, 'Point Light')
+		await expect(light).toHaveAttribute('aria-level', '2')
+
+		await moveTo(page, 'Point Light', 'Scene')
+
+		await expect(light).toHaveAttribute('aria-level', '1')
+		// Emptied, the group has nothing left to expand.
+		await expect(outlinerRows(page, 'Group').getByTestId('outliner-toggle')).toHaveCount(0)
+	})
+
+	test('Duplicate Object adds a Duplicate beside the original', async ({ page }) => {
+		await openApp(page)
+		// Inside a group, so "beside" is told apart from "at the top level".
+		await moveToNewGroup(page, 'Point Light')
+		const lights = outlinerRows(page, 'Point Light')
+
+		await lights.click({ button: 'right' })
+		await page.getByRole('menuitem', { name: /Duplicate Object/ }).click()
+
+		await expect(lights).toHaveCount(2)
+		await expect(lights.last()).toHaveAttribute('aria-level', '2')
+		await outlinerRows(page, 'Group').getByTestId('outliner-toggle').click()
+		await expect(lights).toHaveCount(0)
+	})
+
+	test('Save to JSON writes the object as a file that imports back', async ({ page }) => {
+		await openApp(page)
+
+		await outlinerRows(page, 'Point Light').click({ button: 'right' })
+		const [download] = await Promise.all([
+			page.waitForEvent('download'),
+			page.getByRole('menuitem', { name: 'Save to JSON' }).click()
+		])
+		expect(download.suggestedFilename()).toBe('Point Light.json')
+
+		await importThreeJson(page, (await download.path())!)
+		await expect(outlinerRows(page, 'Point Light')).toHaveCount(2)
+	})
+
+	test("Delete removes the object's row", async ({ page }) => {
+		await openApp(page)
+
+		await outlinerRows(page, 'Point Light').click({ button: 'right' })
 		await page.getByRole('menuitem', { name: 'Delete' }).click()
 
-		await expect(items).toHaveCount(before - 1)
+		await expect(page.getByRole('treeitem')).toHaveText(['Camera', 'cube.001'])
+	})
+
+	test('Delete takes the rows nested under the object with it', async ({ page }) => {
+		await importGlb(page)
+		const parent = outlinerRows(page, 'test-gltf.glb')
+		await parent.getByTestId('outliner-toggle').click()
+		const items = page.getByRole('treeitem')
+		await expect(items).toHaveText([
+			'Point Light',
+			'Camera',
+			'cube.001',
+			'test-gltf.glb',
+			'test-cube'
+		])
+
+		await parent.click({ button: 'right' })
+		await page.getByRole('menuitem', { name: 'Delete' }).click()
+
+		await expect(items).toHaveText(['Point Light', 'Camera', 'cube.001'])
 	})
 })

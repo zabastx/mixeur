@@ -4,6 +4,7 @@ import {
 	moveToNewGroup,
 	openApp,
 	openMenu,
+	openRenderModal,
 	openSubmenu,
 	outlinerRows
 } from '../helpers'
@@ -176,13 +177,6 @@ async function orbitViewport(page: Page) {
 	await page.mouse.down({ button: 'middle' })
 	await page.mouse.move(x + 160, y + 90, { steps: 10 })
 	await page.mouse.up({ button: 'middle' })
-}
-
-/** Opens the Render Image modal from the top menu. */
-async function openRenderModal(page: Page) {
-	await openMenu(page, 'Render')
-	await page.getByRole('menuitem', { name: 'Render Image' }).click()
-	await expect(page.getByTestId('modal-render-image')).toBeVisible()
 }
 
 test.describe('Render Image', () => {

@@ -26,6 +26,13 @@ export async function openSubmenu(page: Page, label: string) {
 	await page.getByRole('menuitem', { name: label, exact: true }).hover()
 }
 
+/** Opens the Render Image modal through Render › Render Image. */
+export async function openRenderModal(page: Page) {
+	await openMenu(page, 'Render')
+	await page.getByRole('menuitem', { name: 'Render Image' }).click()
+	await expect(page.getByTestId('modal-render-image')).toBeVisible()
+}
+
 /** Opens the Import Scene modal through File › Import › Import from file. */
 export async function openImportScene(page: Page) {
 	await openMenu(page, 'File')
@@ -128,16 +135,24 @@ export function outlinerRows(page: Page, name: string) {
 }
 
 /**
- * Moves the first object named `name` into a new group, through the outliner's
- * context menu, and expands that group so the object's row is visible again.
+ * Moves the first object named `name` to `target` through the outliner's
+ * context menu: "Scene", "New Group", or the name of a group already there.
  */
-export async function moveToNewGroup(page: Page, name: string) {
+export async function moveTo(page: Page, name: string, target: string) {
 	await outlinerRows(page, name).first().click({ button: 'right' })
 	// By keyboard: the submenu closes when the pointer cuts across to it
 	// diagonally, so neither clicking nor hovering "Move to" reliably reaches it.
 	await page.getByRole('menuitem', { name: 'Move to' }).focus()
 	await page.keyboard.press('ArrowRight')
-	await page.getByRole('menuitem', { name: 'New Group' }).press('Enter')
+	await page.getByRole('menuitem', { name: target, exact: true }).press('Enter')
+}
+
+/**
+ * Moves the first object named `name` into a new group, through the outliner's
+ * context menu, and expands that group so the object's row is visible again.
+ */
+export async function moveToNewGroup(page: Page, name: string) {
+	await moveTo(page, name, 'New Group')
 	// A new group is added collapsed, last among the scene's top-level rows.
 	await outlinerRows(page, 'Group').last().getByTestId('outliner-toggle').click()
 }
