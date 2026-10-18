@@ -4,7 +4,11 @@
 
 - before starting dev server, check if it's already running
 
-## Agent skills
+## Repo docs
+
+### Coding standards
+
+Review checks, the deleted-test rule and the mutation-report rule: `CODING_STANDARDS.md`.
 
 ### Issue tracker
 

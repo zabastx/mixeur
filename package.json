@@ -8,6 +8,7 @@
 		"build": "vite build",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
+		"check": "bun run types:check && bun run lint && bun run test",
 		"format": "prettier --write .",
 		"prepare": "husky",
 		"test": "vitest run",
