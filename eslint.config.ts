@@ -24,6 +24,15 @@ const noStoreMock = {
 		'Run neighbouring stores and pure modules for real; mock only the GPU, the network and the file picker or download. A module that truly needs a live WebGLRenderer can disable this line, saying why.'
 }
 
+// CODING_STANDARDS.md, "Assert the value": toEqual skips undefined properties, so
+// `{ title: undefined }` passes whatever title the result has.
+const noUndefinedInToEqual = {
+	selector:
+		"CallExpression[callee.property.name='toEqual'] > :matches(ObjectExpression, ArrayExpression) Property[value.type='Identifier'][value.name='undefined']",
+	message:
+		'toEqual ignores undefined properties. Use toStrictEqual to pin the key as undefined, or drop it.'
+}
+
 export default defineConfig(
 	// Flat config does not read .gitignore on its own. Without this, `eslint .` walks
 	// into `.agents/worktrees/*` (full repo copies) and the TS parser fails on multiple
@@ -78,7 +87,7 @@ export default defineConfig(
 		files: ['src/**/*.test.ts'],
 		plugins: { vitest },
 		rules: {
-			'no-restricted-syntax': ['error', noCloneTrue, noStoreMock],
+			'no-restricted-syntax': ['error', noCloneTrue, noStoreMock, noUndefinedInToEqual],
 			'vitest/valid-expect': ['error', { alwaysAwait: true }],
 			// CODING_STANDARDS.md, "Assert the value": these pass for any result that
 			// exists. Pin the value, or use jest-dom's toBeInTheDocument for presence.

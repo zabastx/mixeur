@@ -51,7 +51,17 @@ swaps; `bun run test:mutant <file> <original> <mutated>` makes one by hand (ask 
 object, skip a call) and names the tests that kill it. The commit-msg hook checks the
 message names the mutations, so review checks only that each new assertion has a
 mutation it would fail, not the message. A review finding that a test would stay green
-under some change is run through `test:mutant` first and reported with the result.
+under some change is run through `test:mutant` first and reported with the result. A
+commit that rewrites a file's tests starts with `test:mutation` on the source and
+reaches for `test:mutant` for what Stryker cannot make: one run covers what a dozen hand
+mutants would, and shows what the old tests alone were guarding.
+
+**A deleted test hands its behaviour to another test or to the source.** The hook sees
+only added assertions, so review covers deletions: when the diff removes or rewrites
+tests, run `test:mutation` on the source they covered and report each surviving mutant
+the deletion left behind. Rewriting the toast tests dropped the one test on `clear`
+resetting the id counter; the reset turned out to let a stale id remove a new toast,
+and went with it.
 
 **Assert the value.** `toBeDefined()`, `toBeTruthy()` and a bare `toHaveBeenCalled()`
 pass for any result that exists; pin what the result should be.
