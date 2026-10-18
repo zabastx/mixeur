@@ -70,6 +70,13 @@ and went with it.
 **Assert the value.** `toBeDefined()`, `toBeTruthy()` and a bare `toHaveBeenCalled()`
 pass for any result that exists; pin what the result should be.
 
+**Keep a type-narrowing guard out of the test body.** `no-conditional-in-test`
+reads every `if` in a test as branching behaviour, including the
+`if (!(value instanceof THREE.Color)) throw new Error(...)` that narrows a union
+for the assertions below it. Put the guard in a helper beside the test
+(`setColor`, `backgroundHex`, `meshNamed`), where the rule cannot see it, rather
+than disabling the rule.
+
 **Behaviour that needs a live renderer is covered end-to-end.** The unit setup provides
 WebGL 1, and three.js needs WebGL 2, so a `WebGLRenderer` cannot be built under Vitest
 (see `src/app/test/setup.ts`): the composer's passes, the controls and the render loop

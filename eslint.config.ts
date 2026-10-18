@@ -122,11 +122,12 @@ export default defineConfig(
 			'vitest/expect-expect': [
 				'error',
 				{
-					// A get-or-throw query is an assertion on its own: `getBy*` and
-					// `getAllBy*` fail when nothing matches, so a query-only check still
-					// reads the DOM. The dotted forms cover the same queries taken off an
-					// object — `screen.getBy*`, or `within(scope).getBy*`. `expect*` lets a
-					// test name its own assertion helper (see expectLabel) and still pass.
+					// `assertFunctionNames` entries are globs matched against the dotted
+					// call path: `getBy*` matches a destructured `getByRole`, `*.getBy*`
+					// matches `screen.getByRole` and `within(list).getByRole`, and
+					// `expect*` matches a helper named for what it asserts (expectLabel).
+					// A get-or-throw query is an assertion on its own — it fails when
+					// nothing matches — so a query-only test still reads the DOM.
 					assertFunctionNames: [
 						'expect*',
 						'assert',
