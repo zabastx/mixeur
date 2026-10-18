@@ -26,6 +26,13 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 	loadStudioLight: () => Promise.resolve({ ok: false, error: new Error('not loaded in tests') })
 }))
 
+/** The mesh's Material, failing the test if it has none or several. */
+function materialOf(mesh: THREE.Mesh): THREE.MeshStandardMaterial {
+	const material = useShadingStore().materialOf(mesh)
+	if (!(material instanceof THREE.MeshStandardMaterial)) throw new Error('Missing Material')
+	return material
+}
+
 /** Finds a named mesh, failing the test if it is absent or has a different type. */
 function meshNamed(root: THREE.Object3D, name: string): THREE.Mesh {
 	const object = root.getObjectByName(name)
@@ -162,13 +169,9 @@ describe('scene copying', () => {
 		expect(copy.position.toArray()).toEqual([3, 4, 5])
 		expect(copy.rotation.y).toBeCloseTo(0.6)
 		expect(copy.scale.toArray()).toEqual([2, 2, 2])
-		const material = useShadingStore().shadedMaterial(body) as THREE.MeshStandardMaterial
+		const material = materialOf(body)
 		material.color.setHex(0xff0000)
-		expect(
-			(
-				useShadingStore().shadedMaterial(meshNamed(root, 'Body')) as THREE.MeshStandardMaterial
-			).color.getHex()
-		).toBe(0xffffff)
+		expect(materialOf(meshNamed(root, 'Body')).color.getHex()).toBe(0xffffff)
 	})
 
 	it('connects LOD levels to the prepared descendants of a Duplicate', () => {
@@ -238,7 +241,7 @@ describe('scene copying', () => {
 		mesh.name = 'Body'
 		scene.addObjectToScene(mesh)
 		grid.toggle(mesh)
-		const displayed = shading.shadedMaterial(mesh) as THREE.MeshStandardMaterial
+		const displayed = materialOf(mesh)
 		const gridMap = displayed.map
 		scene.saveProjectFile()
 		const project = decodeProject(downloads[0] as ArrayBuffer)
@@ -283,7 +286,6 @@ describe('scene copying', () => {
 
 	it('duplicates the texture underneath UV Grid and leaves the original grid enabled', () => {
 		const scene = useSceneStore()
-		const shading = useShadingStore()
 		const grid = useUvGridStore()
 		const image = document.createElement('canvas')
 		const texture = new THREE.CanvasTexture(image)
@@ -293,16 +295,16 @@ describe('scene copying', () => {
 		)
 		scene.addObjectToScene(mesh)
 		grid.toggle(mesh)
-		const shown = (shading.shadedMaterial(mesh) as THREE.MeshStandardMaterial).map
+		const shown = materialOf(mesh).map
 		const copy = duplicate(mesh) as THREE.Mesh
-		const material = shading.shadedMaterial(copy) as THREE.MeshStandardMaterial
+		const material = materialOf(copy)
 
 		expect(material.map?.image).toBe(image)
 		expect(grid.isApplied(mesh.uuid)).toBe(true)
 		expect(grid.isApplied(copy.uuid)).toBe(false)
-		expect((shading.shadedMaterial(mesh) as THREE.MeshStandardMaterial).map).toBe(shown)
+		expect(materialOf(mesh).map).toBe(shown)
 		grid.toggle(mesh)
-		expect((shading.shadedMaterial(mesh) as THREE.MeshStandardMaterial).map).toBe(texture)
+		expect(materialOf(mesh).map).toBe(texture)
 	})
 
 	it('rebuilds camera and light helpers and reconnects a copied light to its target', () => {
@@ -632,7 +634,7 @@ describe('scene copying', () => {
 				scene.addObjectToScene(mesh)
 				const { disposed, watch } = watchDisposal()
 				watch(mesh.geometry)
-				watch(useShadingStore().shadedMaterial(mesh)!)
+				watch(materialOf(mesh))
 				let material: THREE.Material | undefined
 
 				try {

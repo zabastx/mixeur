@@ -19,7 +19,7 @@ function selectMeshWith<T extends THREE.Material>(material: T) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), material)
 	useSceneStore().addObjectToScene(mesh)
 
-	const original = useShadingStore().getMaterialCache(mesh)?.original
+	const original = useShadingStore().materialOf(mesh)
 	if (!original) throw new Error('addObjectToScene did not cache the mesh’s materials')
 	return original as T
 }

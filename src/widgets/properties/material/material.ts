@@ -18,7 +18,7 @@ const material = computed<MeshMaterials | null>(() => {
 	const shadingStore = useShadingStore()
 
 	if (mesh.value) {
-		const mat = shadingStore.getMaterialCache(mesh.value)?.original
+		const mat = shadingStore.materialOf(mesh.value)
 		if (mat instanceof THREE.Material) return mat as MeshMaterials
 	}
 	return null

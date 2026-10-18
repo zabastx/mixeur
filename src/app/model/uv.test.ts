@@ -10,7 +10,7 @@ import THREE from '@/shared/three'
  */
 const holders = vi.hoisted(() => ({
 	selection: null as unknown as { selectedObject: THREE.Object3D | null; refresh: () => void },
-	shading: null as unknown as { shadedMaterial: ReturnType<typeof vi.fn> },
+	shading: null as unknown as { materialOf: ReturnType<typeof vi.fn> },
 	workspace: null as unknown as { current: string },
 	grid: null as unknown as { appliedTo: ReadonlySet<string> }
 }))
@@ -28,7 +28,7 @@ import { useUvStore } from './uv'
 
 function makeMesh() {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
-	holders.shading.shadedMaterial.mockReturnValue(mesh.material)
+	holders.shading.materialOf.mockReturnValue(mesh.material)
 	return mesh
 }
 
@@ -36,7 +36,7 @@ describe('useUvStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		holders.selection = shallowReactive({ selectedObject: null, refresh: vi.fn() })
-		holders.shading = shallowReactive({ shadedMaterial: vi.fn() })
+		holders.shading = shallowReactive({ materialOf: vi.fn() })
 		holders.workspace = shallowReactive({ current: 'uv' })
 		holders.grid = shallowReactive({ appliedTo: new Set<string>() })
 	})

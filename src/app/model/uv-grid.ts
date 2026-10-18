@@ -46,7 +46,7 @@ export const useUvGridStore = defineStore('uv-grid', () => {
 		if (!mesh || Array.isArray(mesh.material)) return
 
 		const shadingStore = useShadingStore()
-		const material = shadingStore.shadedMaterial(mesh) as THREE.MeshStandardMaterial | undefined
+		const material = shadingStore.materialOf(mesh) as THREE.MeshStandardMaterial | undefined
 		if (!material) return
 
 		const next = new Set(appliedTo.value)
