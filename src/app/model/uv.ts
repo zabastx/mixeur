@@ -204,9 +204,11 @@ export const useUvStore = defineStore('uv', () => {
 		void useUvGridStore().appliedTo
 		const target = mesh.value
 		if (!target) return null
-		const material = useShadingStore().shadedMaterial(target) as
+		const material = useShadingStore().materialOf(target)
+		// Multi-material meshes show their first slot, as the UV editor always has.
+		const first = (Array.isArray(material) ? material[0] : material) as
 			THREE.MeshStandardMaterial | undefined
-		return isDrawable(material?.map?.image) ? material.map.image : null
+		return isDrawable(first?.map?.image) ? first.map.image : null
 	})
 
 	/** Drop a removed mesh's remembered UVs so the map doesn't grow forever. */

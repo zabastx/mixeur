@@ -154,9 +154,7 @@ function prepareCopies(
 			}
 		}
 		if (!hasMaterial(original) || !hasMaterial(copy)) continue
-		const materials =
-			(original instanceof THREE.Mesh ? shading.getMaterialCache(original)?.original : undefined) ??
-			original.material
+		const materials = shading.materialOf(original) ?? original.material
 		copy.material = Array.isArray(materials)
 			? materials.map((material) => material.clone())
 			: materials.clone()

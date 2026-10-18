@@ -120,7 +120,7 @@ export const useSceneStore = defineStore('scene', () => {
 	 * visibility flags, helpers for lights and cameras, raycasting, the shading
 	 * cache, then selection. Every camera in the subtree becomes a render camera.
 	 * Only meshes added here are shadable, and the shading store caches a clone
-	 * of their material: read the original through `getMaterialCache`, not from
+	 * of their material: read the Material through `materialOf`, not from
 	 * the material the mesh came with.
 	 */
 	function addObjectToScene(object: THREE.Object3D, parent?: THREE.Object3D | null) {

@@ -7,7 +7,7 @@ const holders = vi.hoisted(() => ({
 	selection: null as unknown as { refresh: () => void },
 	shading: null as unknown as {
 		shadingMode: string
-		shadedMaterial: ReturnType<typeof vi.fn>
+		materialOf: ReturnType<typeof vi.fn>
 		setMode: ReturnType<typeof vi.fn>
 	}
 }))
@@ -21,7 +21,7 @@ import { useUvGridStore } from './uv-grid'
 
 function makeMesh() {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
-	holders.shading.shadedMaterial.mockReturnValue(mesh.material)
+	holders.shading.materialOf.mockReturnValue(mesh.material)
 	return mesh
 }
 
@@ -31,7 +31,7 @@ describe('useUvGridStore', () => {
 		holders.selection = shallowReactive({ refresh: vi.fn() })
 		holders.shading = shallowReactive({
 			shadingMode: 'solid',
-			shadedMaterial: vi.fn(),
+			materialOf: vi.fn(),
 			setMode: vi.fn((mode: string) => {
 				holders.shading.shadingMode = mode
 			})

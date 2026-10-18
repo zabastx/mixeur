@@ -454,7 +454,7 @@ describe('useSceneStore graph operations', () => {
 			store.addObjectToScene(group)
 
 			expect(mesh.material).toMatchObject({ wireframe: true })
-			expect(useShadingStore().shadedMaterial(mesh)?.name).toBe('Added Original')
+			expect(useShadingStore().materialOf(mesh)).toMatchObject({ name: 'Added Original' })
 		})
 
 		it('adds the object under an explicit parent when provided', () => {

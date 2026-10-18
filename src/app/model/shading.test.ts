@@ -75,19 +75,17 @@ describe('useShadingStore', () => {
 		sceneStoreMock.updateScene = vi.fn()
 	})
 
-	describe('cacheNewObjectMaterials / getMaterialCache', () => {
+	describe('cacheNewObjectMaterials / materialOf', () => {
 		it('caches materials for shadable meshes and applies the current mode', () => {
 			const store = useShadingStore()
 			const mesh = makeShadableMesh()
 			sceneStoreMock.scene.add(mesh)
 
 			store.cacheNewObjectMaterials(mesh)
-			const cache = store.getMaterialCache(mesh)
 
-			expect(cache?.wireframe).toBeInstanceOf(THREE.MeshBasicMaterial)
-			expect(cache?.solid).toBeInstanceOf(THREE.MeshLambertMaterial)
+			expect(store.materialOf(mesh)).toBeInstanceOf(THREE.MeshStandardMaterial)
 			// default mode is 'solid'
-			expect(mesh.material).toBe(cache?.solid)
+			expect(mesh.material).toBeInstanceOf(THREE.MeshLambertMaterial)
 		})
 
 		it('does not cache meshes that are not marked shadable', () => {
@@ -97,7 +95,7 @@ describe('useShadingStore', () => {
 
 			store.cacheNewObjectMaterials(plain)
 
-			expect(store.getMaterialCache(plain)).toBeUndefined()
+			expect(store.materialOf(plain)).toBeUndefined()
 		})
 	})
 
@@ -113,12 +111,12 @@ describe('useShadingStore', () => {
 			const mesh = makeShadableMesh()
 			sceneStoreMock.scene.add(mesh)
 			store.cacheNewObjectMaterials(mesh)
-			const cache = store.getMaterialCache(mesh)!
 
 			store.setMode('wireframe')
 
 			expect(store.shadingMode).toBe('wireframe')
-			expect(mesh.material).toBe(cache.wireframe)
+			expect(mesh.material).toBeInstanceOf(THREE.MeshBasicMaterial)
+			expect(mesh.material).toMatchObject({ wireframe: true })
 			expect(sceneStoreMock.updateScene).toHaveBeenCalled()
 		})
 
@@ -242,7 +240,7 @@ describe('useShadingStore', () => {
 			const mesh = makeShadableMesh()
 			sceneStoreMock.scene.add(mesh)
 			store.cacheNewObjectMaterials(mesh)
-			const original = store.getMaterialCache(mesh)!.original as THREE.MeshStandardMaterial
+			const original = store.materialOf(mesh) as THREE.MeshStandardMaterial
 			const versionBefore = original.version
 
 			store.updateMaterial<THREE.MeshStandardMaterial>(mesh, {
@@ -277,7 +275,7 @@ describe('useShadingStore', () => {
 			const newMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
 			store.changeMaterial(mesh, newMaterial)
 
-			expect(store.getMaterialCache(mesh)?.original).toBe(newMaterial)
+			expect(store.materialOf(mesh)).toBe(newMaterial)
 			expect(mesh.material).toBe(newMaterial)
 		})
 	})
@@ -293,14 +291,14 @@ describe('useShadingStore', () => {
 			const mesh = makeShadableMesh()
 			sceneStoreMock.scene.add(mesh)
 			store.cacheNewObjectMaterials(mesh)
-			const cache = store.getMaterialCache(mesh)!
-			const disposeSpy = vi.spyOn(cache.solid as THREE.Material, 'dispose')
+			// Solid is the default mode, so the mesh is wearing its solid stand-in.
+			const disposeSpy = vi.spyOn(mesh.material as THREE.Material, 'dispose')
 
 			const result = store.clearMaterialCache(mesh.uuid)
 
 			expect(result).toBe(true)
 			expect(disposeSpy).toHaveBeenCalled()
-			expect(store.getMaterialCache(mesh)).toBeUndefined()
+			expect(store.materialOf(mesh)).toBeUndefined()
 		})
 	})
 })
