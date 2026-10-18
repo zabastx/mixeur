@@ -14,10 +14,17 @@ without changing the original. Existing shared geometry and rig relationships ar
 preserved within the Duplicate; texture images may be shared with the original.
 _Avoid_: Copy, clone, linked duplicate
 
+**Material**:
+What a mesh is made of, as edited in the Material tab: the thing a save records, a
+Duplicate copies and a Render shows. Viewport shading (Solid, Wireframe) and the UV Grid
+change what the viewport displays, never the Material.
+_Avoid_: Original material, shaded material, real material
+
 **UV Grid**:
 A temporary checker texture for inspecting a mesh's UV layout, belonging to the editor.
-Duplicates and saved or exported scene data use the mesh's underlying texture,
-leaving the original's UV Grid display unchanged.
+It is put on a mesh, not on its Material: it stays on while the Material changes and
+never becomes part of it. Duplicates and saved or exported scene data use the Material's
+own map, leaving the original's UV Grid display unchanged.
 _Avoid_: Material texture, saved texture
 
 ### Rendering
