@@ -1,1 +1,0 @@
-import{S as e}from"./index-cZUdITNQ.js";async function t({url:t,onProgress:n}){return await new e().loadAsync(t,n)}export{t as loadTypeface};
