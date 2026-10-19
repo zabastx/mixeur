@@ -37,8 +37,8 @@ export const useShadingStore = defineStore('shading', () => {
 	}
 
 	/**
-	 * Caches the original materials of all meshes in the scene.
-	 * This allows restoring the original materials when switching back to 'rendered' mode.
+	 * Caches the Material of every mesh in the scene, so switching back to a mode
+	 * that shows it can restore it.
 	 * Only caches materials for objects marked as shadable.
 	 */
 	function cacheOriginalMaterials() {
@@ -85,13 +85,16 @@ export const useShadingStore = defineStore('shading', () => {
 	function cacheMeshMaterials(mesh: THREE.Mesh) {
 		if (!mesh.material) return
 
-		const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-		const originalMaterials = materials.map((mat) => mat.clone())
-		materialCache.set(mesh.uuid, {
-			original: Array.isArray(mesh.material) ? originalMaterials : originalMaterials[0],
-			wireframe: createWireframeMaterial(mesh.material),
-			solid: createSolidMaterial(mesh.material)
-		})
+		const copies = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map((mat) =>
+			mat.clone()
+		)
+		const material = Array.isArray(mesh.material) ? copies : copies[0]
+		materialCache.set(mesh.uuid, { material, ...standInsFor(material) })
+	}
+
+	/** The Solid and Wireframe stand-ins for a Material. */
+	function standInsFor(material: THREE.Material | THREE.Material[]) {
+		return { solid: createSolidMaterial(material), wireframe: createWireframeMaterial(material) }
 	}
 
 	/**
@@ -222,70 +225,70 @@ export const useShadingStore = defineStore('shading', () => {
 				break
 			case 'preview':
 			case 'rendered':
-				mesh.material = cache.uvGrid?.material ?? cache.original
+				mesh.material = cache.uvGridStandIn?.material ?? cache.material
 				break
 		}
 	}
 
 	/**
-	 * Creates wireframe materials for the given original materials.
+	 * Creates wireframe materials for the given Material.
 	 * Handles both single materials and material arrays.
 	 *
-	 * @param original - The original material(s) to base the wireframe on
+	 * @param material - The Material (or its slots) to base the wireframe on
 	 * @returns Wireframe material(s) with the same color and transparency
 	 */
-	function createWireframeMaterial(original: THREE.Material | THREE.Material[]) {
-		if (Array.isArray(original)) {
-			return original.map((mat) => createSingleWireframeMaterial(mat))
+	function createWireframeMaterial(material: THREE.Material | THREE.Material[]) {
+		if (Array.isArray(material)) {
+			return material.map((mat) => createSingleWireframeMaterial(mat))
 		}
-		return createSingleWireframeMaterial(original)
+		return createSingleWireframeMaterial(material)
 	}
 
 	/**
-	 * Creates a single wireframe material from an original material.
+	 * Creates a single wireframe material from a Material.
 	 * Preserves color, transparency, and opacity properties.
 	 *
-	 * @param original - The original material
+	 * @param material - The Material
 	 * @returns A new MeshBasicMaterial with wireframe enabled
 	 */
-	function createSingleWireframeMaterial(original: THREE.Material) {
+	function createSingleWireframeMaterial(material: THREE.Material) {
 		const wireframeMat = new THREE.MeshBasicMaterial({
 			color: 0x000000,
 			wireframe: true,
-			transparent: original.transparent,
-			opacity: original.opacity
+			transparent: material.transparent,
+			opacity: material.opacity
 		})
 		return wireframeMat
 	}
 
 	/**
-	 * Creates solid materials for the given original materials.
+	 * Creates solid materials for the given Material.
 	 * Solid mode uses flat shading with basic Lambertian lighting.
 	 *
-	 * @param original - The original material(s) to base the solid materials on
+	 * @param material - The Material (or its slots) to base the solid materials on
 	 * @returns Solid material(s) with flat shading
 	 */
-	function createSolidMaterial(original: THREE.Material | THREE.Material[]) {
-		if (Array.isArray(original)) {
-			return original.map((mat) => createSingleSolidMaterial(mat))
+	function createSolidMaterial(material: THREE.Material | THREE.Material[]) {
+		if (Array.isArray(material)) {
+			return material.map((mat) => createSingleSolidMaterial(mat))
 		}
-		return createSingleSolidMaterial(original)
+		return createSingleSolidMaterial(material)
 	}
 
 	/**
-	 * Creates a single solid material from an original material.
+	 * Creates a single solid material from a Material.
 	 * Uses MeshLambertMaterial with flat shading and uniform grey color.
 	 * Matches Blender's solid mode behavior where all objects appear grey.
 	 *
-	 * @param original - The original material
+	 * @param material - The Material
 	 * @returns A new MeshLambertMaterial with flat shading and grey color
 	 */
-	function createSingleSolidMaterial(original: THREE.Material) {
+	function createSingleSolidMaterial(material: THREE.Material) {
 		const solidMat = new THREE.MeshLambertMaterial({
 			color: 0xcccccc,
 			flatShading: true,
-			transparent: original.transparent,
-			opacity: original.opacity
+			transparent: material.transparent,
+			opacity: material.opacity
 		})
 		return solidMat
 	}
@@ -325,7 +328,7 @@ export const useShadingStore = defineStore('shading', () => {
 	 * Undefined for an object this store does not shade.
 	 */
 	function materialOf(object: THREE.Object3D): THREE.Material | THREE.Material[] | undefined {
-		return materialCache.get(object.uuid)?.original
+		return materialCache.get(object.uuid)?.material
 	}
 
 	function updateMaterial<T extends THREE.Material = THREE.Material, K extends keyof T = keyof T>(
@@ -334,27 +337,26 @@ export const useShadingStore = defineStore('shading', () => {
 	) {
 		const cache = materialCache.get(mesh.uuid)
 		if (!cache) return
-		if (Array.isArray(cache.original)) return
+		if (Array.isArray(cache.material)) return
 
-		const originalMaterial = cache.original as unknown as T
-		updateMaterialProperty<T>(originalMaterial, data.prop, data.value)
-		originalMaterial.needsUpdate = true
+		const apply = (target: T) => {
+			updateMaterialProperty<T>(target, data.prop, data.value)
+			target.needsUpdate = true
+		}
+
+		apply(cache.material as unknown as T)
 
 		// Solid and Wireframe draw in flat colours of their own, but see-through
 		// the way the Material is.
 		if (data.prop === 'transparent' || data.prop === 'opacity') {
-			for (const standIn of [cache.solid, cache.wireframe] as unknown as T[]) {
-				updateMaterialProperty<T>(standIn, data.prop, data.value)
-				standIn.needsUpdate = true
-			}
+			apply(cache.solid as unknown as T)
+			apply(cache.wireframe as unknown as T)
 		}
 
 		// The grid's stand-in is a copy, so it takes every edit but the one to the
 		// slot the grid occupies.
-		if (cache.uvGrid && data.prop !== 'map') {
-			const shown = cache.uvGrid.material as unknown as T
-			updateMaterialProperty<T>(shown, data.prop, data.value)
-			shown.needsUpdate = true
+		if (cache.uvGridStandIn && data.prop !== 'map') {
+			apply(cache.uvGridStandIn.material as unknown as T)
 		}
 	}
 
@@ -386,13 +388,13 @@ export const useShadingStore = defineStore('shading', () => {
 		const cache = materialCache.get(mesh.uuid)
 		// One Material cannot stand in for several slots, as `updateMaterial` and
 		// UV Grid also refuse them.
-		if (!cache || Array.isArray(cache.original)) return
+		if (!cache || Array.isArray(cache.material)) return
 		// The stand-ins are built from the Material, so they go with it.
 		disposeCache(cache)
-		cache.original = newMaterial
-		cache.solid = createSolidMaterial(newMaterial)
-		cache.wireframe = createWireframeMaterial(newMaterial)
-		if (cache.uvGrid) cache.uvGrid.material = withUvGrid(newMaterial, cache.uvGrid.texture)
+		Object.assign(cache, { material: newMaterial, ...standInsFor(newMaterial) })
+		if (cache.uvGridStandIn) {
+			cache.uvGridStandIn.material = withUvGrid(newMaterial, cache.uvGridStandIn.texture)
+		}
 		applyModeToMesh(mesh, currentMode.value)
 	}
 
@@ -407,9 +409,11 @@ export const useShadingStore = defineStore('shading', () => {
 	 */
 	function setUvGrid(mesh: THREE.Mesh, texture: THREE.Texture | null) {
 		const cache = materialCache.get(mesh.uuid)
-		if (!cache || Array.isArray(cache.original)) return
-		cache.uvGrid?.material.dispose()
-		cache.uvGrid = texture ? { texture, material: withUvGrid(cache.original, texture) } : undefined
+		if (!cache || Array.isArray(cache.material)) return
+		cache.uvGridStandIn?.material.dispose()
+		cache.uvGridStandIn = texture
+			? { texture, material: withUvGrid(cache.material, texture) }
+			: undefined
 		applyModeToMesh(mesh, currentMode.value)
 	}
 
@@ -440,10 +444,10 @@ export const useShadingStore = defineStore('shading', () => {
 
 /** Releases a mesh's Material and every stand-in built from it. */
 function disposeCache(cache: MaterialCache) {
-	disposeMaterials(cache.original)
+	disposeMaterials(cache.material)
 	disposeMaterials(cache.solid)
 	disposeMaterials(cache.wireframe)
-	cache.uvGrid?.material.dispose()
+	cache.uvGridStandIn?.material.dispose()
 }
 
 function disposeMaterials(materials: THREE.Material | THREE.Material[]) {
