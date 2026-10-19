@@ -100,6 +100,17 @@ describe('createMaterialTarget', () => {
 	})
 
 	describe('changeMaterial', () => {
+		it('leaves a mesh with several materials as it is', () => {
+			const slots = [new THREE.MeshStandardMaterial(), new THREE.MeshPhongMaterial()]
+			const mesh = new THREE.Mesh(new THREE.BoxGeometry(), slots)
+			useSceneStore().addObjectToScene(mesh)
+			const before = useShadingStore().materialOf(mesh)
+
+			useMeshMaterial().changeMaterial(new THREE.MeshLambertMaterial())
+
+			expect(useShadingStore().materialOf(mesh)).toBe(before)
+		})
+
 		it('releases the Material it replaces', () => {
 			const old = selectMeshWith(new THREE.MeshStandardMaterial())
 			let released = false
