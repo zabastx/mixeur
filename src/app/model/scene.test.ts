@@ -104,7 +104,7 @@ describe('useSceneStore graph operations', () => {
 	describe('objectToJSON', () => {
 		beforeEach(() => useShadingStore().setMode('wireframe'))
 
-		it('exports the original material of a mesh nested inside the object', async () => {
+		it('exports the Material of a mesh nested inside the object', async () => {
 			// Exporting a Group is the ordinary case — an imported glTF is one — so
 			// restoring the root alone leaves everything inside it wearing the
 			// viewport's wireframe or flat grey.
@@ -120,7 +120,7 @@ describe('useSceneStore graph operations', () => {
 			expect(materialOf(await downloadedGraph(), 'Nested')?.wireframe).not.toBe(true)
 		})
 
-		it('exports the original material when the object is the mesh itself', async () => {
+		it('exports the Material when the object is the mesh itself', async () => {
 			const store = useSceneStore()
 			const mesh = makeNamedMesh('Solo')
 			store.addObjectToScene(mesh)
@@ -142,7 +142,7 @@ describe('useSceneStore graph operations', () => {
 	describe('saveProjectFile', () => {
 		beforeEach(() => useShadingStore().setMode('wireframe'))
 
-		it('saves the original material of a mesh nested inside a group', () => {
+		it('saves the Material of a mesh nested inside a group', () => {
 			// An imported glTF arrives as a Group, so every one of its meshes is
 			// nested — and under wireframe or solid `mesh.material` is the viewport's
 			// stand-in. Restoring the root alone bakes that stand-in into the file for
@@ -159,7 +159,7 @@ describe('useSceneStore graph operations', () => {
 			expect(savedMaterialOf('Nested')?.wireframe).not.toBe(true)
 		})
 
-		it('saves the original material of a mesh several levels down', () => {
+		it('saves the Material of a mesh several levels down', () => {
 			const store = useSceneStore()
 			const outer = new THREE.Group()
 			const inner = new THREE.Group()
@@ -173,7 +173,7 @@ describe('useSceneStore graph operations', () => {
 			expect(savedMaterialOf('Deep')?.name).toBe('Deep Original')
 		})
 
-		it('still saves the original material of a top-level mesh', () => {
+		it('still saves the Material of a top-level mesh', () => {
 			const store = useSceneStore()
 			const mesh = makeNamedMesh('TopLevel')
 			store.addObjectToScene(mesh)
@@ -250,7 +250,7 @@ describe('useSceneStore graph operations', () => {
 			expect(savedMaterialOf('On The Light')?.name).toBe('On The Light Original')
 		})
 
-		it('keeps a mesh with no cached original as it is', () => {
+		it('keeps a mesh with no cached Material as it is', () => {
 			// Put straight into the scene, so nothing shades it and `mesh.material`
 			// is the only material there is — writing `undefined` over it would
 			// lose it.
