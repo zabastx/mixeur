@@ -384,7 +384,9 @@ export const useShadingStore = defineStore('shading', () => {
 
 	function changeMaterial(mesh: THREE.Mesh, newMaterial: THREE.Material) {
 		const cache = materialCache.get(mesh.uuid)
-		if (!cache) return
+		// One Material cannot stand in for several slots, as `updateMaterial` and
+		// UV Grid also refuse them.
+		if (!cache || Array.isArray(cache.original)) return
 		// The stand-ins are built from the Material, so they go with it.
 		disposeCache(cache)
 		cache.original = newMaterial
