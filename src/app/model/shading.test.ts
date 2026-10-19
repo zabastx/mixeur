@@ -242,7 +242,7 @@ describe('useShadingStore', () => {
 	})
 
 	describe('updateMaterial', () => {
-		it('copies Color values and assigns plain props on the cached original', () => {
+		it('copies Color values and assigns plain props on the Material', () => {
 			const store = useShadingStore()
 			const mesh = makeShadableMesh()
 			sceneStoreMock.scene.add(mesh)
@@ -272,7 +272,7 @@ describe('useShadingStore', () => {
 	})
 
 	describe('changeMaterial', () => {
-		it('replaces the cached original and re-applies the current mode', () => {
+		it('replaces the Material and re-applies the current mode', () => {
 			const store = useShadingStore()
 			const mesh = makeShadableMesh()
 			sceneStoreMock.scene.add(mesh)

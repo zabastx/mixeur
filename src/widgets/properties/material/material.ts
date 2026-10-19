@@ -45,9 +45,10 @@ export function useMeshMaterial<T extends THREE.Material>() {
 	}
 
 	/**
-	 * Field reads and writes for the selected mesh's material. Writes go through
-	 * the shading store rather than mutating the material, because the store owns
-	 * the original/preview material cache and the `needsUpdate` flag.
+	 * Field reads and writes for the selected mesh's Material. Writes go through
+	 * the shading store rather than mutating the Material, because the store owns
+	 * the Material together with the stand-ins the viewport shows in its place,
+	 * and an edit has to reach those too.
 	 */
 	function createMaterialTarget(): FieldTarget<T> {
 		return {

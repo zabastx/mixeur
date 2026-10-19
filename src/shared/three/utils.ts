@@ -63,7 +63,7 @@ export function isWithin(node: THREE.Object3D | null, root: THREE.Object3D) {
  * from.
  *
  * `Object3D.clone()` gives the copy fresh uuids, which severs it from everything
- * the editor remembers against the source's uuid — cached original materials,
+ * the editor remembers against the source's uuid — each mesh's cached Material,
  * the render camera's identity. Serialization has to look each of those up per
  * node, and a call site left to walk the two trees itself tends to reach the
  * root and stop, which costs every nested mesh its material.

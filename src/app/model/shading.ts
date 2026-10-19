@@ -41,7 +41,7 @@ export const useShadingStore = defineStore('shading', () => {
 	 * that shows it can restore it.
 	 * Only caches materials for objects marked as shadable.
 	 */
-	function cacheOriginalMaterials() {
+	function cacheSceneMaterials() {
 		const { scene } = useSceneStore()
 		scene.traverse((object) => {
 			if (
@@ -296,7 +296,7 @@ export const useShadingStore = defineStore('shading', () => {
 	function init() {
 		const { scene } = useSceneStore()
 		solidModeLights.forEach((item) => scene?.add(item))
-		cacheOriginalMaterials()
+		cacheSceneMaterials()
 
 		loadStudioLight('forest').then((result) => {
 			if (result.ok) setStudioLight(result.value)
