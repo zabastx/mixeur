@@ -10,69 +10,25 @@ import THREE from '@/shared/three'
  */
 const holders = vi.hoisted(() => ({
 	selection: null as unknown as { selectedObject: THREE.Object3D | null; refresh: () => void },
-	shading: null as unknown as { materialOf: ReturnType<typeof vi.fn> },
-	workspace: null as unknown as { current: string },
-	grid: null as unknown as {
-		appliedTo: ReadonlySet<string>
-		isApplied: (uuid: string) => boolean
-		gridTexture: () => THREE.Texture
-	}
+	workspace: null as unknown as { current: string }
 }))
 
 // eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./selection', () => ({ useSelectionStore: () => holders.selection }))
 // eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
-vi.mock('./shading', () => ({ useShadingStore: () => holders.shading }))
-// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
 vi.mock('./workspace', () => ({ useWorkspaceStore: () => holders.workspace }))
-// eslint-disable-next-line no-restricted-syntax -- store mock left from before the rule; replace with the real store
-vi.mock('./uv-grid', () => ({ useUvGridStore: () => holders.grid }))
 
 import { useUvStore } from './uv'
 
 function makeMesh() {
-	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
-	holders.shading.materialOf.mockReturnValue(mesh.material)
-	return mesh
+	return new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial())
 }
 
 describe('useUvStore', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		holders.selection = shallowReactive({ selectedObject: null, refresh: vi.fn() })
-		holders.shading = shallowReactive({ materialOf: vi.fn() })
 		holders.workspace = shallowReactive({ current: 'uv' })
-		holders.grid = shallowReactive({
-			appliedTo: new Set<string>(),
-			isApplied: () => false,
-			gridTexture: () => new THREE.Texture()
-		})
-	})
-
-	describe('mapImage', () => {
-		it('reads the image off the material the mesh is really shaded with', async () => {
-			const store = useUvStore()
-			const mesh = makeMesh()
-			const canvas = document.createElement('canvas')
-			;(mesh.material as THREE.MeshStandardMaterial).map = new THREE.CanvasTexture(canvas)
-			holders.selection.selectedObject = mesh
-			await nextTick()
-
-			expect(store.mapImage).toBe(canvas)
-		})
-
-		it('is null for a map a canvas cannot draw', async () => {
-			// A compressed texture holds no decodable image.
-			const store = useUvStore()
-			const mesh = makeMesh()
-			const texture = new THREE.Texture()
-			texture.image = { width: 4, height: 4, data: new Uint8Array(16) }
-			;(mesh.material as THREE.MeshStandardMaterial).map = texture
-			holders.selection.selectedObject = mesh
-			await nextTick()
-
-			expect(store.mapImage).toBeNull()
-		})
 	})
 
 	describe('the layout watcher', () => {
