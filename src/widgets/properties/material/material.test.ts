@@ -9,31 +9,21 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 import { useSceneStore } from '@/app/model/scene'
 import { useShadingStore } from '@/app/model/shading'
 import { useUvGridStore } from '@/app/model/uv-grid'
+import { displayedMap, onDispose } from '@/app/test/materials'
 import { useMeshMaterial } from './material'
 
 /**
- * Adds a mesh to the scene, which caches its materials in the shading store and
- * selects it, and returns the cached original the material target reads and
- * writes through. The cache holds a clone, not the material the mesh came with.
+ * Adds a mesh to the scene, which caches its Material in the shading store and
+ * selects it, and returns the mesh with the Material the target reads and writes
+ * through. The cache holds a clone, not the material the mesh came with.
  */
-function selectMeshWith<T extends THREE.Material>(material: T) {
-	return selectMesh(material).original
-}
-
-/** As `selectMeshWith`, and the mesh itself, for tests that act on it too. */
 function selectMesh<T extends THREE.Material>(material: T) {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(), material)
 	useSceneStore().addObjectToScene(mesh)
 
-	const original = useShadingStore().materialOf(mesh)
-	if (!original) throw new Error('addObjectToScene did not cache the mesh’s materials')
-	return { mesh, original: original as T }
-}
-
-/** The map the viewport is showing on a mesh, whatever stand-in it wears. */
-function displayedMap(mesh: THREE.Mesh) {
-	if (Array.isArray(mesh.material)) throw new Error('expected a single material')
-	return (mesh.material as THREE.MeshStandardMaterial).map
+	const cached = useShadingStore().materialOf(mesh)
+	if (!cached) throw new Error('addObjectToScene did not cache the mesh’s Material')
+	return { mesh, material: cached as T }
 }
 
 describe('createMaterialTarget', () => {
@@ -49,8 +39,8 @@ describe('createMaterialTarget', () => {
 		useSceneStore().clearScene()
 	})
 
-	it('reads the selected mesh’s cached original material', () => {
-		selectMeshWith(new THREE.MeshStandardMaterial({ roughness: 0.25 }))
+	it('reads the selected mesh’s Material', () => {
+		selectMesh(new THREE.MeshStandardMaterial({ roughness: 0.25 }))
 
 		const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
 
@@ -58,7 +48,7 @@ describe('createMaterialTarget', () => {
 	})
 
 	it('writes through the shading store rather than replacing the material', () => {
-		const material = selectMeshWith(new THREE.MeshStandardMaterial({ roughness: 0.25 }))
+		const { material } = selectMesh(new THREE.MeshStandardMaterial({ roughness: 0.25 }))
 
 		const version = material.version
 		const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
@@ -70,7 +60,7 @@ describe('createMaterialTarget', () => {
 	})
 
 	it('copies into the existing Color instead of swapping the instance', () => {
-		const material = selectMeshWith(new THREE.MeshStandardMaterial())
+		const { material } = selectMesh(new THREE.MeshStandardMaterial())
 		const color = material.color
 
 		const target = useMeshMaterial<THREE.MeshStandardMaterial>().createMaterialTarget()
@@ -81,7 +71,7 @@ describe('createMaterialTarget', () => {
 	})
 
 	it('makes a toon gradient ramp sample without interpolation', () => {
-		const material = selectMeshWith(new THREE.MeshToonMaterial())
+		const { material } = selectMesh(new THREE.MeshToonMaterial())
 
 		const target = useMeshMaterial<THREE.MeshToonMaterial>().createMaterialTarget()
 		const gradient = new THREE.Texture()
@@ -112,15 +102,12 @@ describe('createMaterialTarget', () => {
 		})
 
 		it('releases the Material it replaces', () => {
-			const old = selectMeshWith(new THREE.MeshStandardMaterial())
-			let released = false
-			old.addEventListener('dispose', () => {
-				released = true
-			})
+			const { material } = selectMesh(new THREE.MeshStandardMaterial())
+			const released = onDispose(material)
 
 			useMeshMaterial().changeMaterial(new THREE.MeshPhongMaterial())
 
-			expect(released).toBe(true)
+			expect(released).toEqual([material])
 		})
 
 		it('shades the new Material in Solid with its own transparency', () => {
@@ -191,7 +178,7 @@ describe('createMaterialTarget', () => {
 			expect(mesh.material).toMatchObject({ color: new THREE.Color('#ff8800') })
 			expect(displayedMap(mesh)).toBe(grid.gridTexture())
 		})
-		it('puts a changed Surface under the grid, without the old map', () => {
+		it('puts a changed material type under the grid, without the old map', () => {
 			const { mesh } = selectMesh(new THREE.MeshStandardMaterial({ map: new THREE.Texture() }))
 			useShadingStore().setMode('rendered')
 			const grid = useUvGridStore()
@@ -205,7 +192,7 @@ describe('createMaterialTarget', () => {
 			expect(displayedMap(mesh)).toBeNull()
 		})
 
-		it('keeps the grid on through a Surface with no map', () => {
+		it('keeps the grid on through a material type with no map', () => {
 			const { mesh } = selectMesh(new THREE.MeshStandardMaterial())
 			useShadingStore().setMode('rendered')
 			const grid = useUvGridStore()
@@ -223,15 +210,12 @@ describe('createMaterialTarget', () => {
 			const { mesh } = selectMesh(new THREE.MeshStandardMaterial())
 			useShadingStore().setMode('rendered')
 			useUvGridStore().toggle(mesh)
-			const standIn = mesh.material as THREE.Material
-			let released = false
-			standIn.addEventListener('dispose', () => {
-				released = true
-			})
+			const standIn = mesh.material
+			const released = onDispose(standIn)
 
 			useMeshMaterial().changeMaterial(new THREE.MeshPhongMaterial())
 
-			expect(released).toBe(true)
+			expect(released).toEqual([standIn])
 		})
 	})
 })

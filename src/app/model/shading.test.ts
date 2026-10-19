@@ -20,6 +20,7 @@ vi.mock('@/shared/three/modules/loaders/studio-light', () => ({
 import { useShadingStore } from './shading'
 import { useWorldStore } from './world'
 import { VIEWPORT_BACKDROP } from './types/world'
+import { onDispose } from '@/app/test/materials'
 
 /** Sets a colour Surface, narrowing the union the way the panel's `v-if` does. */
 function setWorldColor(world: ReturnType<typeof useWorldStore>, color: string) {
@@ -82,10 +83,16 @@ describe('useShadingStore', () => {
 			sceneStoreMock.scene.add(mesh)
 
 			store.cacheNewObjectMaterials(mesh)
+			// default mode is 'solid'
+			const solid = mesh.material
+
+			store.setMode('wireframe')
+			store.setMode('solid')
 
 			expect(store.materialOf(mesh)).toBeInstanceOf(THREE.MeshStandardMaterial)
-			// default mode is 'solid'
-			expect(mesh.material).toBeInstanceOf(THREE.MeshLambertMaterial)
+			expect(solid).toBeInstanceOf(THREE.MeshLambertMaterial)
+			// Cached, not rebuilt on every switch.
+			expect(mesh.material).toBe(solid)
 		})
 
 		it('does not cache meshes that are not marked shadable', () => {
@@ -292,12 +299,13 @@ describe('useShadingStore', () => {
 			sceneStoreMock.scene.add(mesh)
 			store.cacheNewObjectMaterials(mesh)
 			// Solid is the default mode, so the mesh is wearing its solid stand-in.
-			const disposeSpy = vi.spyOn(mesh.material as THREE.Material, 'dispose')
+			const solid = mesh.material
+			const released = onDispose(solid)
 
 			const result = store.clearMaterialCache(mesh.uuid)
 
 			expect(result).toBe(true)
-			expect(disposeSpy).toHaveBeenCalled()
+			expect(released).toEqual([solid])
 			expect(store.materialOf(mesh)).toBeUndefined()
 		})
 	})
